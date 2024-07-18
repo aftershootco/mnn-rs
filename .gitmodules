@@ -1,0 +1,3 @@
+[submodule "mnn-sys/vendor"]
+	path = mnn-sys/vendor
+	url = git@github.com:alibaba/mnn

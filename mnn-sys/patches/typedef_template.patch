@@ -1,0 +1,31 @@
+diff --git a/include/MNN/Interpreter.hpp b/include/MNN/Interpreter.hpp
+index 16344a52..da522801 100644
+--- a/include/MNN/Interpreter.hpp
++++ b/include/MNN/Interpreter.hpp
+@@ -236,7 +236,7 @@ public:
+      * @brief create runtimeInfo separately with schedule config.
+      * @param configs session schedule configs.
+      */
+-    static RuntimeInfo createRuntime(const std::vector<ScheduleConfig>& configs);
++    static std::pair< std::map<MNNForwardType, std::shared_ptr<Runtime>>,  std::shared_ptr<Runtime>> createRuntime(const std::vector<ScheduleConfig>& configs);
+ 
+     /**
+      * @brief create session with schedule config. created session will be managed in net.
+@@ -250,7 +250,7 @@ public:
+      * @param config session schedule config, runtime runtimeInfo used by the created session.
+      * @return created session if success, NULL otherwise.
+      */
+-    Session* createSession(const ScheduleConfig& config, const RuntimeInfo& runtime);
++    Session* createSession(const ScheduleConfig& config, const std::pair< std::map<MNNForwardType, std::shared_ptr<Runtime>>,  std::shared_ptr<Runtime>>& runtime);
+ 
+     /**
+      * @brief create multi-path session with schedule configs. created session will be managed in net.
+@@ -265,7 +265,7 @@ public:
+      * @param configs session schedule configs.
+      * @return created session if success, NULL otherwise.
+      */
+-    Session* createMultiPathSession(const std::vector<ScheduleConfig>& configs, const RuntimeInfo& runtime);
++    Session* createMultiPathSession(const std::vector<ScheduleConfig>& configs, const std::pair< std::map<MNNForwardType, std::shared_ptr<Runtime>>,  std::shared_ptr<Runtime>>& runtime);
+ 
+     /**
+      * @brief release session.

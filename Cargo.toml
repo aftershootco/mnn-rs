@@ -1,0 +1,15 @@
+[package]
+name = "mnn"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.86"
+mnn-sys = { version = "0.1.0", path = "mnn-sys", features = ["metal"] }
+
+[features]
+metal = ["mnn-sys/metal"]
+coreml = ["mnn-sys/coreml"]
+vulkan = ["mnn-sys/vulkan"]
