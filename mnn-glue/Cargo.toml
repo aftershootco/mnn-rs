@@ -1,0 +1,11 @@
+[package]
+name = "mnn-glue"
+version = "0.1.0"
+edition = "2021"
+links = "mnn-glue"
+
+[dependencies]
+cxx = { version = "1.0.124", features = ["c++14"] }
+
+[build-dependencies]
+cxx-build = { version = "1.0.124" }

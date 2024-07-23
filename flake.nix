@@ -12,6 +12,10 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    mnn-overlay = {
+      url = "github:uttarayan21/mnn-nix-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
@@ -19,13 +23,14 @@
     flake-utils,
     nixpkgs,
     rust-overlay,
+    mnn-overlay,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [rust-overlay.overlays.default];
+          overlays = [rust-overlay.overlays.default mnn-overlay.overlays.${system}.default];
         };
         inherit (pkgs) lib;
 
@@ -45,7 +50,7 @@
         commonArgs = {
           inherit src;
           buildInputs = with pkgs;
-            []
+            [(mnn.override {enableMetal = true;})]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               libiconv
               # pkgs.darwin.apple_sdk.frameworks.CoreServices
