@@ -2,7 +2,6 @@ use ::tap::*;
 use anyhow::*;
 use std::path::{Path, PathBuf};
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
-use cxx_build::CFG;
 
 fn main() -> Result<()> {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
@@ -90,6 +89,7 @@ pub fn autocxx_bindings(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Res
         .build()
         .context("Failed to generate autocxx bindings")?;
     builder
+        .std("c++14")
         .file("glue/TensorGlue.cpp")
         .compile("mnn-autocxx-bridge");
     println!("cargo:rerun-if-changed=src/ffi.rs");
