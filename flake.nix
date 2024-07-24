@@ -50,7 +50,7 @@
         commonArgs = {
           inherit src;
           buildInputs = with pkgs;
-            [(mnn.override {enableMetal = true;})]
+            [(mnn.override {enableMetal = true;}) opencv]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               libiconv
               # pkgs.darwin.apple_sdk.frameworks.CoreServices
@@ -66,7 +66,7 @@
             rustPlatform.bindgenHook
           ]; # Intputs required for the HOST system
           # This is often requird for any ffi based packages that use bindgen
-          # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # For using pkg-config that many libraries require
           # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
         };

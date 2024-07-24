@@ -7,10 +7,10 @@ use ::tap::*;
 
 /// A Tensor object from MNN
 #[repr(transparent)]
-pub struct Tensor<T, D> {
+pub struct Tensor<T = Host, D = f32> {
     tensor: *mut MNN::Tensor,
-    __data_type: PhantomData<D>,
     __type: PhantomData<T>,
+    __data_type: PhantomData<D>,
 }
 
 #[repr(u32)]
@@ -19,6 +19,13 @@ pub enum DimensionType {
     Caffe = MNN::Tensor_DimensionType::CAFFE as u32,
     CaffeC4 = MNN::Tensor_DimensionType::CAFFE_C4 as u32,
 }
+
+impl DimensionType {
+    pub const NHWC: Self = Self::Tensorflow;
+    pub const NCHW: Self = Self::Caffe;
+    pub const NC4HW4: Self = Self::CaffeC4;
+}
+
 impl From<MNN::Tensor_DimensionType> for DimensionType {
     fn from(value: MNN::Tensor_DimensionType) -> Self {
         match value {
@@ -59,6 +66,37 @@ impl<D> Tensor<Host, D> {
             __type: PhantomData,
         }
     }
+
+    // pub fn copy_from_device_tensor(&self, device: &Tensor<Device, D>) -> Result<()> {
+    //     let result =
+    //         unsafe { MNN::Tensor::copyFromDeviceTensor(self.as_reference(), device.tensor) };
+    //     match result {
+    //         true => Ok(()),
+    //         _ => Err(anyhow::anyhow!("Error copying tensor from device tensor")),
+    //     }
+    // }
+}
+
+impl<D> Tensor<Device, D> {
+    pub fn create_device(
+        shape: impl AsRef<[i32]>,
+        dimension_type: DimensionType,
+    ) -> Tensor<Device, D>
+    where
+        D: HalideType,
+    {
+        let shape = TensorShape {
+            dims: shape.as_ref().to_vec(),
+        };
+        let dimension_type: MNN::Tensor_DimensionType = dimension_type.into();
+        let halide_type = D::halide();
+        let tensor = MNN::glueTensorCreateDevice(&shape, &halide_type, dimension_type);
+        Tensor {
+            tensor,
+            __data_type: PhantomData,
+            __type: PhantomData,
+        }
+    }
 }
 
 impl<T, D> Tensor<T, D> {
@@ -77,10 +115,10 @@ impl<T, D> Tensor<T, D> {
     }
 
     pub unsafe fn as_reference(&self) -> &MNN::Tensor {
-        core::mem::transmute(self.tensor)
+        &*self.tensor
     }
 
-    pub fn copy_to_host_tensor(&self, host: &Tensor<Host, D>) -> Result<()> {
+    pub fn copy_to_host_tensor(&self, host: &mut Tensor<Host, D>) -> Result<()> {
         let result = unsafe { MNN::Tensor::copyToHostTensor(self.as_reference(), host.tensor) };
         match result {
             true => Ok(()),
@@ -88,29 +126,24 @@ impl<T, D> Tensor<T, D> {
         }
     }
 
+    pub fn copy_from_host_tensor(&mut self, host: &Tensor<Host, D>) -> Result<()> {
+        use core::pin::Pin;
+        let this_mut: Pin<&mut MNN::Tensor> = Pin::new(unsafe { &mut *self.tensor });
+        let result = unsafe { MNN::Tensor::copyFromHostTensor(this_mut, host.tensor) };
+        match result {
+            true => Ok(()),
+            _ => Err(anyhow::anyhow!("Error copying tensor from host tensor")),
+        }
+    }
+
     pub fn get_dimension_type(&self) -> DimensionType {
         unsafe { MNN::Tensor::getDimensionType(self.as_reference()) }.into()
     }
 
-    pub fn create_device<HT>(shape: &[i32], dimension_type: DimensionType) -> Tensor<T, D>
-    where
-        D: HalideType,
-    {
-        let shape = TensorShape {
-            dims: shape.to_vec(),
-        };
-        let tensor = MNN::glueTensorCreateDevice(
-            &shape,
-            dimension_type.into(),
-        );
-        Self {
-            tensor,
-            __data_type: PhantomData,
-            __type: PhantomData,
-        }
+    pub fn print_shape(&self) {
+        unsafe { MNN::Tensor::printShape(self.as_reference()) };
     }
 }
-
 
 pub trait HalideType {
     fn halide() -> HalideTypes;
@@ -120,7 +153,9 @@ macro_rules! halide_types {
         $(
             impl HalideType for $t {
                 fn halide() -> HalideTypes {
-                    HalideTypes::$ht
+                    paste::paste! {
+                        HalideTypes::[<halide_ $ht>]
+                    }
                 }
             }
         )*

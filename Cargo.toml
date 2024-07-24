@@ -13,6 +13,7 @@ cxx = { version = "1.0.124", features = ["c++14"] }
 libc = "0.2.155"
 mnn-sys = { version = "0.1.0", path = "mnn-sys", features = ["metal"] }
 moveit = "0.6.0"
+opencv = { version = "0.92.1", features = ["clang-runtime"], optional = true }
 paste = "1.0.15"
 tap = "1.0.1"
 thiserror = "1.0.63"
@@ -21,3 +22,9 @@ thiserror = "1.0.63"
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
+opencv = ["dep:opencv"]
+
+[dev-dependencies]
+anyhow = "1.0.86"
+clap = { version = "4.5.9", features = ["derive"] }
+opencv = { version = "0.92.1", features = ["clang-runtime"] }

@@ -1,4 +1,1 @@
-mod ffi;
-mod shared;
-pub use ffi::*;
-pub use shared::*;
+include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
