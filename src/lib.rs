@@ -10,4 +10,3 @@ pub mod tensor;
 pub use interpreter::*;
 pub use session::*;
 pub use tensor::*;
-pub mod backend;
