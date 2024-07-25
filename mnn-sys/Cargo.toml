@@ -18,3 +18,7 @@ vulkan = []
 metal = []
 coreml = ["metal"]
 
+[dependencies]
+libc = "0.2.155"
+paste = "1.0.15"
+

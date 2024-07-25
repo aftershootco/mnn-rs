@@ -498,6 +498,8 @@ dependencies = [
  "cmake",
  "diffy",
  "fs_extra",
+ "libc",
+ "paste",
  "tap",
 ]
 

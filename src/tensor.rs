@@ -1,177 +1,153 @@
 use anyhow::Result;
-use autocxx::WithinUniquePtr;
 use core::marker::PhantomData;
+use libc::c_void;
 use mnn_sys::*;
-#[rustfmt::skip]
-use ::tap::*;
 
-/// A Tensor object from MNN
-#[repr(transparent)]
-pub struct Tensor<T = Host, D = f32> {
-    tensor: *mut MNN::Tensor,
-    __type: PhantomData<T>,
-    __data_type: PhantomData<D>,
+pub struct Tensor {
+    pub(crate) tensor: *mut mnn_sys::Tensor,
+    pub(crate) __marker: PhantomData<()>,
 }
 
-#[repr(u32)]
-pub enum DimensionType {
-    Tensorflow = MNN::Tensor_DimensionType::TENSORFLOW as u32,
-    Caffe = MNN::Tensor_DimensionType::CAFFE as u32,
-    CaffeC4 = MNN::Tensor_DimensionType::CAFFE_C4 as u32,
+pub trait TensorShape {
+    fn to_shape(&self) -> Vec<i32>;
 }
-
-impl DimensionType {
-    pub const NHWC: Self = Self::Tensorflow;
-    pub const NCHW: Self = Self::Caffe;
-    pub const NC4HW4: Self = Self::CaffeC4;
-}
-
-impl From<MNN::Tensor_DimensionType> for DimensionType {
-    fn from(value: MNN::Tensor_DimensionType) -> Self {
-        match value {
-            MNN::Tensor_DimensionType::TENSORFLOW => DimensionType::Tensorflow,
-            MNN::Tensor_DimensionType::CAFFE => DimensionType::Caffe,
-            MNN::Tensor_DimensionType::CAFFE_C4 => DimensionType::CaffeC4,
-        }
-    }
-}
-impl From<DimensionType> for MNN::Tensor_DimensionType {
-    fn from(value: DimensionType) -> Self {
-        match value {
-            DimensionType::Tensorflow => MNN::Tensor_DimensionType::TENSORFLOW,
-            DimensionType::Caffe => MNN::Tensor_DimensionType::CAFFE,
-            DimensionType::CaffeC4 => MNN::Tensor_DimensionType::CAFFE_C4,
-        }
-    }
-}
-
-pub struct Host;
-pub struct Device;
-
-pub trait TensorType {}
-
-impl TensorType for Host {}
-impl TensorType for Device {}
-
-impl<D> Tensor<Host, D> {
-    /// Create a new Tensor in the Host (CPU) from a Device Tensor (GPU/NPU)
-    /// # Arguments
-    /// * `device` - The device tensor to copy from
-    /// * `copy` - If true, the data will be copied from the device to the host tensor
-    pub fn create_host_tensor_from_device(device: &Tensor<Device, D>, copy: bool) -> Self {
-        let tensor = unsafe { MNN::Tensor::createHostTensorFromDevice(device.tensor, copy) };
-        Self {
-            tensor,
-            __data_type: PhantomData,
-            __type: PhantomData,
-        }
-    }
-
-    // pub fn copy_from_device_tensor(&self, device: &Tensor<Device, D>) -> Result<()> {
-    //     let result =
-    //         unsafe { MNN::Tensor::copyFromDeviceTensor(self.as_reference(), device.tensor) };
-    //     match result {
-    //         true => Ok(()),
-    //         _ => Err(anyhow::anyhow!("Error copying tensor from device tensor")),
-    //     }
-    // }
-}
-
-impl<D> Tensor<Device, D> {
-    pub fn create_device(
-        shape: impl AsRef<[i32]>,
-        dimension_type: DimensionType,
-    ) -> Tensor<Device, D>
-    where
-        D: HalideType,
-    {
-        let shape = TensorShape {
-            dims: shape.as_ref().to_vec(),
-        };
-        let dimension_type: MNN::Tensor_DimensionType = dimension_type.into();
-        let halide_type = D::halide();
-        let tensor = MNN::glueTensorCreateDevice(&shape, &halide_type, dimension_type);
-        Tensor {
-            tensor,
-            __data_type: PhantomData,
-            __type: PhantomData,
-        }
-    }
-}
-
-impl<T, D> Tensor<T, D> {
-    /// Create a new Tensor from a raw pointer
-    pub unsafe fn from_raw(tensor: *mut MNN::Tensor) -> Self {
-        Self {
-            tensor,
-            __data_type: PhantomData,
-            __type: PhantomData,
-        }
-    }
-
-    /// Get the raw pointer to the Tensor
-    pub fn as_ptr(&self) -> *mut MNN::Tensor {
-        self.tensor
-    }
-
-    pub unsafe fn as_reference(&self) -> &MNN::Tensor {
-        &*self.tensor
-    }
-
-    pub fn copy_to_host_tensor(&self, host: &mut Tensor<Host, D>) -> Result<()> {
-        let result = unsafe { MNN::Tensor::copyToHostTensor(self.as_reference(), host.tensor) };
-        match result {
-            true => Ok(()),
-            _ => Err(anyhow::anyhow!("Error copying tensor to host tensor")),
-        }
-    }
-
-    pub fn copy_from_host_tensor(&mut self, host: &Tensor<Host, D>) -> Result<()> {
-        use core::pin::Pin;
-        let this_mut: Pin<&mut MNN::Tensor> = Pin::new(unsafe { &mut *self.tensor });
-        let result = unsafe { MNN::Tensor::copyFromHostTensor(this_mut, host.tensor) };
-        match result {
-            true => Ok(()),
-            _ => Err(anyhow::anyhow!("Error copying tensor from host tensor")),
-        }
-    }
-
-    pub fn get_dimension_type(&self) -> DimensionType {
-        unsafe { MNN::Tensor::getDimensionType(self.as_reference()) }.into()
-    }
-
-    pub fn print_shape(&self) {
-        unsafe { MNN::Tensor::printShape(self.as_reference()) };
-    }
-}
-
-pub trait HalideType {
-    fn halide() -> HalideTypes;
-}
-macro_rules! halide_types {
-    ($($t:ty => $ht:ident),*) => {
+macro_rules! tensor_shape {
+    ($($name:ty),*) => {
         $(
-            impl HalideType for $t {
-                fn halide() -> HalideTypes {
-                    paste::paste! {
-                        HalideTypes::[<halide_ $ht>]
-                    }
+            impl TensorShape for $name {
+                fn to_shape(&self) -> Vec<i32> {
+                    self.to_vec()
                 }
             }
         )*
-    };
+    }
+}
+tensor_shape!([i32; 1], [i32; 2], [i32; 3], [i32; 4], Vec<i32>);
+
+impl Tensor {
+    pub fn new<T: HalideType>(
+        shape: impl TensorShape,
+        data: &[T],
+        dim_type: DimensionType,
+    ) -> Self {
+        assert_eq!(
+            shape.to_shape().iter().product::<i32>() as usize,
+            data.len()
+        );
+        let shape = shape.to_shape();
+        let tensor = unsafe {
+            Tensor_createWith(
+                shape.as_slice().as_ptr().cast(),
+                shape.len(),
+                halide_type_of::<T>(),
+                data.as_ptr().cast::<c_void>().cast_mut(),
+                dim_type,
+            )
+        };
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+
+    pub fn copy_from_host_tensor(&mut self, tensor: &Tensor) -> Result<()> {
+        let ret = unsafe { Tensor_copyFromHostTensor(self.tensor, tensor.tensor) };
+        let ret = ret != 0;
+        if !ret {
+            anyhow::bail!("Tensor_copyFromHostTensor failed");
+        }
+        // if ret != ErrorCode::ERROR_CODE_NO_ERROR as i32 {
+        //     anyhow::bail!("Tensor_copyFromHostTensor failed {ret:?}");
+        // }
+        Ok(())
+    }
+
+    pub fn copy_to_host_tensor(&self, tensor: &mut Tensor) -> Result<()> {
+        let ret = unsafe { Tensor_copyToHostTensor(self.tensor, tensor.tensor) };
+        let ret = ret != 0;
+        if !ret {
+            anyhow::bail!("Tensor_copyToHostTensor failed");
+        }
+        Ok(())
+    }
+
+    pub fn device_id(&self) -> u64 {
+        unsafe { Tensor_deviceId(self.tensor) }
+    }
+
+    pub fn shape(&self) -> mnn_sys::TensorShape {
+        unsafe { Tensor_shape(self.tensor) }
+    }
+
+    pub fn dimensions(&self) -> usize {
+        unsafe { Tensor_dimensions(self.tensor) as usize }
+    }
+
+    pub fn size(&self) -> usize {
+        unsafe { Tensor_size(self.tensor) as usize }
+    }
+
+    pub fn element_size(&self) -> usize {
+        unsafe { Tensor_elementSize(self.tensor) as usize }
+    }
+
+    pub fn print_shape(&self) {
+        unsafe {
+            Tensor_printShape(self.tensor);
+        }
+    }
+
+    pub fn host<T: HalideType>(&self) -> &[T] {
+        let size = self.element_size();
+
+        let result = unsafe {
+            let data = Tensor_host(self.tensor).cast();
+            core::slice::from_raw_parts(data, size)
+        };
+        result
+    }
+
+    pub fn host_mut<T: HalideType>(&mut self) -> &mut [T] {
+        let size = self.element_size();
+
+        let result = unsafe {
+            let data = Tensor_host_mut(self.tensor).cast();
+            core::slice::from_raw_parts_mut(data, size)
+        };
+        result
+    }
+
+    pub unsafe fn halide_buffer<T: HalideType>(&self) -> *const halide_buffer_t {
+        Tensor_buffer(self.tensor)
+    }
+
+    pub unsafe fn halide_buffer_mut<T: HalideType>(&self) -> *mut halide_buffer_t {
+        Tensor_buffer_mut(self.tensor)
+    }
+
+    pub fn get_diemension_type(&self) -> mnn_sys::DimensionType {
+        unsafe { Tensor_getDimensionType(self.tensor) }
+    }
+
+    pub fn get_type(&self) -> mnn_sys::halide_type_c {
+        let type_ = unsafe { Tensor_getType(self.tensor) };
+        type_
+    }
+
+    pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor {
+        let tensor = unsafe { Tensor_createHostTensorFromDevice(self.tensor, copy_data as i32) };
+        debug_assert!(!tensor.is_null());
+        Tensor {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
 }
 
-halide_types! {
-    f32 => float,
-    f64 => double,
-    bool => bool,
-    u8 => uint8_t,
-    u16 => uint16_t,
-    u32 => uint32_t,
-    u64 => uint64_t,
-    i8 => int8_t,
-    i16 => int16_t,
-    i32 => int32_t,
-    i64 => int64_t
+impl Drop for Tensor {
+    fn drop(&mut self) {
+        unsafe {
+            Tensor_destroy(self.tensor);
+        }
+    }
 }

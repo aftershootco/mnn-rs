@@ -34,21 +34,32 @@ fn main() -> Result<()> {
 
     let built = build_cmake(&vendor)?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
-    println!(
-        "cargo:rustc-link-search=native={}",
-        built.join("build").display()
-    );
-    println!("cargo:rustc-link-lib=static=MNN");
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=framework=Foundation");
         #[cfg(feature = "metal")]
+        println!("cargo:rustc-link-lib=framework=CoreGraphics");
+        #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Metal");
+        println!(
+            "cargo:rustc-link-search=framework={}",
+            built.join("build").display()
+        );
+        println!("cargo:rustc-link-lib=framework=MNN");
+    } else {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            built.join("build").display()
+        );
+        println!("cargo:rustc-link-lib=static=MNN");
     }
     Ok(())
 }
 
 pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
     let mnn_c = PathBuf::from(MANIFEST_DIR).join("mnn_c");
+    mnn_c.read_dir()?.flatten().for_each(|e| {
+        rerun_if_changed(e.path());
+    });
     const HEADERS: &[&str] = &[
         "ErrorCode_c.h",
         "Interpreter_c.h",
@@ -57,6 +68,15 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
     ];
 
     let bindings = bindgen::Builder::default()
+        // .pipe(|builder| {
+        //     #[cfg(feature = "vulkan")]
+        //     let builder = builder.clang_arg("-DMNN_VULKAN=1");
+        //     #[cfg(feature = "metal")]
+        //     let builder = builder.clang_arg("-DMNN_METAL=1");
+        //     #[cfg(feature = "coreml")]
+        //     let builder = builder.clang_arg("-DMNN_COREML=1");
+        //     builder
+        // })
         .detect_include_paths(true)
         .clang_arg(format!(
             "-I{}",
@@ -67,8 +87,22 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
                 gen.header(mnn_c.join(header).to_string_lossy())
             })
         })
+        .rustified_enum("MemoryMode")
+        .rustified_enum("PowerMode")
+        .rustified_enum("PrecisionMode")
+        .rustified_enum("SessionMode")
+        .rustified_enum("DimensionType")
+        .rustified_enum("HandleDataType")
+        .rustified_enum("MapType")
+        .rustified_enum("halide_type_code_t")
+        .rustified_enum("ErrorCode")
+        .rustified_enum("MNNGpuMode")
+        .rustified_enum("MNNForwardType")
+        .rustified_enum("RuntimeStatus")
+        .no_copy("CString")
         .generate_cstr(true)
         .generate_inline_functions(true)
+        .size_t_is_usize(true)
         .generate()?;
     bindings.write_to_file(out.as_ref().join("mnn_c.rs"))?;
     Ok(())
@@ -79,13 +113,10 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     cc::Build::new()
         .include(vendor.as_ref().join("include"))
         .cpp(true)
-        .files(
-            mnn_c
-                .read_dir()?
-                .flatten()
-                .map(|e| e.path())
-                .filter(|e| e.extension() == Some(std::ffi::OsStr::new("cpp"))),
-        )
+        .files(mnn_c.read_dir()?.flatten().map(|e| e.path()).filter(|e| {
+            e.extension() == Some(std::ffi::OsStr::new("cpp"))
+                || e.extension() == Some(std::ffi::OsStr::new("c"))
+        }))
         .std("c++14")
         .try_compile("mnn_c")
         .context("Failed to compile mnn_c library")?;
@@ -98,9 +129,11 @@ pub fn build_cmake(path: impl AsRef<Path>) -> Result<PathBuf> {
         .cxxflag("-std=c++14")
         .define("MNN_BUILD_SHARED_LIBS", "OFF")
         .define("MNN_SEP_BUILD", "OFF")
+        .define("MNN_PORTABLE_BUILD", "ON")
         .define("MNN_USE_SYSTEM_LIB", "OFF")
         .define("MNN_BUILD_CONVERTER", "OFF")
         .define("MNN_BUILD_TOOLS", "OFF")
+        .define("MNN_AAPL_FMWK", "ON")
         .pipe(|_config| {
             #[cfg(feature = "vulkan")]
             _config.define("MNN_VULKAN", "ON");
@@ -178,4 +211,8 @@ pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result
         diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
     std::fs::write(file_path, patched_file)?;
     Ok(())
+}
+
+pub fn rerun_if_changed(path: impl AsRef<Path>) {
+    println!("cargo:rerun-if-changed={}", path.as_ref().display());
 }

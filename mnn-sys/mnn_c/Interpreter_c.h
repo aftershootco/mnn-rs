@@ -11,7 +11,6 @@ typedef struct Interpreter Interpreter;
 typedef struct Session Session;
 typedef struct Backend Backend;
 
-
 typedef enum { Memory_Normal = 0, Memory_High, Memory_Low } MemoryMode;
 typedef enum { Power_Normal = 0, Power_High, Power_Low } PowerMode;
 typedef enum {
@@ -31,6 +30,8 @@ struct BackendConfig {
     size_t flags;        // Valid for CPU Backend
   };
 };
+
+struct BackendConfig createBackendConfig();
 
 /** acquire runtime status by Runtime::getCurrentStatus with following keys,
  */
@@ -72,19 +73,27 @@ typedef struct {
   MNNForwardType backupType;
   struct BackendConfig *backendConfig;
 } ScheduleConfig;
+void setModeScheduleConfig(ScheduleConfig *config, MNNGpuMode mode);
+void setNumThreadScheduleConfig(ScheduleConfig *config, int numThread);
+ScheduleConfig createScheduleConfig();
 typedef struct {
   const char *name;
   const char *type;
   float flops;
 } OperatorInfo;
-typedef int (*TensorCallBack)(const Tensor** tensors, size_t tensorCount, const char* opName);
-typedef int (*TensorCallBackWithInfo)(const Tensor** tensors, size_t tensorCount, const OperatorInfo* opInfo);
+typedef int (*TensorCallBack)(const Tensor **tensors, size_t tensorCount,
+                              const char *opName);
+typedef int (*TensorCallBackWithInfo)(const Tensor **tensors,
+                                      size_t tensorCount,
+                                      const OperatorInfo *opInfo);
 #if 0
 typedef struct {
   std::map<MNNForwardType, std::shared_ptr<Runtime>> *runtimeMap;
   std::shared_ptr<Runtime> *defaultRuntime;
 } RuntimeInfo;
 #endif
+
+void modelPrintIO(const char *model);
 
 /**
  * @brief get mnn version info.
@@ -105,7 +114,52 @@ Interpreter *Interpreter_createFromFile(const char *file);
  */
 Interpreter *Interpreter_createFromBuffer(const void *buffer, size_t size);
 void Interpreter_destroy(Interpreter *interpreter);
-void Interpreter_setSessionMode(Interpreter *interpreter, int mode);
+typedef enum {
+  /** About CallBack, Default Session_Debug*/
+  /** runSessionWithCallBack is allowed and can get internal op info*/
+  Session_Debug = 0,
+  /** runSessionWithCallBack is not valid and can't get any info of op in
+     session*/
+  Session_Release = 1,
+
+  /** About input tenosr, Default Session_Input_Inside*/
+  /** The input tensor is alloced by session, input data after session resized*/
+  Session_Input_Inside = 2,
+  /** The input tensor is alloced by user, set input data before session
+     resize*/
+  Session_Input_User = 3,
+
+  /** The output tensor depends on session, and can't be separate used*/
+  Session_Output_Inside = 4,
+  /** The output tensor can be separated from session*/
+  Session_Output_User = 5,
+
+  /** Try Resize Session when create Session or not, default direct: */
+  Session_Resize_Direct = 6,
+  Session_Resize_Defer = 7,
+
+  /** Determine the Execution's forward type is determine by user or auto
+     determine */
+  Session_Backend_Fix =
+      8, // Use the backend user set, when not support use default backend
+  Session_Backend_Auto = 9, // Auto Determine the Op type by MNN
+
+  /** Determine static memory whether recyle in resizeSession or just cache the
+     memory */
+  Session_Memory_Collect =
+      10, // Recycle static memory when session resize in case memory explosion
+  Session_Memory_Cache = 11, // Cache the static memory for next forward usage
+
+  /** Determine whether use codegen function */
+  Session_Codegen_Disable =
+      12, // Disable codegen in case extra build codegen cost
+  Session_Codegen_Enable = 13, // Enable codegen
+
+  /** Dynamic Reisze Optimization */
+  Session_Resize_Check = 14, // Open Trace for resize
+  Session_Resize_Fix = 15,   // Apply Resize Optimization
+} SessionMode;
+void Interpreter_setSessionMode(Interpreter *interpreter, SessionMode mode);
 void Interpreter_setCacheFile(Interpreter *interpreter, const char *cacheFile,
                               size_t keySize);
 void Interpreter_setExternalFile(Interpreter *interpreter, const char *file,
@@ -147,12 +201,12 @@ ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
                                                  TensorCallBackWithInfo before,
                                                  TensorCallBackWithInfo end,
                                                  int sync);
-Tensor *Interpreter_getSessionInput( Interpreter *interpreter,
+Tensor *Interpreter_getSessionInput(Interpreter *interpreter,
                                     const Session *session, const char *name);
-Tensor *Interpreter_getSessionOutput( Interpreter *interpreter,
+Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,
                                      const Session *session, const char *name);
-int Interpreter_getSessionInfo( Interpreter *interpreter,
-                               const Session *session, int code, void *ptr);
+int Interpreter_getSessionInfo(Interpreter *interpreter, const Session *session,
+                               int code, void *ptr);
 TensorInfoArray Interpreter_getSessionOutputAll(const Interpreter *interpreter,
                                                 const Session *session);
 

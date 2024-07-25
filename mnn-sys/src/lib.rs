@@ -1,1 +1,85 @@
+use std::ffi::CStr;
+
 include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
+impl DimensionType {
+    pub const NHWC: Self = Self::TENSORFLOW;
+    pub const NCHW: Self = Self::CAFFE;
+    pub const NC4HW4: Self = Self::CAFFE_C4;
+}
+
+impl halide_type_t {
+    pub fn new(code: halide_type_code_t, bits: u8) -> Self {
+        Self::new_with_lanes(code, bits, 1)
+    }
+    pub fn new_with_lanes(code: halide_type_code_t, bits: u8, lanes: u16) -> Self {
+        Self {
+            code: code as u8,
+            bits,
+            lanes,
+        }
+    }
+}
+
+pub fn halide_type_of<T: HalideType>() -> halide_type_t {
+    T::halide_type_of()
+}
+
+pub trait HalideType {
+    fn halide_type_of() -> halide_type_t;
+}
+macro_rules! halide_types {
+    ($($t:ty => $ht:expr),*) => {
+        $(
+            impl HalideType for $t {
+                fn halide_type_of() -> halide_type_t {
+                    $ht
+                }
+            }
+        )*
+    };
+}
+
+halide_types! {
+    f32 => halide_type_t::new(halide_type_code_t::halide_type_float, 32),
+    f64 => halide_type_t::new(halide_type_code_t::halide_type_float, 64),
+    bool => halide_type_t::new(halide_type_code_t::halide_type_uint, 1),
+    u8 => halide_type_t::new(halide_type_code_t::halide_type_uint, 8),
+    u16 => halide_type_t::new(halide_type_code_t::halide_type_uint, 16),
+    u32 => halide_type_t::new(halide_type_code_t::halide_type_uint, 32),
+    u64 => halide_type_t::new(halide_type_code_t::halide_type_uint, 64),
+    i8 => halide_type_t::new(halide_type_code_t::halide_type_int, 8),
+    i16 => halide_type_t::new(halide_type_code_t::halide_type_int, 16),
+    i32 => halide_type_t::new(halide_type_code_t::halide_type_int, 32),
+    i64 => halide_type_t::new(halide_type_code_t::halide_type_int, 64)
+}
+
+impl BackendConfig {
+    pub fn new() -> Self {
+        unsafe { createBackendConfig() }
+    }
+}
+
+impl ScheduleConfig {
+    pub fn new() -> Self {
+        unsafe { createScheduleConfig() }
+    }
+}
+
+impl Drop for CString {
+    fn drop(&mut self) {
+        unsafe { destroyCString(self.as_ptr_mut()) }
+    }
+}
+
+impl CString {
+    pub fn as_ptr(&self) -> *const CString {
+        core::ptr::addr_of!(*self)
+    }
+
+    pub fn as_ptr_mut(&mut self) -> *mut CString {
+        core::ptr::addr_of_mut!(*self)
+    }
+    pub unsafe fn to_cstr(&self) -> &CStr {
+        unsafe { std::ffi::CStr::from_ptr(self.data) }
+    }
+}

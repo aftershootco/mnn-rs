@@ -3,11 +3,16 @@
 #include <MNN/HalideRuntime.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "utils.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 typedef struct Tensor Tensor;
+typedef struct {
+  int shape[4];
+  size_t size;
+} TensorShape;
 typedef enum { TENSORFLOW, CAFFE, CAFFE_C4 } DimensionType;
 typedef enum { HANDLE_NONE = 0, HANDLE_STRING = 1 } HandleDataType;
 typedef enum { MAP_TENSOR_WRITE = 0, MAP_TENSOR_READ = 1 } MapType;
@@ -15,18 +20,24 @@ Tensor *Tensor_create(int dimSize, DimensionType type);
 Tensor *Tensor_createFromTensor(const Tensor *tensor, DimensionType type,
                                 int allocMemory);
 void Tensor_destroy(Tensor *tensor);
-Tensor *Tensor_createDevice(const int *shape, size_t shapeSize, struct halide_type_t typeCode,
+Tensor *Tensor_createDevice(const int *shape, size_t shapeSize,
+                            struct halide_type_t typeCode,
                             DimensionType dimType);
-Tensor *Tensor_createWith(const int *shape, size_t shapeSize, struct halide_type_t typeCode,
-                          void *data, DimensionType dimType);
+Tensor *Tensor_createWith(const int *shape, size_t shapeSize,
+                          struct halide_type_t typeCode, void *data,
+                          DimensionType dimType);
 int Tensor_copyFromHostTensor(Tensor *deviceTensor, const Tensor *hostTensor);
 int Tensor_copyToHostTensor(const Tensor *deviceTensor, Tensor *hostTensor);
 Tensor *Tensor_createHostTensorFromDevice(const Tensor *deviceTensor,
                                           int copyData);
+DimensionType Tensor_getDimensionType(const Tensor *tensor);
+const halide_buffer_t *Tensor_buffer(const Tensor *tensor);
+halide_buffer_t *Tensor_buffer_mut(Tensor *tensor);
 const void *Tensor_host(const Tensor *tensor);
+void* Tensor_host_mut(Tensor *tensor);
 uint64_t Tensor_deviceId(const Tensor *tensor);
 int Tensor_dimensions(const Tensor *tensor);
-void Tensor_shape(const Tensor *tensor, int *shape);
+TensorShape Tensor_shape(const Tensor *tensor);
 int Tensor_size(const Tensor *tensor);
 size_t Tensor_usize(const Tensor *tensor);
 int Tensor_elementSize(const Tensor *tensor);
@@ -46,6 +57,7 @@ void Tensor_unmap(Tensor *tensor, MapType mtype, DimensionType dtype,
                   void *mapPtr);
 int Tensor_wait(Tensor *tensor, MapType mtype, int finish);
 int Tensor_setDevicePtr(Tensor *tensor, const void *devicePtr, int memoryType);
+halide_type_c Tensor_getType(const Tensor *tensor);
 #ifdef __cplusplus
 }
 #endif

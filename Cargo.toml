@@ -23,6 +23,7 @@ metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
 opencv = ["dep:opencv"]
+default = ["metal"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
