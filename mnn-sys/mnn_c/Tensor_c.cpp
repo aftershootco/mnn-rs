@@ -148,7 +148,7 @@ halide_type_c Tensor_getType(const Tensor *tensor) {
     auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
     auto type = mnn_tensor->getType();
     halide_type_c ret;
-    ret.code = type.code;
+    ret.code = static_cast<halide_type_code_t>(type.code);
     ret.bits = type.bits;
     ret.lanes = type.lanes;
     return ret;
