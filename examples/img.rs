@@ -23,8 +23,9 @@ pub fn main() -> anyhow::Result<()> {
     let inputs = interpreter.get_inputs(&session);
     let outputs = interpreter.get_outputs(&session);
 
-    let img = zune_image::image::Image::open(&cli.image)?;
-    let img: Vec<f32> = resize(img, 512, 512)?.into_iter().map(|x| x as f32).collect();
+   // let img = zune_image::image::Image::open(&cli.image)?;
+   // let img: Vec<f32> = resize(img, 512, 512)?.into_iter().map(|x| x as f32).collect();
+    let img: Vec<f32> = std::fs::read(&cli.image)?.into_iter().map(|x| x as f32).collect();
 
     let mut image = inputs
         .iter()
