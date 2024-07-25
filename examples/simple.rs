@@ -13,7 +13,7 @@ pub fn main() -> anyhow::Result<()> {
     let mut interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
-    config.type_ = ffi::MNNForwardType::MNN_FORWARD_CPU;
+    config.type_ = ffi::MNNForwardType::MNN_FORWARD_METAL;
     let mut backend_config = BackendConfig::new();
     backend_config.precision = ffi::PrecisionMode::Precision_High;
     backend_config.power = ffi::PowerMode::Power_High;
@@ -32,11 +32,14 @@ pub fn main() -> anyhow::Result<()> {
         .find(|x| x.name() == "mask")
         .expect("No input named mask")
         .tensor();
-    image.host_mut::<f32>().fill(1.0f32);
-    // let unit_tensor_data = vec![1.0f32; 1 * 3 * 512 * 512];
-    // let mut unit_tensor = image.create_host_tensor_from_device(false);
-    // unit_tensor.host_mut().copy_from_slice(&unit_tensor_data);
-    mask.host_mut::<f32>().fill(0.7f32);
+    let unit_tensor_data = vec![1.0f32; 1 * 3 * 512 * 512];
+    let mut image_tensor = image.create_host_tensor_from_device(false);
+    image_tensor.host_mut().copy_from_slice(&unit_tensor_data);
+    image.copy_from_host_tensor(&image_tensor)?;
+    let mut mask_tensor = mask.create_host_tensor_from_device(false);
+    mask_tensor.host_mut().fill(0.7f32);
+    mask.copy_from_host_tensor(&mask_tensor)?;
+    // mask.host_mut::<f32>().fill(0.7f32);
 
     // image.copy_from_host_tensor(&unit_tensor)?;
 
@@ -46,7 +49,9 @@ pub fn main() -> anyhow::Result<()> {
         .find(|x| x.name() == "output")
         .expect("Not output named output")
         .tensor();
-    let out_vec = output.host::<f32>().to_vec();
+    let output_tensor = output.create_host_tensor_from_device(true);
+
+    let out_vec = output_tensor.host::<f32>().to_vec();
     let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
     out_ppm.extend(out_vec.iter().map(|x| *x as u8));
     std::fs::write("output.ppm", out_ppm)?;

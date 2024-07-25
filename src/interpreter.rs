@@ -95,7 +95,7 @@ impl<'t> TensorInfo<'t> {
             .expect("FIX ME")
     }
 
-    pub fn tensor(&'t self) -> crate::Tensor {
+    pub fn tensor(&'t self) -> crate::Tensor<crate::Device> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { (*self.tensor_info).tensor.cast() };

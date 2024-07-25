@@ -17,9 +17,12 @@ pub fn main() -> anyhow::Result<()> {
     let mut backend_config = BackendConfig::new();
     backend_config.precision = ffi::PrecisionMode::Precision_High;
     backend_config.power = ffi::PowerMode::Power_High;
+    backend_config.memory = ffi::MemoryMode::Memory_High;
 
     config.backendConfig = core::ptr::addr_of!(backend_config).cast_mut();
+    let now = std::time::Instant::now();
     let session = interpreter.create_session(&config)?;
+    println!("Time to load: {:?}", now.elapsed());
     let inputs = interpreter.get_inputs(&session);
     let outputs = interpreter.get_outputs(&session);
 
@@ -37,21 +40,25 @@ pub fn main() -> anyhow::Result<()> {
         .find(|x| x.name() == "mask")
         .expect("No input named mask")
         .tensor();
-    image.host_mut::<f32>().copy_from_slice(&img);
-    // let unit_tensor_data = vec![1.0f32; 1 * 3 * 512 * 512];
-    // let mut unit_tensor = image.create_host_tensor_from_device(false);
-    // unit_tensor.host_mut().copy_from_slice(&unit_tensor_data);
-    mask.host_mut::<f32>().fill(0.7f32);
+    let mut image_tensor = image.create_host_tensor_from_device(false);
+    image_tensor.host_mut().copy_from_slice(&img);
+    image.copy_from_host_tensor(&image_tensor)?;
+    let mut mask_tensor = mask.create_host_tensor_from_device(false);
+    mask_tensor.host_mut().fill(0.7f32);
+    mask.copy_from_host_tensor(&mask_tensor)?;
 
     // image.copy_from_host_tensor(&unit_tensor)?;
 
+    let now = std::time::Instant::now();
     interpreter.run_session(&session)?;
+    println!("Time to run: {:?}", now.elapsed());
     let output = outputs
         .iter()
         .find(|x| x.name() == "output")
         .expect("Not output named output")
         .tensor();
-    let out_vec = output.host::<f32>().to_vec();
+    let output_tensor = output.create_host_tensor_from_device(true);
+    let out_vec = output_tensor.host::<f32>().to_vec();
     let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
     out_ppm.extend(out_vec.iter().map(|x| *x as u8));
     std::fs::write("output.ppm", out_ppm)?;

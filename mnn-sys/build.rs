@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
-fn ensure_vendor_exists(vendor: impl AsRef<Path>) ->Result<()>{
+fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor.as_ref().read_dir()?.flatten().count() == 0 {
         anyhow::bail!("Vendor not found maybe you need to run \"git submodule update --init\"")
     }
@@ -28,7 +28,8 @@ fn main() -> Result<()> {
         try_patch_file(
             "patches/typedef_template.patch",
             &vendor.join("include").join("MNN").join("Interpreter.hpp"),
-        ).context("Failed to patch vendor")?;
+        )
+        .context("Failed to patch vendor")?;
         // try_patch_file(
         //     "patches/forward_guard.patch",
         //     &vendor.join("include/MNN/MNNForwardType.h"),
@@ -50,18 +51,17 @@ fn main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=CoreGraphics");
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Metal");
-       println!(
-           "cargo:rustc-link-search=framework={}",
-           install_dir.join("lib").display()
-       );
-        println!("cargo:rustc-link-lib=framework=MNN");
-    } else {
-       println!(
-           "cargo:rustc-link-search=native={}",
-           install_dir.join("lib").display()
-       );
-        println!("cargo:rustc-link-lib=static=MNN");
+        // println!(
+        //     "cargo:rustc-link-search=framework={}",
+        //     install_dir.join("lib").display()
+        // );
+        //  println!("cargo:rustc-link-lib=framework=MNN");
     }
+    println!(
+        "cargo:rustc-link-search=native={}",
+        install_dir.join("lib").display()
+    );
+    println!("cargo:rustc-link-lib=static=MNN");
     Ok(())
 }
 
@@ -121,9 +121,9 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
 pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<()> {
     let mnn_c = path.as_ref();
     let files = mnn_c.read_dir()?.flatten().map(|e| e.path()).filter(|e| {
-            e.extension() == Some(std::ffi::OsStr::new("cpp"))
-                || e.extension() == Some(std::ffi::OsStr::new("c"))
-        });
+        e.extension() == Some(std::ffi::OsStr::new("cpp"))
+            || e.extension() == Some(std::ffi::OsStr::new("c"))
+    });
     cc::Build::new()
         .include(vendor.as_ref().join("include"))
         .cpp(true)
@@ -146,7 +146,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         .define("MNN_USE_SYSTEM_LIB", "OFF")
         .define("MNN_BUILD_CONVERTER", "OFF")
         .define("MNN_BUILD_TOOLS", "OFF")
-        .define("MNN_AAPL_FMWK", "ON")
+        // .define("MNN_AAPL_FMWK", "ON")
         .define("CMAKE_INSTALL_PREFIX", install.as_ref())
         .define("MNN_WIN_RUNTIME_MT", "ON")
         // https://github.com/rust-lang/rust/issues/39016
