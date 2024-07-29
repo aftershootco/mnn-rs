@@ -1,6 +1,7 @@
-use anyhow::Result;
-use core::marker::PhantomData;
+use crate::prelude::*;
 pub use mnn_sys::SessionMode;
+
+#[repr(transparent)]
 pub struct Interpreter {
     pub(crate) interpreter: *mut mnn_sys::Interpreter,
     pub(crate) __marker: PhantomData<()>,
@@ -9,17 +10,11 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();
-        if !path.exists() {
-            anyhow::bail!("File not found: {:?}", path);
-        }
-        let path = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert to cstr"))?;
-        let c_path = std::ffi::CString::new(path)?;
+        ensure!(path.exists(), ErrorKind::IOError);
+        let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
+        let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
-        if interpreter.is_null() {
-            anyhow::bail!("Interpreter_createFromFile failed");
-        }
+        ensure!(!interpreter.is_null(), ErrorKind::IOError);
         Ok(Self {
             interpreter,
             __marker: PhantomData,
@@ -38,15 +33,11 @@ impl Interpreter {
             unsafe { mnn_sys::Interpreter_createSession(self.interpreter, schedule.as_ptr_mut()) };
         Ok(unsafe { crate::session::Session::from_ptr(session) })
     }
+
     pub fn model_print_io(path: impl AsRef<std::path::Path>) -> Result<()> {
         let path = path.as_ref();
-        if !path.exists() {
-            anyhow::bail!("File not found: {:?}", path);
-        }
-        let path = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert to cstr"))
-            .unwrap();
+        crate::ensure!(path.exists(), ErrorKind::IOError);
+        let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).unwrap();
         unsafe { mnn_sys::modelPrintIO(c_path.as_ptr()) }
         Ok(())
@@ -64,7 +55,7 @@ impl Interpreter {
         name: impl AsRef<str>,
     ) -> Result<crate::TensorRef<'i, crate::Device>> {
         let name = name.as_ref();
-        let c_name = std::ffi::CString::new(name)?;
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(
                 self.interpreter,
@@ -72,10 +63,7 @@ impl Interpreter {
                 c_name.as_ptr(),
             )
         };
-        if input.is_null() {
-            return Err(anyhow::anyhow!("Interpreter_getInput failed")
-                .context("Either input name is invalid or input is not found"));
-        }
+        ensure!(!input.is_null(), ErrorKind::IOError);
         Ok(crate::TensorRef {
             tensor: input,
             __marker: PhantomData,
@@ -88,7 +76,7 @@ impl Interpreter {
         name: impl AsRef<str>,
     ) -> Result<crate::TensorRef<'i, crate::Device>> {
         let name = name.as_ref();
-        let c_name = std::ffi::CString::new(name)?;
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
             mnn_sys::Interpreter_getSessionOutput(
                 self.interpreter,
@@ -96,10 +84,11 @@ impl Interpreter {
                 c_name.as_ptr(),
             )
         };
-        if output.is_null() {
-            return Err(anyhow::anyhow!("Interpreter_getOutput failed")
-                .context("Either output name is invalid or output is not found"));
-        }
+        ensure!(!output.is_null(), ErrorKind::IOError);
+        // if output.is_null() {
+        //     return Err(anyhow::anyhow!("Interpreter_getOutput failed")
+        //         .context("Either output name is invalid or output is not found"));
+        // }
         Ok(crate::TensorRef {
             tensor: output,
             __marker: PhantomData,
@@ -108,9 +97,10 @@ impl Interpreter {
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         let ret = unsafe { mnn_sys::Interpreter_runSession(self.interpreter, session.session) };
-        if ret != mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR {
-            anyhow::bail!("Interpreter_runSession failed");
-        }
+        ensure!(
+            ret != mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
+            ErrorKind::InternalError(ret)
+        );
         Ok(())
     }
 
@@ -122,6 +112,7 @@ impl Interpreter {
 }
 
 #[derive(Copy, Clone)]
+#[repr(transparent)]
 pub struct TensorInfo<'t> {
     pub(crate) tensor_info: *mut mnn_sys::TensorInfo,
     pub(crate) __marker: PhantomData<&'t TensorList>,

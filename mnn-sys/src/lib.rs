@@ -30,12 +30,17 @@ pub fn halide_type_of<T: HalideType>() -> halide_type_t {
     T::halide_type_of()
 }
 
-pub trait HalideType {
+pub trait HalideType: seal::Sealed {
     fn halide_type_of() -> halide_type_t;
 }
+mod seal {
+    pub trait Sealed {}
+}
+
 macro_rules! halide_types {
     ($($t:ty => $ht:expr),*) => {
         $(
+            impl seal::Sealed for $t {}
             impl HalideType for $t {
                 fn halide_type_of() -> halide_type_t {
                     $ht

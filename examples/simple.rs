@@ -37,8 +37,6 @@ pub fn main() -> anyhow::Result<()> {
     interpreter.run_session(&session)?;
     let output = interpreter.get_output(&session, "output")?;
     let output_tensor = output.create_host_tensor_from_device(true);
-    drop(output);
-    let output = interpreter.get_output(&session, "output")?;
 
     let out_vec = output_tensor.host::<f32>().to_vec();
     let mut out_ppm = b"P6\n512 512\n255\n".to_vec();

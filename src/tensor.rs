@@ -18,6 +18,9 @@
 use crate::prelude::*;
 use mnn_sys::*;
 
+/// This is the main Tensor Struct
+/// This can hold both Host and Device tensors  
+/// With any of the types which implement [HalideType]
 #[repr(transparent)]
 pub struct Tensor<TT> {
     pub(crate) tensor: TensorRef<'static, TT>,

@@ -10,7 +10,7 @@ pub struct MNNError {
 
 impl core::fmt::Display for MNNError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.kind)
+        write!(f, "{:?}", self.kind)
     }
 }
 
@@ -28,8 +28,12 @@ pub enum ErrorKind {
     InternalError(ErrorCode),
     #[error("Invalid input: expected {expected}, got {got}")]
     SizeMismatch { expected: usize, got: usize },
-    #[error("Failed to copy tonsor")]
+    #[error("Failed to copy tensor")]
     TensorCopyFailed,
+    #[error("IO Error")]
+    IOError,
+    #[error("Ascii Error")]
+    AsciiError,
 }
 
 impl MNNError {
@@ -59,6 +63,44 @@ macro_rules! ensure {
             return Err(crate::error::MNNError::new($kind));
         }
     };
+    ($cond:expr, $from:expr, $to:expr) => {
+        if !$cond {
+            #[cfg(feature = "error-report")]
+            return Err(error_stack::Report::new($from).change_context($to));
+            #[cfg(not(feature = "error-report"))]
+            return Err(crate::error::MNNError::new($to));
+        }
+    };
+}
+
+macro_rules! error {
+    ($kind:expr) => {
+        crate::error::MNNError::new($kind)
+    };
+    ($kind:expr, $from:expr) => {
+        crate::error::MNNError::new(error_stack::Report::new($from).change_context($kind))
+    };
 }
 
 pub(crate) use ensure;
+pub(crate) use error;
+
+impl From<error_stack::Report<ErrorKind>> for MNNError {
+    #[track_caller]
+    fn from(report: error_stack::Report<ErrorKind>) -> Self {
+        Self { kind: report }
+    }
+}
+
+impl MNNError {
+    pub fn attach_printable(
+        self,
+        printable: impl core::fmt::Display + core::fmt::Debug + Send + Sync + 'static,
+    ) -> Self {
+        #[cfg(feature = "error-report")]
+        let kind = self.kind.attach_printable(printable);
+        #[cfg(not(feature = "error-report"))]
+        let kind = self.kind;
+        Self { kind }
+    }
+}
