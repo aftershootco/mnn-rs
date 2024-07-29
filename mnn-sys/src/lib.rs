@@ -1,6 +1,12 @@
 use std::ffi::CStr;
 
-include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
+mod ffi {
+    #![allow(non_upper_case_globals)]
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+    include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
+}
+pub use ffi::*;
 impl DimensionType {
     pub const NHWC: Self = Self::TENSORFLOW;
     pub const NCHW: Self = Self::CAFFE;
@@ -53,18 +59,6 @@ halide_types! {
     i64 => halide_type_t::new(halide_type_code_t::halide_type_int, 64)
 }
 
-impl BackendConfig {
-    pub fn new() -> Self {
-        unsafe { createBackendConfig() }
-    }
-}
-
-impl ScheduleConfig {
-    pub fn new() -> Self {
-        unsafe { createScheduleConfig() }
-    }
-}
-
 impl Drop for CString {
     fn drop(&mut self) {
         unsafe { destroyCString(self.as_ptr_mut()) }
@@ -81,5 +75,11 @@ impl CString {
     }
     pub unsafe fn to_cstr(&self) -> &CStr {
         unsafe { std::ffi::CStr::from_ptr(self.data) }
+    }
+}
+
+impl AsRef<[i32]> for TensorShape {
+    fn as_ref(&self) -> &[i32] {
+        &self.shape[..self.size]
     }
 }

@@ -12,6 +12,7 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     ensure_vendor_exists(VENDOR)?;
 
@@ -30,18 +31,11 @@ fn main() -> Result<()> {
             &vendor.join("include").join("MNN").join("Interpreter.hpp"),
         )
         .context("Failed to patch vendor")?;
-        // try_patch_file(
-        //     "patches/forward_guard.patch",
-        //     &vendor.join("include/MNN/MNNForwardType.h"),
-        // )?;
     }
-    // let glue_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("glue");
-    // autocxx_bindings(&glue_path, &vendor).with_context(|| "Failed to generate autocxx bridge")?;
 
-    mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
-
+    mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
     let install_dir = out_dir.join("mnn-install");
     build_cmake(&vendor, &install_dir)?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
@@ -51,11 +45,6 @@ fn main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=CoreGraphics");
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Metal");
-        // println!(
-        //     "cargo:rustc-link-search=framework={}",
-        //     install_dir.join("lib").display()
-        // );
-        //  println!("cargo:rustc-link-lib=framework=MNN");
     }
     println!(
         "cargo:rustc-link-search=native={}",
@@ -66,6 +55,7 @@ fn main() -> Result<()> {
 }
 
 pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
+    let vendor = vendor.as_ref();
     let mnn_c = PathBuf::from(MANIFEST_DIR).join("mnn_c");
     mnn_c.read_dir()?.flatten().for_each(|e| {
         rerun_if_changed(e.path());
@@ -74,24 +64,28 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         "ErrorCode_c.h",
         "Interpreter_c.h",
         "Tensor_c.h",
-        // "TensorUtils_c.h",
+        "Backend_c.h",
+        "Schedule_c.h",
     ];
 
     let bindings = bindgen::Builder::default()
-        // .pipe(|builder| {
-        //     #[cfg(feature = "vulkan")]
-        //     let builder = builder.clang_arg("-DMNN_VULKAN=1");
-        //     #[cfg(feature = "metal")]
-        //     let builder = builder.clang_arg("-DMNN_METAL=1");
-        //     #[cfg(feature = "coreml")]
-        //     let builder = builder.clang_arg("-DMNN_COREML=1");
-        //     builder
-        // })
+        .pipe(|builder| {
+            #[cfg(feature = "vulkan")]
+            let builder = builder.clang_arg("-DMNN_VULKAN=1");
+            #[cfg(feature = "metal")]
+            let builder = builder.clang_arg("-DMNN_METAL=1");
+            #[cfg(feature = "coreml")]
+            let builder = builder.clang_arg("-DMNN_COREML=1");
+            // #[cfg(feature = "vulkan")]
+            // let builder = builder.clang_args(
+            //     vulkan_includes(vendor)
+            //         .iter()
+            //         .map(|p| format!("-I{}", p.display())),
+            // );
+            builder
+        })
         .detect_include_paths(true)
-        .clang_arg(format!(
-            "-I{}",
-            vendor.as_ref().join("include").to_string_lossy()
-        ))
+        .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
         .pipe(|generator| {
             HEADERS.iter().fold(generator, |gen, header| {
                 gen.header(mnn_c.join(header).to_string_lossy())
@@ -124,8 +118,19 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         e.extension() == Some(std::ffi::OsStr::new("cpp"))
             || e.extension() == Some(std::ffi::OsStr::new("c"))
     });
+    let vendor = vendor.as_ref();
     cc::Build::new()
-        .include(vendor.as_ref().join("include"))
+        .include(vendor.join("include"))
+        // .includes(vulkan_includes(vendor))
+        .pipe(|config| {
+            #[cfg(feature = "vulkan")]
+            config.define("MNN_VULKAN", "1");
+            #[cfg(feature = "metal")]
+            config.define("MNN_METAL", "1");
+            #[cfg(feature = "coreml")]
+            config.define("MNN_COREML", "1");
+            config
+        })
         .cpp(true)
         .static_flag(true)
         .static_crt(true)
@@ -135,6 +140,7 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         .context("Failed to compile mnn_c library")?;
     Ok(())
 }
+
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
     let threads = std::thread::available_parallelism()?;
     cmake::Config::new(path)
@@ -146,20 +152,19 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         .define("MNN_USE_SYSTEM_LIB", "OFF")
         .define("MNN_BUILD_CONVERTER", "OFF")
         .define("MNN_BUILD_TOOLS", "OFF")
-        // .define("MNN_AAPL_FMWK", "ON")
         .define("CMAKE_INSTALL_PREFIX", install.as_ref())
         .define("MNN_WIN_RUNTIME_MT", "ON")
         // https://github.com/rust-lang/rust/issues/39016
         // https://github.com/rust-lang/cc-rs/pull/717
-        .define("CMAKE_BUILD_TYPE", "Release")
-        .pipe(|_config| {
+        // .define("CMAKE_BUILD_TYPE", "Release")
+        .pipe(|config| {
             #[cfg(feature = "vulkan")]
-            _config.define("MNN_VULKAN", "ON");
+            config.define("MNN_VULKAN", "ON");
             #[cfg(feature = "metal")]
-            _config.define("MNN_METAL", "ON");
+            config.define("MNN_METAL", "ON");
             #[cfg(feature = "coreml")]
-            _config.define("MNN_COREML", "ON");
-            _config
+            config.define("MNN_COREML", "ON");
+            config
         })
         .build();
     Ok(())
@@ -233,4 +238,30 @@ pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result
 
 pub fn rerun_if_changed(path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed={}", path.as_ref().display());
+}
+
+pub fn vulkan_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
+    let vendor = vendor.as_ref();
+    let vulkan_dir = vendor.join("source/backend/vulkan");
+    if cfg!(feature = "vulkan") {
+        vec![
+            vulkan_dir.clone(),
+            vulkan_dir.join("runtime"),
+            vulkan_dir.join("component"),
+            // IDK If the order is important but the cmake file does it like this
+            vulkan_dir.join("buffer/execution"),
+            vulkan_dir.join("buffer/backend"),
+            vulkan_dir.join("buffer"),
+            vulkan_dir.join("buffer/shaders"),
+            // vulkan_dir.join("image/execution"),
+            // vulkan_dir.join("image/backend"),
+            // vulkan_dir.join("image"),
+            // vulkan_dir.join("image/shaders"),
+            vendor.join("schema/current"),
+            vendor.join("3rd_party/flatbuffers/include"),
+            vendor.join("source"),
+        ]
+    } else {
+        vec![]
+    }
 }

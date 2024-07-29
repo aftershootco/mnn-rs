@@ -9,17 +9,19 @@ edition = "2021"
 anyhow = "1.0.86"
 castaway = "0.2.3"
 libc = "0.2.155"
-mnn-sys = { version = "0.1.0", path = "mnn-sys", features = ["metal"] }
+mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
 paste = "1.0.15"
 tap = "1.0.1"
 thiserror = "1.0.63"
 zune-image = "0.4.15"
+error-stack = { version = "0.5.0", optional = true }
 
 [features]
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
-default = []
+error-report = ["dep:error-stack"]
+default = ["error-report"]
 
 [dev-dependencies]
 anyhow = "1.0.86"

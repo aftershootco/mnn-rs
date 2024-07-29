@@ -32,9 +32,10 @@ impl Interpreter {
 
     pub fn create_session(
         &mut self,
-        schedule: &mnn_sys::ScheduleConfig,
+        schedule: &mut crate::ScheduleConfig,
     ) -> Result<crate::session::Session> {
-        let session = unsafe { mnn_sys::Interpreter_createSession(self.interpreter, schedule) };
+        let session =
+            unsafe { mnn_sys::Interpreter_createSession(self.interpreter, schedule.as_ptr_mut()) };
         Ok(unsafe { crate::session::Session::from_ptr(session) })
     }
     pub fn model_print_io(path: impl AsRef<std::path::Path>) -> Result<()> {
@@ -55,6 +56,54 @@ impl Interpreter {
         let inputs =
             unsafe { mnn_sys::Interpreter_getSessionInputAll(self.interpreter, session.session) };
         TensorList::from_raw(inputs)
+    }
+
+    pub fn get_input<'i>(
+        &'i self,
+        session: &crate::Session,
+        name: impl AsRef<str>,
+    ) -> Result<crate::TensorRef<'i, crate::Device>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name)?;
+        let input = unsafe {
+            mnn_sys::Interpreter_getSessionInput(
+                self.interpreter,
+                session.raw_mut(),
+                c_name.as_ptr(),
+            )
+        };
+        if input.is_null() {
+            return Err(anyhow::anyhow!("Interpreter_getInput failed")
+                .context("Either input name is invalid or input is not found"));
+        }
+        Ok(crate::TensorRef {
+            tensor: input,
+            __marker: PhantomData,
+        })
+    }
+
+    pub fn get_output<'i>(
+        &'i self,
+        session: &crate::Session,
+        name: impl AsRef<str>,
+    ) -> Result<crate::TensorRef<'i, crate::Device>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name)?;
+        let output = unsafe {
+            mnn_sys::Interpreter_getSessionOutput(
+                self.interpreter,
+                session.raw_mut(),
+                c_name.as_ptr(),
+            )
+        };
+        if output.is_null() {
+            return Err(anyhow::anyhow!("Interpreter_getOutput failed")
+                .context("Either output name is invalid or output is not found"));
+        }
+        Ok(crate::TensorRef {
+            tensor: output,
+            __marker: PhantomData,
+        })
     }
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
@@ -88,18 +137,18 @@ impl core::fmt::Debug for TensorInfo<'_> {
 }
 
 impl<'t> TensorInfo<'t> {
-    pub fn name(&'t self) -> &'t str {
+    pub fn name(&self) -> &'t str {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { (*self.tensor_info).name.to_cstr() }
             .to_str()
-            .expect("FIX ME")
+            .expect("FIX ME later")
     }
 
-    pub fn tensor(&'t self) -> crate::Tensor<crate::Device> {
+    pub fn tensor(&self) -> crate::TensorRef<'t, crate::Device> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { (*self.tensor_info).tensor.cast() };
-        crate::Tensor {
+        crate::TensorRef {
             tensor,
             __marker: PhantomData,
         }

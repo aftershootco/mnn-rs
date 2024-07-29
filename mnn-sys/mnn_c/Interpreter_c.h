@@ -1,8 +1,11 @@
 #ifndef INTERPRETER_C_H
 #define INTERPRETER_C_H
+#include "Backend_c.h"
+#include "Schedule_c.h"
 #include "ErrorCode_c.h"
 #include "Tensor_c.h"
 #include "utils.h"
+#include <MNN/HalideRuntime.h>
 #include <MNN/MNNForwardType.h>
 #ifdef __cplusplus
 extern "C" {
@@ -10,28 +13,6 @@ extern "C" {
 typedef struct Interpreter Interpreter;
 typedef struct Session Session;
 typedef struct Backend Backend;
-
-typedef enum { Memory_Normal = 0, Memory_High, Memory_Low } MemoryMode;
-typedef enum { Power_Normal = 0, Power_High, Power_Low } PowerMode;
-typedef enum {
-  Precision_Normal = 0,
-  Precision_High,
-  Precision_Low,
-  Precision_Low_BF16
-} PrecisionMode;
-
-struct BackendConfig {
-  MemoryMode memory;       // = Memory_Normal;
-  PowerMode power;         // = Power_Normal;
-  PrecisionMode precision; // = Precision_Normal;
-  /** user defined context */
-  union {
-    void *sharedContext; // = nullptr;
-    size_t flags;        // Valid for CPU Backend
-  };
-};
-
-struct BackendConfig createBackendConfig();
 
 /** acquire runtime status by Runtime::getCurrentStatus with following keys,
  */
@@ -55,27 +36,25 @@ enum RuntimeStatus {
   STATUS_COUNT
 };
 
-typedef struct {
-  char **saveTensors;
-  size_t saveTensorsSize;
-  MNNForwardType type;
-  union {
-    int numThread;
-    int mode;
-  };
-  struct {
-    char **inputs;
-    size_t inputsSize;
-    char **outputs;
-    size_t outputsSize;
-    int mode;
-  } path;
-  MNNForwardType backupType;
-  struct BackendConfig *backendConfig;
-} ScheduleConfig;
-void setModeScheduleConfig(ScheduleConfig *config, MNNGpuMode mode);
-void setNumThreadScheduleConfig(ScheduleConfig *config, int numThread);
-ScheduleConfig createScheduleConfig();
+// typedef struct {
+//   char **saveTensors;
+//   size_t saveTensorsSize;
+//   MNNForwardType type;
+//   union {
+//     int numThread;
+//     int mode;
+//   };
+//   struct {
+//     char **inputs;
+//     size_t inputsSize;
+//     char **outputs;
+//     size_t outputsSize;
+//     int mode;
+//   } path;
+//   MNNForwardType backupType;
+//   MNNBackendConfig *backendConfig;
+// } ScheduleConfig;
+
 typedef struct {
   const char *name;
   const char *type;
@@ -170,12 +149,12 @@ void Interpreter_setSessionHint(Interpreter *interpreter, int mode, int value);
 // RuntimeInfo *Interpreter_createRuntime(const ScheduleConfig *configs,
 //                                        size_t configSize);
 Session *Interpreter_createSession(Interpreter *interpreter,
-                                   const ScheduleConfig *config);
+                                   const MNNScheduleConfig *config);
 // Session *Interpreter_createSessionWithRuntime(Interpreter *interpreter,
 //                                               const ScheduleConfig *config,
 //                                               const RuntimeInfo *runtime);
 Session *Interpreter_createMultiPathSession(Interpreter *interpreter,
-                                            const ScheduleConfig *configs,
+                                            const MNNScheduleConfig *configs,
                                             size_t configSize);
 // Session *Interpreter_createMultiPathSessionWithRuntime(
 //     Interpreter *interpreter, const ScheduleConfig *configs, size_t

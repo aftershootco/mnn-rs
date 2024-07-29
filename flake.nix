@@ -30,7 +30,25 @@
       system: let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [rust-overlay.overlays.default mnn-overlay.overlays.${system}.default];
+          overlays = [
+            rust-overlay.overlays.default
+            mnn-overlay.overlays.${system}.default
+            (final: prev: {
+              cargo-with = let
+                pname = "cargo-with";
+                version = "0.3.2";
+                src = final.fetchCrate {
+                  inherit pname version;
+                  hash = "sha256-USBrtvN+3MZTeBPYSwxnZ3m6kCoBwuhU7NSBX5kwYSQ=";
+                };
+              in
+                final.rustPlatform.buildRustPackage rec {
+                  inherit pname version src;
+                  cargoLock = {lockFile = "${src}/Cargo.lock";};
+                  doCheck = false;
+                };
+            })
+          ];
         };
         inherit (pkgs) lib;
 
@@ -39,10 +57,10 @@
           extensions = ["rust-src" "rust-analyzer"];
           # Extra targets if required
           # targets = [
-          #   "x86_64-unknown-linux-gnu"
+          #   #   "x86_64-unknown-linux-gnu"
           #   "x86_64-unknown-linux-musl"
-          #   "x86_64-apple-darwin"
-          #   "aarch64-apple-darwin"
+          #   #   "x86_64-apple-darwin"
+          #   #   "aarch64-apple-darwin"
           # ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
@@ -50,7 +68,14 @@
         commonArgs = {
           inherit src;
           buildInputs = with pkgs;
-            [(mnn.override {enableMetal = true;}) opencv]
+            [
+              # (mnn.override {
+              #   # enableMetal = true;
+              #   enableVulkan = true;
+              # })
+              # opencv
+              # vulkan-loader
+            ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               libiconv
               # pkgs.darwin.apple_sdk.frameworks.CoreServices
@@ -97,9 +122,8 @@
         devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
           // {
             packages = with pkgs; [
-              cargo-nextest
-              cargo-criterion
-              cargo-expand
+              lldb
+              cargo-with
             ];
           });
       }

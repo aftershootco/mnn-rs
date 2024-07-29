@@ -1,8 +1,9 @@
 #include "Interpreter_c.h"
 #include "MNN/Interpreter.hpp"
 #include <MNN/MNNForwardType.h>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
-
 extern "C" {
 
 void modelPrintIO(const char *model) {
@@ -21,28 +22,6 @@ void modelPrintIO(const char *model) {
     std::cout << "Output: " << output.first << " ";
     output.second->printShape();
   }
-}
-
-struct BackendConfig createBackendConfig() {
-  BackendConfig config;
-  config.memory = MemoryMode::Memory_High;
-  config.power = PowerMode::Power_Normal;
-  config.precision = PrecisionMode::Precision_Normal;
-  config.sharedContext = nullptr;
-  return config;
-}
-
-void setModeScheduleConfig(ScheduleConfig *config, MNNGpuMode mode) {
-  config->mode = mode;
-}
-void setNumThreadScheduleConfig(ScheduleConfig *config, int numThread) {
-  config->numThread = numThread;
-}
-ScheduleConfig createScheduleConfig() {
-  ScheduleConfig config;
-  config.type = MNN_FORWARD_METAL;
-  config.numThread = 4;
-  return config;
 }
 
 const char *getVersion() { return MNN::getVersion(); }
@@ -108,22 +87,14 @@ void Interpreter_setSessionHint(Interpreter *interpreter, int mode, int value) {
 //     std::shared_ptr<MNN::Runtime>(runtimeInfo.second)};
 // }
 Session *Interpreter_createSession(Interpreter *interpreter,
-                                   const ScheduleConfig *config) {
+                                   const MNNScheduleConfig *config) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
-  MNN::ScheduleConfig cppConfig;
-  // cppConfig.saveTensors.assign(config->saveTensors,
-  // config->saveTensors + config->saveTensorsSize);
-  // cppConfig.path.inputs.assign(config->path.inputs, config->path.inputs +
-  // config->path.inputsSize);
-  // cppConfig.path.outputs.assign(config->path.outputs, config->path.outputs +
-  // config->path.outputsSize); cppConfig.path.mode =
-  // static_cast<MNN::ScheduleConfig::Path::Mode>(config->path.mode);
-  cppConfig.numThread = config->numThread;
-  // cppConfig.mode = config->mode;
-  cppConfig.type = config->type;
-  cppConfig.backupType = config->backupType;
-  // cppConfig.backendConfig = config->backendConfig;
-  return reinterpret_cast<Session *>(mnn_interpreter->createSession(cppConfig));
+  auto mnn_schedule_config =
+      reinterpret_cast<const MNN::ScheduleConfig *>(config);
+
+  return reinterpret_cast<Session *>(
+      mnn_interpreter->createSession(*mnn_schedule_config));
+  ;
 }
 // Session* Interpreter_createSessionWithRuntime(Interpreter* interpreter, const
 // ScheduleConfig* config, const RuntimeInfo* runtime) {
@@ -141,50 +112,21 @@ Session *Interpreter_createSession(Interpreter *interpreter,
 //     return interpreter->createSession(cppConfig, *runtime);
 // }
 Session *Interpreter_createMultiPathSession(Interpreter *interpreter,
-                                            const ScheduleConfig *configs,
+                                            const MNNScheduleConfig *configs,
                                             size_t configSize) {
-  std::vector<MNN::ScheduleConfig> cppConfigs(configSize);
-  for (size_t i = 0; i < configSize; ++i) {
-    cppConfigs[i].saveTensors.assign(configs[i].saveTensors,
-                                     configs[i].saveTensors +
-                                         configs[i].saveTensorsSize);
-    cppConfigs[i].type = configs[i].type;
-    cppConfigs[i].numThread = configs[i].numThread;
-    cppConfigs[i].path.inputs.assign(configs[i].path.inputs,
-                                     configs[i].path.inputs +
-                                         configs[i].path.inputsSize);
-    cppConfigs[i].path.outputs.assign(configs[i].path.outputs,
-                                      configs[i].path.outputs +
-                                          configs[i].path.outputsSize);
-    cppConfigs[i].path.mode =
-        static_cast<MNN::ScheduleConfig::Path::Mode>(configs[i].path.mode);
-    cppConfigs[i].backupType = configs[i].backupType;
-    cppConfigs[i].backendConfig =
-        reinterpret_cast<MNN::BackendConfig *>(configs[i].backendConfig);
-  }
+
+  auto mnn_configs = reinterpret_cast<const MNN::ScheduleConfig *>(configs);
+  // @todo: check if this is correct
+  std::vector<MNN::ScheduleConfig> cppConfigs(mnn_configs,
+                                              mnn_configs + configSize);
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
   return reinterpret_cast<Session *>(
       mnn_interpreter->createMultiPathSession(cppConfigs));
 }
+
 // Session* Interpreter_createMultiPathSessionWithRuntime(Interpreter*
 // interpreter, const ScheduleConfig* configs, size_t configSize, const
 // RuntimeInfo* runtime) {
-//     std::vector<MNN::ScheduleConfig> cppConfigs(configSize);
-//     for (size_t i = 0; i < configSize; ++i) {
-//         cppConfigs[i].saveTensors.assign(configs[i].saveTensors,
-//         configs[i].saveTensors + configs[i].saveTensorsSize);
-//         cppConfigs[i].type = configs[i].type;
-//         cppConfigs[i].numThread = configs[i].numThread;
-//         cppConfigs[i].path.inputs.assign(configs[i].path.inputs,
-//         configs[i].path.inputs + configs[i].path.inputsSize);
-//         cppConfigs[i].path.outputs.assign(configs[i].path.outputs,
-//         configs[i].path.outputs + configs[i].path.outputsSize);
-//         cppConfigs[i].path.mode =
-//         static_cast<MNN::ScheduleConfig::Path::Mode>(configs[i].path.mode);
-//         cppConfigs[i].backupType = configs[i].backupType;
-//         cppConfigs[i].backendConfig = configs[i].backendConfig;
-//     }
-//     return interpreter->createMultiPathSession(cppConfigs, *runtime);
 // }
 int Interpreter_releaseSession(Interpreter *interpreter, Session *session) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
@@ -296,7 +238,8 @@ TensorInfoArray Interpreter_getSessionOutputAll(const Interpreter *interpreter,
   auto out = createTensorInfoArray(outputMap.size());
   size_t index = 0;
   for (const auto &entry : outputMap) {
-    out.tensors[index].name = createCString(entry.first.c_str(), entry.first.size());
+    out.tensors[index].name =
+        createCString(entry.first.c_str(), entry.first.size());
     out.tensors[index].tensor = static_cast<void *>(entry.second);
     ++index;
   }
@@ -311,7 +254,8 @@ TensorInfoArray Interpreter_getSessionInputAll(const Interpreter *interpreter,
   auto in = createTensorInfoArray(inputMap.size());
   size_t index = 0;
   for (const auto &entry : inputMap) {
-    in.tensors[index].name = createCString(entry.first.c_str(), entry.first.size());
+    in.tensors[index].name =
+        createCString(entry.first.c_str(), entry.first.size());
     in.tensors[index].tensor = static_cast<void *>(entry.second);
     ++index;
   }

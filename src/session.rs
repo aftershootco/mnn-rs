@@ -12,4 +12,7 @@ impl Session {
             __marker: PhantomData,
         }
     }
+    pub fn raw_mut(&self) -> *mut mnn_sys::Session {
+        self.session
+    }
 }

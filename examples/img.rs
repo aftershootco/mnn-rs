@@ -1,4 +1,4 @@
-use ffi::{BackendConfig, ScheduleConfig};
+use mnn::ffi::MNNForwardType;
 use mnn::*;
 use std::path::PathBuf;
 
@@ -13,22 +13,28 @@ pub fn main() -> anyhow::Result<()> {
     let mut interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
-    config.type_ = ffi::MNNForwardType::MNN_FORWARD_CPU;
+    config.set_type(MNNForwardType::MNN_FORWARD_CPU);
     let mut backend_config = BackendConfig::new();
-    backend_config.precision = ffi::PrecisionMode::Precision_High;
-    backend_config.power = ffi::PowerMode::Power_High;
-    backend_config.memory = ffi::MemoryMode::Memory_High;
+    backend_config.set_precision_mode(PrecisionMode::Precision_High);
+    backend_config.set_power_mode(PowerMode::Power_High);
+    backend_config.set_memory_mode(MemoryMode::Memory_High);
+    config.set_backend_config(&backend_config);
 
-    config.backendConfig = core::ptr::addr_of!(backend_config).cast_mut();
     let now = std::time::Instant::now();
-    let session = interpreter.create_session(&config)?;
+    let session = interpreter.create_session(&mut config)?;
     println!("Time to load: {:?}", now.elapsed());
     let inputs = interpreter.get_inputs(&session);
     let outputs = interpreter.get_outputs(&session);
 
-   // let img = zune_image::image::Image::open(&cli.image)?;
-   // let img: Vec<f32> = resize(img, 512, 512)?.into_iter().map(|x| x as f32).collect();
-    let img: Vec<f32> = std::fs::read(&cli.image)?.into_iter().map(|x| x as f32).collect();
+    let img = zune_image::image::Image::open(&cli.image)?;
+    let img: Vec<f32> = resize(img, 512, 512)?
+        .into_iter()
+        .map(|x| x as f32)
+        .collect();
+    let img: Vec<f32> = std::fs::read(&cli.image)?
+        .into_iter()
+        .map(|x| x as f32)
+        .collect();
 
     let mut image = inputs
         .iter()
