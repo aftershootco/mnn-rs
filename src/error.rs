@@ -59,12 +59,12 @@ impl From<ErrorKind> for MNNError {
 
 macro_rules! ensure {
     ($cond:expr, $kind:expr) => {
-        if !$cond {
+        if !($cond) {
             return Err(crate::error::MNNError::new($kind));
         }
     };
     ($cond:expr, $from:expr, $to:expr) => {
-        if !$cond {
+        if (!$cond) {
             #[cfg(feature = "error-report")]
             return Err(error_stack::Report::new($from).change_context($to));
             #[cfg(not(feature = "error-report"))]

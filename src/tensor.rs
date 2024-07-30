@@ -159,6 +159,12 @@ impl<'a, TT> TensorRef<'a, TT> {
             __marker: PhantomData,
         }
     }
+
+    pub fn wait(&self, map_type: MapType, finish: bool) {
+        unsafe {
+            Tensor_wait(self.tensor, map_type, finish as i32);
+        }
+    }
 }
 
 impl Tensor<Host> {

@@ -98,7 +98,7 @@ impl Interpreter {
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         let ret = unsafe { mnn_sys::Interpreter_runSession(self.interpreter, session.session) };
         ensure!(
-            ret != mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
+            ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
             ErrorKind::InternalError(ret)
         );
         Ok(())

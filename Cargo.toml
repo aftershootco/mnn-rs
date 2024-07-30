@@ -21,7 +21,7 @@ metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
 error-report = ["dep:error-stack"]
-default = ["error-report"]
+default = ["error-report", "metal"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
