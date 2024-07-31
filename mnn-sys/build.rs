@@ -182,57 +182,6 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
     Ok(())
 }
 
-// pub fn autocxx_bindings(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<()> {
-//     let inc_path = vendor.as_ref().join("include");
-//     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-//     let mut inc_paths = vec![inc_path.clone(), manifest_dir];
-//     // pub struct EmptyBuilderContext;
-//     // impl autocxx_engine::BuilderContext for EmptyBuilderContext {
-//     //     fn setup() {}
-//     //     fn get_dependency_recorder() -> Option<Box<dyn autocxx_engine::RebuildDependencyRecorder>> {
-//     //         None
-//     //     }
-//     // }
-//
-//     // CFG.exported_header_prefixes.push("mnn-glue");
-//     // dbg!(cxx_build::CFG);
-//     let _gate = cxx_build::bridge("src/shared.rs");
-//     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-//     inc_paths.push(out_dir.join("cxxbridge").join("include"));
-//
-//     // let shared =
-//     //     autocxx_engine::Builder::<'_, EmptyBuilderContext>::new("src/shared.rs", &inc_paths)
-//     //         .extra_clang_args(&["-std=c++14"])
-//     //         .custom_gendir(out_dir.join("autocxx-shared"))
-//     //         .suppress_system_headers(true)
-//     //         .build_listing_files()
-//     //         .context("Failed to generate autocxx bindings")?;
-//     // let cpp_files = shared
-//     //     .2
-//     //     .iter()
-//     //     .filter(|f| f.to_string_lossy().contains("include"))
-//     //     .next()
-//     //     .ok_or_else(|| anyhow!("Failed to find include files"))?;
-//     // let include_folder = cpp_files
-//     //     .ancestors()
-//     //     .find(|p| p.ends_with("include"))
-//     //     .ok_or_else(|| anyhow!("Failed to find include folder"))?;
-//
-//     // inc_paths.push(include_folder.to_path_buf());
-//     let mut builder = autocxx_build::Builder::new("src/ffi.rs", &inc_paths)
-//         .extra_clang_args(&["-std=c++14"])
-//         .build()
-//         .context("Failed to generate autocxx bindings")?;
-//     builder
-//         .std("c++14")
-//         .file("glue/TensorGlue.cpp")
-//         .compile("mnn-autocxx-bridge");
-//     println!("cargo:rerun-if-changed=src/ffi.rs");
-//     println!("cargo:rustc-link-lib=mnn-autocxx-bridge");
-//
-//     Ok(())
-// }
-//
 pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<()> {
     let patch = dunce::canonicalize(patch)?;
     rerun_if_changed(&patch);

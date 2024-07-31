@@ -11,4 +11,3 @@ fast_image_resize = "4.2.1"
 mnn = { version = "0.1.0", path = "..", features = ["clap", "metal", "coreml", "opencl"] }
 owo-colors = "4.0.0"
 serde_json = "1.0.121"
-turbojpeg = "1.1.0"

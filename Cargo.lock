@@ -195,15 +195,6 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 [[package]]
 name = "cmake"
 version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "cmake"
-version = "0.1.50"
 source = "git+https://github.com/blonteractor/cmake-rs#b96aab10486f2c1540422dd4e6f38e983745fd5a"
 dependencies = [
  "cc",
@@ -414,7 +405,7 @@ dependencies = [
  "anyhow",
  "bindgen",
  "cc",
- "cmake 0.1.50 (git+https://github.com/blonteractor/cmake-rs)",
+ "cmake",
  "diffy",
  "dunce",
  "fs_extra",
@@ -468,12 +459,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pkg-config"
-version = "0.3.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "prettyplease"
@@ -543,7 +528,6 @@ dependencies = [
  "mnn",
  "owo-colors",
  "serde_json",
- "turbojpeg",
 ]
 
 [[package]]
@@ -671,29 +655,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "turbojpeg"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291e4517c03ca0b7a6fc7b69a9c5a0034e268de7b5a4ddf21d26dcc4c9cbadaa"
-dependencies = [
- "libc",
- "thiserror",
- "turbojpeg-sys",
-]
-
-[[package]]
-name = "turbojpeg-sys"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fa6daade3b979fb7454cce5ebcb9772ce7a1cf476ea27ed20ed06e13d9bc983"
-dependencies = [
- "anyhow",
- "cmake 0.1.50 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc",
- "pkg-config",
 ]
 
 [[package]]

@@ -64,9 +64,10 @@
           # ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
-        src = craneLib.cleanCargoSource (craneLib.path ./.);
+        src = craneLib.path ./.;
         commonArgs = {
           inherit src;
+          pname = "runner";
           buildInputs = with pkgs;
             [
               # (mnn.override {
@@ -90,7 +91,7 @@
             ]; # Inputs required for the TARGET system
 
           nativeBuildInputs = with pkgs; [
-            # often required for c/c++ libs
+            cmake
             pkg-config
             rustPlatform.bindgenHook
           ]; # Intputs required for the HOST system
@@ -100,28 +101,28 @@
           # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-        hello = craneLib.buildPackage (commonArgs
+        mnn-runner = craneLib.buildPackage (commonArgs
           // {
             inherit cargoArtifacts;
           });
       in {
         checks = {
-          hello-clippy = craneLib.cargoClippy (commonArgs
+          mnn-runner-clippy = craneLib.cargoClippy (commonArgs
             // {
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
             });
-          hello-fmt = craneLib.cargoFmt {
+          mnn-runner-fmt = craneLib.cargoFmt {
             inherit src;
           };
-          hello-nextest = craneLib.cargoNextest (commonArgs
+          mnn-runner-nextest = craneLib.cargoNextest (commonArgs
             // {
               inherit cargoArtifacts;
               partitions = 1;
               partitionType = "count";
             });
         };
-        packages.hello = hello;
+        packages.default = mnn-runner;
 
         devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
           // {

@@ -94,8 +94,6 @@ fn main() -> Result<()> {
         let cpu_tensor = time!(tensor.create_host_tensor_from_device(true);
          format!("Creating and Copying to host tensor {}", name.green()));
         cpu_tensor.print_shape();
-        // dbg!(cpu_tensor.get_type());
-        // dbg!(cpu_tensor.get_diemension_type());
         let shape = cpu_tensor.shape();
         let n = cpu_tensor.batch();
         let c = cpu_tensor.channel();
@@ -108,7 +106,7 @@ fn main() -> Result<()> {
                 let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
                 // let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
                 out_ppm.extend(out_vec.iter().map(|x| *x as u8));
-                std::fs::write(format!("{}.bin", cli.out_name(name)?), out_ppm)?;
+                std::fs::write(format!("{}.ppm", cli.out_name(name)?), out_ppm)?;
             }
             // (128 | 16, 3 | 2, _, _) => {
             _ if shape.size == 2 => {
