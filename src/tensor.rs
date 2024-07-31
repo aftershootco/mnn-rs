@@ -172,6 +172,10 @@ impl<'a, TT> TensorRef<'a, TT> {
         type_
     }
 
+    pub fn is_type_of<T: HalideType>(&self) -> bool {
+        unsafe { Tensor_isTypeOf(self.tensor, halide_type_of::<T>()) }
+    }
+
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host> {
         let tensor = unsafe { Tensor_createHostTensorFromDevice(self.tensor, copy_data as i32) };
         debug_assert!(!tensor.is_null());
@@ -221,6 +225,7 @@ impl Tensor<Host> {
 
     pub fn host<T: HalideType>(&self) -> &[T] {
         let size = self.element_size();
+        // assert!(self.is_type_of::<T>());
 
         let result = unsafe {
             let data = Tensor_host(self.tensor.tensor).cast();
@@ -231,6 +236,7 @@ impl Tensor<Host> {
 
     pub fn host_mut<T: HalideType>(&mut self) -> &mut [T] {
         let size = self.element_size();
+        // assert!(self.is_type_of::<T>());
 
         let result = unsafe {
             let data: *mut T = Tensor_host_mut(self.tensor.tensor).cast();

@@ -58,6 +58,7 @@ void Tensor_unmap(Tensor *tensor, MapType mtype, DimensionType dtype,
 int Tensor_wait(Tensor *tensor, MapType mtype, int finish);
 int Tensor_setDevicePtr(Tensor *tensor, const void *devicePtr, int memoryType);
 halide_type_c Tensor_getType(const Tensor *tensor);
+bool Tensor_isTypeOf(const Tensor *tensor, struct halide_type_t type);
 #ifdef __cplusplus
 }
 #endif

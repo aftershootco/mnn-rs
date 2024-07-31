@@ -154,4 +154,10 @@ halide_type_c Tensor_getType(const Tensor *tensor) {
     return ret;
 }
 
+bool Tensor_isTypeOf(const Tensor *tensor, struct halide_type_t type) {
+    auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
+    auto h_type = mnn_tensor->getType();
+    return (h_type == type);
+}
+
 } // extern "C"

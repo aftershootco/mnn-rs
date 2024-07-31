@@ -51,6 +51,7 @@ fn main() -> Result<()> {
     build_cmake(&vendor, &install_dir)?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
     if cfg!(target_os = "macos") {
+        #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Foundation");
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=CoreGraphics");
@@ -200,8 +201,6 @@ pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result
     rerun_if_changed(&patch);
     let patch = std::fs::read_to_string(&patch)?;
     let patch = diffy::Patch::from_str(&patch)?;
-    // let vendor = vendor.as_ref();
-    // let interpreter_path = vendor.join("include").join("MNN").join("Interpreter.hpp");
     let file_path = file.as_ref();
     let file = std::fs::read_to_string(&file_path).context("Failed to read input file")?;
     let patched_file =
@@ -214,28 +213,28 @@ pub fn rerun_if_changed(path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed={}", path.as_ref().display());
 }
 
-pub fn vulkan_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
-    let vendor = vendor.as_ref();
-    let vulkan_dir = vendor.join("source/backend/vulkan");
-    if cfg!(feature = "vulkan") {
-        vec![
-            vulkan_dir.clone(),
-            vulkan_dir.join("runtime"),
-            vulkan_dir.join("component"),
-            // IDK If the order is important but the cmake file does it like this
-            vulkan_dir.join("buffer/execution"),
-            vulkan_dir.join("buffer/backend"),
-            vulkan_dir.join("buffer"),
-            vulkan_dir.join("buffer/shaders"),
-            // vulkan_dir.join("image/execution"),
-            // vulkan_dir.join("image/backend"),
-            // vulkan_dir.join("image"),
-            // vulkan_dir.join("image/shaders"),
-            vendor.join("schema/current"),
-            vendor.join("3rd_party/flatbuffers/include"),
-            vendor.join("source"),
-        ]
-    } else {
-        vec![]
-    }
-}
+// pub fn vulkan_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
+//     let vendor = vendor.as_ref();
+//     let vulkan_dir = vendor.join("source/backend/vulkan");
+//     if cfg!(feature = "vulkan") {
+//         vec![
+//             vulkan_dir.clone(),
+//             vulkan_dir.join("runtime"),
+//             vulkan_dir.join("component"),
+//             // IDK If the order is important but the cmake file does it like this
+//             vulkan_dir.join("buffer/execution"),
+//             vulkan_dir.join("buffer/backend"),
+//             vulkan_dir.join("buffer"),
+//             vulkan_dir.join("buffer/shaders"),
+//             // vulkan_dir.join("image/execution"),
+//             // vulkan_dir.join("image/backend"),
+//             // vulkan_dir.join("image"),
+//             // vulkan_dir.join("image/shaders"),
+//             vendor.join("schema/current"),
+//             vendor.join("3rd_party/flatbuffers/include"),
+//             vendor.join("source"),
+//         ]
+//     } else {
+//         vec![]
+//     }
+// }
