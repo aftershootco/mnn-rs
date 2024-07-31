@@ -23,8 +23,8 @@ pub fn main() -> anyhow::Result<()> {
     let now = std::time::Instant::now();
     let session = interpreter.create_session(&mut config)?;
     println!("Time to load: {:?}", now.elapsed());
-    let inputs = interpreter.get_inputs(&session);
-    let outputs = interpreter.get_outputs(&session);
+    let inputs = interpreter.inputs(&session);
+    let outputs = interpreter.outputs(&session);
 
     let img = zune_image::image::Image::open(&cli.image)?;
     let img: Vec<f32> = resize(img, 512, 512)?

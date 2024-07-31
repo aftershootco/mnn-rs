@@ -24,7 +24,7 @@ typedef struct {
   size_t size;
 } TensorInfoArray;
 
-TensorInfoArray createTensorInfoArray(size_t count);
+TensorInfoArray *createTensorInfoArray(size_t count);
 void destroyTensorInfoArray(TensorInfoArray *array);
 TensorInfo *getTensorInfoArray(TensorInfoArray const *array, size_t index);
 typedef struct {

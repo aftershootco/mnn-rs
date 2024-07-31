@@ -229,8 +229,9 @@ int Interpreter_getSessionInfo(Interpreter *interpreter, const Session *session,
   return mnn_interpreter->getSessionInfo(
       mnn_session, static_cast<MNN::Interpreter::SessionInfoCode>(code), ptr);
 }
-TensorInfoArray Interpreter_getSessionOutputAll(const Interpreter *interpreter,
-                                                const Session *session) {
+TensorInfoArray const *
+Interpreter_getSessionOutputAll(const Interpreter *interpreter,
+                                const Session *session) {
   auto mnn_interpreter =
       reinterpret_cast<MNN::Interpreter const *>(interpreter);
   auto mnn_session = reinterpret_cast<MNN::Session const *>(session);
@@ -238,15 +239,16 @@ TensorInfoArray Interpreter_getSessionOutputAll(const Interpreter *interpreter,
   auto out = createTensorInfoArray(outputMap.size());
   size_t index = 0;
   for (const auto &entry : outputMap) {
-    out.tensors[index].name =
+    out->tensors[index].name =
         createCString(entry.first.c_str(), entry.first.size());
-    out.tensors[index].tensor = static_cast<void *>(entry.second);
+    out->tensors[index].tensor = static_cast<void *>(entry.second);
     ++index;
   }
   return out;
 }
-TensorInfoArray Interpreter_getSessionInputAll(const Interpreter *interpreter,
-                                               const Session *session) {
+TensorInfoArray const *
+Interpreter_getSessionInputAll(const Interpreter *interpreter,
+                               const Session *session) {
   auto mnn_interpreter =
       reinterpret_cast<MNN::Interpreter const *>(interpreter);
   auto mnn_session = reinterpret_cast<MNN::Session const *>(session);
@@ -254,9 +256,9 @@ TensorInfoArray Interpreter_getSessionInputAll(const Interpreter *interpreter,
   auto in = createTensorInfoArray(inputMap.size());
   size_t index = 0;
   for (const auto &entry : inputMap) {
-    in.tensors[index].name =
+    in->tensors[index].name =
         createCString(entry.first.c_str(), entry.first.size());
-    in.tensors[index].tensor = static_cast<void *>(entry.second);
+    in->tensors[index].tensor = static_cast<void *>(entry.second);
     ++index;
   }
   return in;

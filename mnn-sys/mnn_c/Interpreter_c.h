@@ -186,10 +186,10 @@ Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,
                                      const Session *session, const char *name);
 int Interpreter_getSessionInfo(Interpreter *interpreter, const Session *session,
                                int code, void *ptr);
-TensorInfoArray Interpreter_getSessionOutputAll(const Interpreter *interpreter,
+TensorInfoArray const * Interpreter_getSessionOutputAll(const Interpreter *interpreter,
                                                 const Session *session);
 
-TensorInfoArray Interpreter_getSessionInputAll(const Interpreter *interpreter,
+TensorInfoArray const * Interpreter_getSessionInputAll(const Interpreter *interpreter,
                                                const Session *session);
 void Interpreter_resizeTensor(Interpreter *interpreter, Tensor *tensor,
                               const int *dims, size_t dimsSize);

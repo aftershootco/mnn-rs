@@ -119,8 +119,24 @@ impl<'a, TT> TensorRef<'a, TT> {
         unsafe { Tensor_dimensions(self.tensor) as usize }
     }
 
+    pub fn width(&self) -> u32 {
+        unsafe { Tensor_width(self.tensor) as u32 }
+    }
+
+    pub fn height(&self) -> u32 {
+        unsafe { Tensor_height(self.tensor) as u32 }
+    }
+
+    pub fn channel(&self) -> u32 {
+        unsafe { Tensor_channel(self.tensor) as u32 }
+    }
+
+    pub fn batch(&self) -> u32 {
+        unsafe { Tensor_batch(self.tensor) as u32 }
+    }
+
     pub fn size(&self) -> usize {
-        unsafe { Tensor_size(self.tensor) as usize }
+        unsafe { Tensor_usize(self.tensor) }
     }
 
     pub fn element_size(&self) -> usize {
@@ -130,6 +146,12 @@ impl<'a, TT> TensorRef<'a, TT> {
     pub fn print_shape(&self) {
         unsafe {
             Tensor_printShape(self.tensor);
+        }
+    }
+
+    pub fn print(&self) {
+        unsafe {
+            Tensor_print(self.tensor);
         }
     }
 

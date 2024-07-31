@@ -18,6 +18,7 @@ pub struct Cli {
 pub enum ForwardType {
     CPU,
     Metal,
+    Coreml,
     Vulkan,
 }
 
@@ -26,6 +27,7 @@ impl ForwardType {
         match self {
             ForwardType::CPU => MNNForwardType::MNN_FORWARD_CPU,
             ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
+            ForwardType::Coreml => MNNForwardType::MNN_FORWARD_NN,
             ForwardType::Vulkan => MNNForwardType::MNN_FORWARD_VULKAN,
         }
     }
@@ -72,8 +74,8 @@ pub fn main() -> anyhow::Result<()> {
     let now = std::time::Instant::now();
     let session = interpreter.create_session(&mut config)?;
     println!("create session time: {:?}", now.elapsed());
-    let mut image = interpreter.get_input(&session, "image")?;
-    let mut mask = interpreter.get_input(&session, "mask")?;
+    let mut image = interpreter.input(&session, "image")?;
+    let mut mask = interpreter.input(&session, "mask")?;
     let mut image_tensor = image.create_host_tensor_from_device(false);
     image_tensor.host_mut().fill(1.0f32);
     image.copy_from_host_tensor(&image_tensor)?;
@@ -83,7 +85,7 @@ pub fn main() -> anyhow::Result<()> {
     mask.copy_from_host_tensor(&mask_tensor)?;
     println!("copy time: {:?}", now.elapsed());
 
-    let output = interpreter.get_output(&session, "output")?;
+    let output = interpreter.output(&session, "output")?;
     // image.copy_from_host_tensor(&unit_tensor)?;
 
     let now = std::time::Instant::now();

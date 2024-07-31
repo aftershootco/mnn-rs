@@ -1,3 +1,10 @@
+[workspace]
+members = [
+    ".",
+    "mnn-sys",
+    "runner",
+]
+
 [package]
 name = "mnn"
 version = "0.1.0"
@@ -13,19 +20,22 @@ mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
 paste = "1.0.15"
 tap = "1.0.1"
 thiserror = "1.0.63"
-zune-image = "0.4.15"
 error-stack = { version = "0.5.0", optional = true }
+clap = { version = "4.5.9", features = ["derive"], optional = true }
 
 [features]
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
+opencl = ["mnn-sys/opencl"]
 error-report = ["dep:error-stack"]
+# Re exports some enums and structs with `#[derive(clap::ValueEnum, Debug)]`
+clap = ["dep:clap"]
 default = ["error-report", "metal"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
 clap = { version = "4.5.9", features = ["derive"] }
-fast_image_resize = "4.2.1"
-zune-core = "0.4.12"
-zune-image = { version = "0.4.15", default-features = false, features = ["jpeg", "png"] }
+# fast_image_resize = "4.2.1"
+# zune-core = "0.4.12"
+# zune-image = { version = "0.4.15", default-features = false, features = ["jpeg", "png"] }

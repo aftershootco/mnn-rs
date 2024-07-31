@@ -45,6 +45,12 @@ fn main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=CoreGraphics");
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Metal");
+        #[cfg(feature = "coreml")]
+        println!("cargo:rustc-link-lib=framework=CoreML");
+        #[cfg(feature = "coreml")]
+        println!("cargo:rustc-link-lib=framework=CoreVideo");
+        #[cfg(feature = "opencl")]
+        println!("cargo:rustc-link-lib=framework=OpenCL");
     }
     println!(
         "cargo:rustc-link-search=native={}",
@@ -76,6 +82,8 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
             let builder = builder.clang_arg("-DMNN_METAL=1");
             #[cfg(feature = "coreml")]
             let builder = builder.clang_arg("-DMNN_COREML=1");
+            #[cfg(feature = "opencl")]
+            let builder = builder.clang_arg("-DMNN_OPENCL=1");
             // #[cfg(feature = "vulkan")]
             // let builder = builder.clang_args(
             //     vulkan_includes(vendor)
@@ -129,6 +137,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             config.define("MNN_METAL", "1");
             #[cfg(feature = "coreml")]
             config.define("MNN_COREML", "1");
+            #[cfg(feature = "opencl")]
+            config.define("MNN_OPENCL", "ON");
             config
         })
         .cpp(true)
@@ -164,6 +174,8 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_METAL", "ON");
             #[cfg(feature = "coreml")]
             config.define("MNN_COREML", "ON");
+            #[cfg(feature = "opencl")]
+            config.define("MNN_OPENCL", "ON");
             config
         })
         .build();

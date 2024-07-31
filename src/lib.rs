@@ -22,3 +22,5 @@ pub mod prelude {
     pub use error_stack::{Report, ResultExt};
     pub use libc::*;
 }
+#[cfg(feature = "clap")]
+pub mod utils;

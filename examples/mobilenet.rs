@@ -28,7 +28,7 @@ pub fn main() -> anyhow::Result<()> {
     //     .find(|x| x.name() == "image")
     //     .expect("No input named image")
     //     .tensor();
-    let mut image = interpreter.get_input(&session, "image")?;
+    let mut image = interpreter.input(&session, "image")?;
     let mut image_tensor = image.create_host_tensor_from_device(false);
     let size = image_tensor.element_size();
     let unit_tensor_data = vec![1.0f32; size];
@@ -38,7 +38,7 @@ pub fn main() -> anyhow::Result<()> {
     let now = std::time::Instant::now();
     image.copy_from_host_tensor(&image_tensor)?;
     println!("copy time for image tensor: {:?}", now.elapsed());
-    let output = interpreter.get_output(&session, "dense")?;
+    let output = interpreter.output(&session, "dense")?;
     // mask.host_mut::<f32>().fill(0.7f32);
 
     // image.copy_from_host_tensor(&unit_tensor)?;

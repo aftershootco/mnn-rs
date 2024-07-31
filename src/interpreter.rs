@@ -43,13 +43,13 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn get_inputs(&self, session: &crate::Session) -> TensorList {
+    pub fn inputs(&self, session: &crate::Session) -> TensorList {
         let inputs =
             unsafe { mnn_sys::Interpreter_getSessionInputAll(self.interpreter, session.session) };
-        TensorList::from_raw(inputs)
+        TensorList::from_ptr(inputs)
     }
 
-    pub fn get_input<'i>(
+    pub fn input<'i>(
         &'i self,
         session: &crate::Session,
         name: impl AsRef<str>,
@@ -70,7 +70,7 @@ impl Interpreter {
         })
     }
 
-    pub fn get_output<'i>(
+    pub fn output<'i>(
         &'i self,
         session: &crate::Session,
         name: impl AsRef<str>,
@@ -104,21 +104,20 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn get_outputs(&self, session: &crate::session::Session) -> TensorList {
+    pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
         let outputs =
             unsafe { mnn_sys::Interpreter_getSessionOutputAll(self.interpreter, session.session) };
-        TensorList::from_raw(outputs)
+        TensorList::from_ptr(outputs)
     }
 }
 
-#[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct TensorInfo<'t> {
+pub struct TensorInfo<'t, 'tl> {
     pub(crate) tensor_info: *mut mnn_sys::TensorInfo,
-    pub(crate) __marker: PhantomData<&'t TensorList>,
+    pub(crate) __marker: PhantomData<&'tl TensorList<'t>>,
 }
 
-impl core::fmt::Debug for TensorInfo<'_> {
+impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
@@ -127,8 +126,8 @@ impl core::fmt::Debug for TensorInfo<'_> {
     }
 }
 
-impl<'t> TensorInfo<'t> {
-    pub fn name(&self) -> &'t str {
+impl<'t, 'tl> TensorInfo<'t, 'tl> {
+    pub fn name(&self) -> &'tl str {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { (*self.tensor_info).name.to_cstr() }
             .to_str()
@@ -146,41 +145,49 @@ impl<'t> TensorInfo<'t> {
     }
 }
 
-pub struct TensorList {
-    pub(crate) inner: mnn_sys::TensorInfoArray,
-    pub(crate) __marker: PhantomData<()>,
+#[repr(transparent)]
+pub struct TensorList<'t> {
+    pub(crate) inner: *const mnn_sys::TensorInfoArray,
+    pub(crate) __marker: PhantomData<&'t Interpreter>,
 }
 
-impl core::fmt::Debug for TensorList {
+impl<'t> core::fmt::Debug for TensorList<'t> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
-impl Drop for TensorList {
+impl Drop for TensorList<'_> {
     fn drop(&mut self) {
-        unsafe { mnn_sys::destroyTensorInfoArray(&mut self.inner) }
+        unsafe { mnn_sys::destroyTensorInfoArray(self.inner.cast_mut()) }
     }
 }
 
-impl TensorList {
-    pub fn from_raw(inner: mnn_sys::TensorInfoArray) -> Self {
+impl<'t> TensorList<'t> {
+    pub fn from_ptr(inner: *const mnn_sys::TensorInfoArray) -> Self {
         Self {
             inner,
             __marker: PhantomData,
         }
     }
 
-    pub fn size(&self) -> usize {
-        self.inner.size
+    pub fn to_map(
+        &'t self,
+    ) -> std::collections::HashMap<String, crate::TensorRef<'t, crate::Device>> {
+        self.iter()
+            .map(|t| (t.name().to_string(), t.tensor()))
+            .collect()
     }
 
-    pub fn get<'t>(&'t self, index: usize) -> Option<TensorInfo<'t>> {
+    pub fn size(&self) -> usize {
+        unsafe { (*self.inner).size }
+    }
+
+    pub fn get(&self, index: usize) -> Option<TensorInfo<'t, '_>> {
         if index >= self.size() {
             return None;
         } else {
-            let gtinfo =
-                unsafe { mnn_sys::getTensorInfoArray(core::ptr::addr_of!(self.inner), index) };
+            let gtinfo = unsafe { mnn_sys::getTensorInfoArray(self.inner, index) };
             if !gtinfo.is_null() {
                 Some(TensorInfo {
                     tensor_info: gtinfo,
@@ -200,12 +207,12 @@ impl TensorList {
     }
 }
 
-pub struct TensorListIter<'t> {
-    tensor_list: &'t TensorList,
+pub struct TensorListIter<'t, 'tl> {
+    tensor_list: &'tl TensorList<'t>,
     idx: usize,
 }
-impl<'t> Iterator for TensorListIter<'t> {
-    type Item = TensorInfo<'t>;
+impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
+    type Item = TensorInfo<'t, 'tl>;
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.idx;
         self.idx += 1;

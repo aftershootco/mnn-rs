@@ -18,6 +18,7 @@ tap = "1.0.1"
 vulkan = []
 metal = []
 coreml = ["metal"]
+opencl = []
 
 [dependencies]
 libc = "0.2.155"

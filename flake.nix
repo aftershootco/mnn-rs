@@ -72,6 +72,7 @@
               # (mnn.override {
               #   # enableMetal = true;
               #   enableVulkan = true;
+              #   buildConverter = true;
               # })
               # opencv
               # vulkan-loader
@@ -83,6 +84,9 @@
               # pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
               # pkgs.darwin.apple_sdk.frameworks.Foundation
               pkgs.darwin.apple_sdk.frameworks.Metal
+              pkgs.darwin.apple_sdk.frameworks.OpenCL
+              pkgs.darwin.apple_sdk.frameworks.CoreML
+              pkgs.darwin.apple_sdk.frameworks.CoreVideo
             ]; # Inputs required for the TARGET system
 
           nativeBuildInputs = with pkgs; [
@@ -124,6 +128,8 @@
             packages = with pkgs; [
               lldb
               cargo-with
+              cargo-expand
+              delta
             ];
           });
       }
