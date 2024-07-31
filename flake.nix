@@ -64,10 +64,10 @@
           # ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
-        src = craneLib.path ./.;
+        src = ./.;
         commonArgs = {
           inherit src;
-          pname = "runner";
+          cargoExtraArgs = "--package runner";
           buildInputs = with pkgs;
             [
               # (mnn.override {
@@ -75,30 +75,32 @@
               #   enableVulkan = true;
               #   buildConverter = true;
               # })
-              # opencv
-              # vulkan-loader
             ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               libiconv
-              # pkgs.darwin.apple_sdk.frameworks.CoreServices
-              # pkgs.darwin.apple_sdk.frameworks.Security
-              # pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-              # pkgs.darwin.apple_sdk.frameworks.Foundation
               pkgs.darwin.apple_sdk.frameworks.Metal
               pkgs.darwin.apple_sdk.frameworks.OpenCL
               pkgs.darwin.apple_sdk.frameworks.CoreML
               pkgs.darwin.apple_sdk.frameworks.CoreVideo
-            ]; # Inputs required for the TARGET system
+            ];
 
-          nativeBuildInputs = with pkgs; [
-            cmake
-            pkg-config
-            rustPlatform.bindgenHook
-          ]; # Intputs required for the HOST system
-          # This is often requird for any ffi based packages that use bindgen
+          nativeBuildInputs = with pkgs;
+            [
+              cmake
+              pkg-config
+              rustPlatform.bindgenHook
+            ]
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+              xcbuild
+            ];
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          # For using pkg-config that many libraries require
           # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
+          MNN_SRC = pkgs.fetchFromGitHub {
+            owner = "alibaba";
+            repo = "MNN";
+            rev = "2.9.0";
+            hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
+          };
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
         mnn-runner = craneLib.buildPackage (commonArgs

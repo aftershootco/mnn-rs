@@ -31,7 +31,7 @@ opencl = ["mnn-sys/opencl"]
 error-report = ["dep:error-stack"]
 # Re exports some enums and structs with `#[derive(clap::ValueEnum, Debug)]`
 clap = ["dep:clap"]
-default = ["error-report", "metal"]
+default = ["error-report"]
 
 [dev-dependencies]
 anyhow = "1.0.86"

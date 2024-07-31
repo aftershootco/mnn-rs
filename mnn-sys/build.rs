@@ -1,6 +1,11 @@
 use ::tap::*;
 use anyhow::*;
-use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{
+    fs::Permissions,
+    path::{Path, PathBuf},
+};
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
@@ -14,23 +19,29 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-    ensure_vendor_exists(VENDOR)?;
+    let source = PathBuf::from(
+        std::env::var("MNN_SRC")
+            .ok()
+            .unwrap_or_else(|| VENDOR.into()),
+    );
+
+    ensure_vendor_exists(&source)?;
 
     let vendor = out_dir.join("vendor");
     if !vendor.exists() {
         fs_extra::dir::copy(
-            VENDOR,
+            &source,
             &vendor,
             &fs_extra::dir::CopyOptions::new()
                 .overwrite(true)
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
-        try_patch_file(
-            "patches/typedef_template.patch",
-            &vendor.join("include").join("MNN").join("Interpreter.hpp"),
-        )
-        .context("Failed to patch vendor")?;
+        let intptr = vendor.join("include").join("MNN").join("Interpreter.hpp");
+        #[cfg(unix)]
+        std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
+        try_patch_file("patches/typedef_template.patch", &intptr)
+            .context("Failed to patch vendor")?;
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
