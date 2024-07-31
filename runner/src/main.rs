@@ -69,6 +69,7 @@ fn main() -> Result<()> {
     backend_config.set_power_mode(cli.power.to_power_mode());
     config.set_backend_config(&backend_config);
 
+    net.set_session_mode(SessionMode::Session_Release);
     let session = time!(net.create_session(&mut config)?; "Loading model".red());
     let inputs = net.inputs(&session);
 
