@@ -187,6 +187,8 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_COREML", "ON");
             #[cfg(feature = "opencl")]
             config.define("MNN_OPENCL", "ON");
+            #[cfg(windows)]
+            config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
             config
         })
         .build();

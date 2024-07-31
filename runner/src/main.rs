@@ -38,7 +38,8 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn out_name(&self, out: impl AsRef<str>) -> Result<String> {
+    pub fn out_name(&self, out: impl AsRef<str>) -> Result<PathBuf> {
+        let current_dir = std::env::current_dir()?;
         let model_name = self
             .model
             .file_stem()
@@ -46,14 +47,14 @@ impl Cli {
             .ok_or_else(|| {
                 anyhow::anyhow!("Could not get file name from path: {:?}", self.model)
             })?;
-        Ok(format!(
+        Ok(current_dir.join(format!(
             "{}_{}_{:?}_Precision::{:?}_Power::{:?}",
             out.as_ref(),
             model_name,
             self.forward,
             self.precision,
             self.power
-        ))
+        )))
     }
 }
 
@@ -106,20 +107,20 @@ fn main() -> Result<()> {
                 let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
                 // let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
                 out_ppm.extend(out_vec.iter().map(|x| *x as u8));
-                std::fs::write(format!("{}.ppm", cli.out_name(name)?), out_ppm)?;
+                std::fs::write(cli.out_name(name)?.with_extension("ppm"), out_ppm)?;
             }
             // (128 | 16, 3 | 2, _, _) => {
             _ if shape.size == 2 => {
                 let json = serde_json::to_string_pretty(&cpu_tensor.host::<f32>())?;
                 println!("Saving output tensor {}.json as json: ", name.green());
                 // println!("{}", json);
-                std::fs::write(format!("{}.json", cli.out_name(name)?), json)?;
+                std::fs::write(cli.out_name(name)?.with_extension("json"), json)?;
             }
             _ => {
                 println!("Saving output tensor {} as binary", name.blue());
                 let data = cpu_tensor.host::<f32>();
                 std::fs::write(
-                    format!("{}.bin", cli.out_name(name)?),
+                    cli.out_name(name)?.with_extension("bin"),
                     bytemuck::cast_slice(data),
                 )?;
             }
