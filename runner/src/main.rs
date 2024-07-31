@@ -48,7 +48,7 @@ impl Cli {
                 anyhow::anyhow!("Could not get file name from path: {:?}", self.model)
             })?;
         Ok(current_dir.join(format!(
-            "{}_{}_{:?}_Precision::{:?}_Power::{:?}",
+            "{}_{}_{:?}_Precision{:?}_Power{:?}",
             out.as_ref(),
             model_name,
             self.forward,
