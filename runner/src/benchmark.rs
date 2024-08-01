@@ -37,6 +37,8 @@ pub struct Cli {
     pub threads: std::num::NonZeroUsize,
     #[clap(short, long, default_value = "false")]
     pub looping: bool,
+    #[clap(long, default_value_t = 10000)]
+    pub times: u32,
 }
 
 impl Cli {
@@ -92,7 +94,7 @@ fn main() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("No inputs"))?;
     let f_tensor = first_out.tensor();
     if cli.looping {
-        let loop_count = 10000_u32 / first_out.tensor().batch();
+        let loop_count = cli.times / first_out.tensor().batch();
         time!(for _ in 0..loop_count {
             time!(
                 {

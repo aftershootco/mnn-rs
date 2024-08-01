@@ -1,5 +1,11 @@
 #include "Tensor_c.h"
 #include "MNN/Tensor.hpp"
+#include <iostream>
+void code_bits_lanes(halide_type_t *type) {
+  std::cout << "code: " << type->code << std::endl;
+  std::cout << "bits: " << type->bits << std::endl;
+  std::cout << "lanes: " << type->lanes << std::endl;
+}
 extern "C" {
 Tensor *Tensor_create(int dimSize, DimensionType type) {
   return reinterpret_cast<Tensor *>(
@@ -47,7 +53,7 @@ const void *Tensor_host(const Tensor *tensor) {
   return reinterpret_cast<const MNN::Tensor *>(tensor)->host<void>();
 }
 
-void* Tensor_host_mut(Tensor *tensor) {
+void *Tensor_host_mut(Tensor *tensor) {
   return reinterpret_cast<MNN::Tensor *>(tensor)->host<void>();
 }
 
@@ -145,19 +151,21 @@ DimensionType Tensor_getDimensionType(const Tensor *tensor) {
       reinterpret_cast<const MNN::Tensor *>(tensor)->getDimensionType());
 }
 halide_type_c Tensor_getType(const Tensor *tensor) {
-    auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
-    auto type = mnn_tensor->getType();
-    halide_type_c ret;
-    ret.code = static_cast<halide_type_code_t>(type.code);
-    ret.bits = type.bits;
-    ret.lanes = type.lanes;
-    return ret;
+  auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
+  auto type = mnn_tensor->getType();
+  halide_type_c ret;
+  ret.code = static_cast<halide_type_code_t>(type.code);
+  ret.bits = type.bits;
+  ret.lanes = type.lanes;
+  return ret;
 }
 
-bool Tensor_isTypeOf(const Tensor *tensor, struct halide_type_t type) {
-    auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
-    auto h_type = mnn_tensor->getType();
-    return (h_type == type);
+bool Tensor_isTypeOf(const Tensor *tensor, halide_type_c other) {
+  auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
+  auto my = mnn_tensor->getType();
+  auto ret = (my.code == other.code && my.bits == other.bits &&
+              my.lanes == other.lanes);
+  return ret;
 }
 
 } // extern "C"

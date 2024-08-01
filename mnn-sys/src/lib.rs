@@ -88,3 +88,9 @@ impl AsRef<[i32]> for TensorShape {
         &self.shape[..self.size]
     }
 }
+
+impl halide_type_code_t {
+    pub unsafe fn from_u32(code: u32) -> Self {
+        unsafe { std::mem::transmute(code) }
+    }
+}

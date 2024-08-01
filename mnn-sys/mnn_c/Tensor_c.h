@@ -1,9 +1,9 @@
 #ifndef TENSOR_C_H
 #define TENSOR_C_H
+#include "utils.h"
 #include <MNN/HalideRuntime.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,7 +34,7 @@ DimensionType Tensor_getDimensionType(const Tensor *tensor);
 const halide_buffer_t *Tensor_buffer(const Tensor *tensor);
 halide_buffer_t *Tensor_buffer_mut(Tensor *tensor);
 const void *Tensor_host(const Tensor *tensor);
-void* Tensor_host_mut(Tensor *tensor);
+void *Tensor_host_mut(Tensor *tensor);
 uint64_t Tensor_deviceId(const Tensor *tensor);
 int Tensor_dimensions(const Tensor *tensor);
 TensorShape Tensor_shape(const Tensor *tensor);
@@ -58,7 +58,7 @@ void Tensor_unmap(Tensor *tensor, MapType mtype, DimensionType dtype,
 int Tensor_wait(Tensor *tensor, MapType mtype, int finish);
 int Tensor_setDevicePtr(Tensor *tensor, const void *devicePtr, int memoryType);
 halide_type_c Tensor_getType(const Tensor *tensor);
-bool Tensor_isTypeOf(const Tensor *tensor, struct halide_type_t type);
+bool Tensor_isTypeOf(const Tensor *tensor, halide_type_c type);
 #ifdef __cplusplus
 }
 #endif
