@@ -168,4 +168,10 @@ bool Tensor_isTypeOf(const Tensor *tensor, halide_type_c other) {
   return ret;
 }
 
+Tensor *Tensor_clone(const Tensor *tensor) {
+    auto mnn_tensor = reinterpret_cast<const MNN::Tensor *>(tensor);
+    auto ret = MNN::Tensor::clone(mnn_tensor, true);
+    return reinterpret_cast<Tensor *>(ret);
+}
+
 } // extern "C"

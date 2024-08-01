@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::{prelude::*, Device, Ref, Tensor};
+use mnn_sys::HalideType;
 pub use mnn_sys::SessionMode;
 
 #[repr(transparent)]
@@ -49,11 +50,11 @@ impl Interpreter {
         TensorList::from_ptr(inputs)
     }
 
-    pub fn input<'i>(
+    pub fn input<'i, H: HalideType>(
         &'i self,
         session: &crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<crate::TensorRef<'i, crate::Device>> {
+    ) -> Result<Tensor<Ref<'i, Device<H>>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -64,17 +65,21 @@ impl Interpreter {
             )
         };
         ensure!(!input.is_null(), ErrorKind::IOError);
-        Ok(crate::TensorRef {
-            tensor: input,
-            __marker: PhantomData,
-        })
+        let tensor = unsafe { Tensor::from_ptr(input) };
+        ensure!(
+            tensor.is_type_of::<H>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<H>(),
+            }
+        );
+        Ok(tensor)
     }
 
-    pub fn output<'i>(
+    pub fn output<'i, H: HalideType>(
         &'i self,
         session: &crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<crate::TensorRef<'i, crate::Device>> {
+    ) -> Result<Tensor<Ref<'_, Device<H>>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
@@ -85,14 +90,14 @@ impl Interpreter {
             )
         };
         ensure!(!output.is_null(), ErrorKind::IOError);
-        // if output.is_null() {
-        //     return Err(anyhow::anyhow!("Interpreter_getOutput failed")
-        //         .context("Either output name is invalid or output is not found"));
-        // }
-        Ok(crate::TensorRef {
-            tensor: output,
-            __marker: PhantomData,
-        })
+        let tensor = unsafe { Tensor::from_ptr(output) };
+        ensure!(
+            tensor.is_type_of::<H>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<H>(),
+            }
+        );
+        Ok(tensor)
     }
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
@@ -117,14 +122,14 @@ pub struct TensorInfo<'t, 'tl> {
     pub(crate) __marker: PhantomData<&'tl TensorList<'t>>,
 }
 
-impl core::fmt::Debug for TensorInfo<'_, '_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("TensorInfo")
-            .field("name", &self.name())
-            .field("tensor", &self.tensor().shape())
-            .finish()
-    }
-}
+// impl core::fmt::Debug for TensorInfo<'_, '_> {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//         f.debug_struct("TensorInfo")
+//             .field("name", &self.name())
+//             .field("tensor", &self.tensor().shape())
+//             .finish()
+//     }
+// }
 
 impl<'t, 'tl> TensorInfo<'t, 'tl> {
     pub fn name(&self) -> &'tl str {
@@ -134,14 +139,17 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             .expect("FIX ME later")
     }
 
-    pub fn tensor(&self) -> crate::TensorRef<'t, crate::Device> {
+    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<Ref<'t, Device<H>>>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
-        let tensor = unsafe { (*self.tensor_info).tensor.cast() };
-        crate::TensorRef {
-            tensor,
-            __marker: PhantomData,
-        }
+        let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
+        ensure!(
+            tensor.is_type_of::<H>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<H>(),
+            }
+        );
+        Ok(tensor)
     }
 }
 
@@ -151,11 +159,11 @@ pub struct TensorList<'t> {
     pub(crate) __marker: PhantomData<&'t Interpreter>,
 }
 
-impl<'t> core::fmt::Debug for TensorList<'t> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_list().entries(self.iter()).finish()
-    }
-}
+// impl<'t> core::fmt::Debug for TensorList<'t> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
+//         f.debug_list().entries(self.iter()).finish()
+//     }
+// }
 
 impl Drop for TensorList<'_> {
     fn drop(&mut self) {
@@ -171,13 +179,14 @@ impl<'t> TensorList<'t> {
         }
     }
 
-    pub fn to_map(
-        &'t self,
-    ) -> std::collections::HashMap<String, crate::TensorRef<'t, crate::Device>> {
-        self.iter()
-            .map(|t| (t.name().to_string(), t.tensor()))
-            .collect()
-    }
+    // pub fn to_map(
+    //     &'t self,
+    // ) -> std::collections::HashMap<String, crate::Tensor<crate::Ref<'_, Device< H>>> {
+    //     self.iter()
+    //         .map(|t| (t.name().to_string(), t.tensor()))
+    //         .collect()
+    // }
+    //
 
     pub fn size(&self) -> usize {
         unsafe { (*self.inner).size }

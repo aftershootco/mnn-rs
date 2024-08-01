@@ -80,11 +80,10 @@ fn main() -> Result<()> {
 
     for input in inputs.iter() {
         let name = input.name();
-        let mut tensor = input.tensor();
+        let mut tensor = input.tensor::<f32>()?;
         let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
         tensor.wait(mnn::ffi::MapType::MAP_TENSOR_WRITE, true);
-        cpu_tensor.wait(mnn::ffi::MapType::MAP_TENSOR_WRITE, true);
-        time!(cpu_tensor.host_mut::<f32>().fill(1.0); format!("Filling tensor {}", name.green()));
+        time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
         time!(tensor.copy_from_host_tensor(&cpu_tensor)?; format!("Copying tensor {}", name.yellow()));
     }
 
@@ -92,9 +91,9 @@ fn main() -> Result<()> {
         .iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("No inputs"))?;
-    let f_tensor = first_out.tensor();
+    let f_tensor = first_out.tensor::<f32>()?;
     if cli.looping {
-        let loop_count = cli.times / first_out.tensor().batch();
+        let loop_count = cli.times / f_tensor.batch();
         time!(for _ in 0..loop_count {
             time!(
                 {
@@ -109,7 +108,7 @@ fn main() -> Result<()> {
     }
     for output in outputs.iter() {
         let name = output.name();
-        let tensor = output.tensor();
+        let tensor = output.tensor::<f32>()?;
         let cpu_tensor = time!(tensor.create_host_tensor_from_device(true);
          format!("Creating and Copying to host tensor {}", name.green()));
         let shape = cpu_tensor.shape();
@@ -120,7 +119,7 @@ fn main() -> Result<()> {
         match (n, c, h, w) {
             (1, 3, _, _) if h == w && h != 0 => {
                 eprintln!("Saving output tensor {} as image", name.green());
-                let out_vec = cpu_tensor.host::<f32>().to_vec();
+                let out_vec = cpu_tensor.host().to_vec();
                 let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
                 // let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
                 out_ppm.extend(out_vec.iter().map(|x| *x as u8));
@@ -128,14 +127,14 @@ fn main() -> Result<()> {
             }
             // (128 | 16, 3 | 2, _, _) => {
             _ if shape.size == 2 => {
-                let json = serde_json::to_string_pretty(&cpu_tensor.host::<f32>())?;
+                let json = serde_json::to_string_pretty(&cpu_tensor.host())?;
                 eprintln!("Saving output tensor {}.json as json: ", name.green());
                 // println!("{}", json);
                 std::fs::write(cli.out_name(name)?.with_extension("json"), json)?;
             }
             _ => {
                 eprintln!("Saving output tensor {} as binary", name.blue());
-                let data = cpu_tensor.host::<f32>();
+                let data = cpu_tensor.host();
                 std::fs::write(
                     cli.out_name(name)?.with_extension("bin"),
                     bytemuck::cast_slice(data),
