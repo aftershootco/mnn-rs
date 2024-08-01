@@ -34,6 +34,8 @@ pub enum ErrorKind {
     IOError,
     #[error("Ascii Error")]
     AsciiError,
+    #[error("HalideType mismatch: got {got}")]
+    HalideTypeMismatch { got: &'static str },
 }
 
 impl MNNError {

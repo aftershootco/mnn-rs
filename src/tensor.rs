@@ -230,26 +230,43 @@ impl Tensor<Host> {
     }
 
     pub fn host<T: HalideType>(&self) -> &[T] {
+        self.try_host().expect("Failed to get tensor host")
+    }
+
+    pub fn try_host<T: HalideType>(&self) -> Result<&[T]> {
         let size = self.element_size();
-        assert!(self.is_type_of::<T>());
+        ensure!(
+            self.is_type_of::<T>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<T>(),
+            }
+        );
 
         let result = unsafe {
             let data = Tensor_host(self.tensor.tensor).cast();
             core::slice::from_raw_parts(data, size)
         };
-        result
+        Ok(result)
     }
 
     pub fn host_mut<T: HalideType>(&mut self) -> &mut [T] {
+        self.try_host_mut().expect("Failed to get tensor host_mut")
+    }
+    pub fn try_host_mut<T: HalideType>(&mut self) -> Result<&mut [T]> {
         let size = self.element_size();
-        assert!(self.is_type_of::<T>());
+        ensure!(
+            self.is_type_of::<T>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<T>(),
+            }
+        );
 
         let result = unsafe {
             let data: *mut T = Tensor_host_mut(self.tensor.tensor).cast();
             debug_assert!(!data.is_null());
             core::slice::from_raw_parts_mut(data, size)
         };
-        result
+        Ok(result)
     }
 }
 
