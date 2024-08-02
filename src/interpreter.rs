@@ -15,7 +15,19 @@ impl Interpreter {
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
-        ensure!(!interpreter.is_null(), ErrorKind::IOError);
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
+        Ok(Self {
+            interpreter,
+            __marker: PhantomData,
+        })
+    }
+
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self> {
+        let bytes = bytes.as_ref();
+        let size = bytes.len();
+        let interpreter =
+            unsafe { mnn_sys::Interpreter_createFromBuffer(bytes.as_ptr().cast(), size) };
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
         Ok(Self {
             interpreter,
             __marker: PhantomData,

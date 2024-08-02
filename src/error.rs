@@ -32,6 +32,8 @@ pub enum ErrorKind {
     TensorCopyFailed,
     #[error("IO Error")]
     IOError,
+    #[error("Interpreter Error")]
+    InterpreterError,
     #[error("Ascii Error")]
     AsciiError,
     #[error("HalideType mismatch: got {got}")]
