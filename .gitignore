@@ -4,3 +4,4 @@ target
 *.mnn
 *.ppm
 lama
+*.json

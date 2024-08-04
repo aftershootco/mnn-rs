@@ -78,14 +78,6 @@ fn main() -> Result<()> {
     let inputs = net.inputs(&session);
     let outputs = net.outputs(&session);
 
-    for input in inputs.iter() {
-        let name = input.name();
-        let mut tensor = input.tensor::<f32>()?;
-        let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
-        tensor.wait(mnn::ffi::MapType::MAP_TENSOR_WRITE, true);
-        time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
-        time!(tensor.copy_from_host_tensor(&cpu_tensor)?; format!("Copying tensor {}", name.yellow()));
-    }
 
     let first_out = outputs
         .iter()
@@ -97,6 +89,14 @@ fn main() -> Result<()> {
         time!(for _ in 0..loop_count {
             time!(
                 {
+                    for input in inputs.iter() {
+                        let name = input.name();
+                        let mut tensor = input.tensor::<f32>()?;
+                        let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
+                        tensor.wait(mnn::ffi::MapType::MAP_TENSOR_WRITE, true);
+                        time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
+                        time!(tensor.copy_from_host_tensor(&cpu_tensor)?; format!("Copying tensor {}", name.yellow()));
+                    }
                     net.run_session(&session)?;
                     f_tensor.wait(mnn::ffi::MapType::MAP_TENSOR_READ, true);
                 };
