@@ -95,12 +95,12 @@
             ];
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
-          MNN_SRC = pkgs.fetchFromGitHub {
-            owner = "alibaba";
-            repo = "MNN";
-            rev = "2.9.0";
-            hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
-          };
+          # MNN_SRC = pkgs.fetchFromGitHub {
+          #   owner = "alibaba";
+          #   repo = "MNN";
+          #   rev = "2.9.0";
+          #   hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
+          # };
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
         mnn-runner = craneLib.buildPackage (commonArgs
