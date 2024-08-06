@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use crate::{prelude::*, Interpreter};
 
 pub struct Session {
     pub(crate) session: *mut mnn_sys::Session,
@@ -12,7 +12,19 @@ impl Session {
             __marker: PhantomData,
         }
     }
-    pub fn raw_mut(&self) -> *mut mnn_sys::Session {
+
+    pub fn as_ptr_mut(&self) -> *mut mnn_sys::Session {
         self.session
     }
 }
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        unsafe { mnn_sys::Session_destroy(self.session) }
+    }
+}
+
+// pub struct SessionInterpreter {
+//     session: Session<'static>,
+//     interpreter: Interpreter,
+// }

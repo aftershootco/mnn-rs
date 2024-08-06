@@ -72,7 +72,7 @@ impl Interpreter {
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(
                 self.interpreter,
-                session.raw_mut(),
+                session.as_ptr_mut(),
                 c_name.as_ptr(),
             )
         };
@@ -97,7 +97,7 @@ impl Interpreter {
         let output = unsafe {
             mnn_sys::Interpreter_getSessionOutput(
                 self.interpreter,
-                session.raw_mut(),
+                session.as_ptr_mut(),
                 c_name.as_ptr(),
             )
         };

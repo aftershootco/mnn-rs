@@ -297,4 +297,8 @@ const char *Interpreter_uuid(const Interpreter *interpreter) {
       reinterpret_cast<MNN::Interpreter const *>(interpreter);
   return mnn_interpreter->uuid();
 }
+void Session_destroy(Session *session) {
+  auto mnn_session = reinterpret_cast<MNN::Session *>(session);
+  delete mnn_session;
+}
 } // extern "C"

@@ -96,12 +96,11 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
             let builder = builder.clang_arg("-DMNN_COREML=1");
             #[cfg(feature = "opencl")]
             let builder = builder.clang_arg("-DMNN_OPENCL=1");
-            // #[cfg(feature = "vulkan")]
-            // let builder = builder.clang_args(
-            //     vulkan_includes(vendor)
-            //         .iter()
-            //         .map(|p| format!("-I{}", p.display())),
-            // );
+            #[cfg(target_arch = "wasm32")]
+            #[cfg(target_os = "emscripten")]
+            let builder = builder
+                .clang_arg("-fvisibility=default")
+                .clang_arg("--target=wasm32-emscripten");
             builder
         })
         .detect_include_paths(true)

@@ -201,6 +201,7 @@ const Backend *Interpreter_getBackend(const Interpreter *interpreter,
                                       const Tensor *tensor);
 const char *Interpreter_bizCode(const Interpreter *interpreter);
 const char *Interpreter_uuid(const Interpreter *interpreter);
+void Session_destroy(Session *session);
 #ifdef __cplusplus
 }
 #endif

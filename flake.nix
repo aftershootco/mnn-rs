@@ -56,18 +56,19 @@
         stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src" "rust-analyzer"];
           # Extra targets if required
-          # targets = [
-          #   #   "x86_64-unknown-linux-gnu"
-          #   "x86_64-unknown-linux-musl"
-          #   #   "x86_64-apple-darwin"
-          #   #   "aarch64-apple-darwin"
-          # ];
+          targets = [
+            #   "x86_64-unknown-linux-gnu"
+            # "x86_64-unknown-linux-musl"
+            "wasm32-unknown-emscripten"
+            #   "x86_64-apple-darwin"
+            #   "aarch64-apple-darwin"
+          ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         src = ./.;
         commonArgs = {
           inherit src;
-          cargoExtraArgs = "--package runner";
+          cargoExtraArgs = "--package runner --target wasm32-unknown-emscripten";
           buildInputs = with pkgs;
             [
               # (mnn.override {
@@ -88,6 +89,7 @@
             [
               cmake
               pkg-config
+              emscripten
               rustPlatform.bindgenHook
             ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
@@ -126,15 +128,20 @@
         };
         packages.default = mnn-runner;
 
-        devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
-          // {
-            packages = with pkgs; [
-              lldb
-              cargo-with
-              cargo-expand
-              delta
-            ];
-          });
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            libiconv
+          ];
+        };
+        # devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
+        #   // {
+        #     packages = with pkgs; [
+        #       lldb
+        #       cargo-with
+        #       cargo-expand
+        #       delta
+        #     ];
+        #   });
       }
     );
 }

@@ -1,4 +1,4 @@
-use mnn::ffi::MNNForwardType;
+use mnn::utils::*;
 use mnn::*;
 use std::path::PathBuf;
 
@@ -10,54 +10,9 @@ pub struct Cli {
     forward: ForwardType,
     #[clap(short, long, default_value = "high")]
     precision: Modes,
-    #[clap(short, long, default_value = "high")]
+    #[clap(short = 'P', long, default_value = "high")]
     power: Modes,
 }
-
-#[derive(clap::ValueEnum, Debug, Clone)]
-pub enum ForwardType {
-    CPU,
-    Metal,
-    Coreml,
-    Vulkan,
-}
-
-impl ForwardType {
-    fn to_forward_type(&self) -> MNNForwardType {
-        match self {
-            ForwardType::CPU => MNNForwardType::MNN_FORWARD_CPU,
-            ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
-            ForwardType::Coreml => MNNForwardType::MNN_FORWARD_NN,
-            ForwardType::Vulkan => MNNForwardType::MNN_FORWARD_VULKAN,
-        }
-    }
-}
-
-#[derive(clap::ValueEnum, Debug, Clone)]
-pub enum Modes {
-    Low,
-    Normal,
-    High,
-}
-
-impl Modes {
-    fn to_precision_mode(&self) -> PrecisionMode {
-        match self {
-            Modes::Low => PrecisionMode::Precision_Low,
-            Modes::Normal => PrecisionMode::Precision_Normal,
-            Modes::High => PrecisionMode::Precision_High,
-        }
-    }
-    fn to_power_mode(&self) -> PowerMode {
-        match self {
-            Modes::Low => PowerMode::Power_Low,
-            Modes::Normal => PowerMode::Power_Normal,
-            Modes::High => PowerMode::Power_High,
-        }
-    }
-}
-// fn num_to_type(num: u32) -> MNNForwardType {
-// }
 
 pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
