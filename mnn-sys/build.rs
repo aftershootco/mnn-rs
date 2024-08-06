@@ -99,8 +99,10 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
             builder
         })
         .pipe(|builder| {
-            if std::env::var("CARGO_BUILD_TARGET").expect("CARGO_BUILD_TARGET not set")
-                == "wasm32-unknown-emscripten"
+            if std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set")
+                == "emscripten"
+                && std::env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not found")
+                    == "wasm32"
             {
                 builder
                     .clang_arg("-fvisibility=default")
