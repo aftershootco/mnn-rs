@@ -96,12 +96,18 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
             let builder = builder.clang_arg("-DMNN_COREML=1");
             #[cfg(feature = "opencl")]
             let builder = builder.clang_arg("-DMNN_OPENCL=1");
-            #[cfg(target_arch = "wasm32")]
-            #[cfg(target_os = "emscripten")]
-            let builder = builder
-                .clang_arg("-fvisibility=default")
-                .clang_arg("--target=wasm32-emscripten");
             builder
+        })
+        .pipe(|builder| {
+            if std::env::var("CARGO_BUILD_TARGET").expect("CARGO_BUILD_TARGET not set")
+                == "wasm32-unknown-emscripten"
+            {
+                builder
+                    .clang_arg("-fvisibility=default")
+                    .clang_arg("--target=wasm32-emscripten")
+            } else {
+                builder
+            }
         })
         .detect_include_paths(true)
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))

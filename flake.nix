@@ -95,7 +95,7 @@
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               xcbuild
             ];
-          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
           # MNN_SRC = pkgs.fetchFromGitHub {
           #   owner = "alibaba";
@@ -130,7 +130,10 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
+            rust-bindgen-unwrapped
+            mnn
             libiconv
+            cargo-zigbuild
           ];
         };
         # devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
