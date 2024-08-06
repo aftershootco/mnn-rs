@@ -1,4 +1,4 @@
-#include "Schedule_c.h"
+#include "schedule_c.h"
 #include <MNN/Interpreter.hpp>
 #include <MNN/MNNForwardType.h>
 

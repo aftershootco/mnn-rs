@@ -6,6 +6,15 @@ mod ffi {
     #![allow(non_snake_case)]
     include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
 }
+
+#[cfg(feature = "llm")]
+pub mod llm {
+    #![allow(non_upper_case_globals)]
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+    include!(concat!(env!("OUT_DIR"), "/llm.rs"));
+}
+
 pub use ffi::*;
 impl DimensionType {
     pub const NHWC: Self = Self::TENSORFLOW;

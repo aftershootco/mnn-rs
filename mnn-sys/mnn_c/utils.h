@@ -3,6 +3,7 @@
 #include <MNN/HalideRuntime.h>
 #include <stddef.h>
 #ifdef __cplusplus
+#include <string>
 extern "C" {
 #endif
 typedef struct {
@@ -11,6 +12,7 @@ typedef struct {
 } CString;
 CString createCString(const char *data, size_t size);
 void destroyCString(CString *string);
+
 // This must always be
 typedef struct {
   // Name of the tensor

@@ -1,4 +1,3 @@
-use ::tap::*;
 use anyhow::*;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -6,11 +5,20 @@ use std::{
     fs::Permissions,
     path::{Path, PathBuf},
 };
+#[rustfmt::skip]
+use ::tap::*;
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
-    if vendor.as_ref().read_dir()?.flatten().count() == 0 {
+    if vendor
+        .as_ref()
+        .read_dir()
+        .context("The vendor directory doesn't exist")?
+        .flatten()
+        .count()
+        == 0
+    {
         anyhow::bail!("Vendor not found maybe you need to run \"git submodule update --init\"")
     }
     Ok(())
@@ -38,18 +46,25 @@ fn main() -> Result<()> {
         )
         .context("Failed to copy vendor")?;
         let intptr = vendor.join("include").join("MNN").join("Interpreter.hpp");
+        let llm_cmake = vendor.join("transformers/llm/engine/CMakeLists.txt");
         #[cfg(unix)]
         std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
+        #[cfg(unix)]
+        std::fs::set_permissions(&llm_cmake, Permissions::from_mode(0o644))?;
         try_patch_file("patches/typedef_template.patch", &intptr)
+            .context("Failed to patch vendor")?;
+        try_patch_file("patches/no_llm_demo.patch", &llm_cmake)
             .context("Failed to patch vendor")?;
     }
 
+    #[cfg(feature = "llm")]
+    llm(&vendor, &out_dir).with_context(|| "Failed to generate LLM bindings")?;
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
     mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
     let install_dir = out_dir.join("mnn-install");
     build_cmake(&vendor, &install_dir)?;
-    println!("cargo:include={vendor}/include", vendor = vendor.display());
+    println!("cargo:include={}/include", install_dir.display());
     if cfg!(target_os = "macos") {
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Foundation");
@@ -79,11 +94,11 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         rerun_if_changed(e.path());
     });
     const HEADERS: &[&str] = &[
-        "ErrorCode_c.h",
-        "Interpreter_c.h",
-        "Tensor_c.h",
-        "Backend_c.h",
-        "Schedule_c.h",
+        "error_code_c.h",
+        "interpreter_c.h",
+        "tensor_c.h",
+        "backend_c.h",
+        "schedule_c.h",
     ];
 
     let bindings = bindgen::Builder::default()
@@ -190,8 +205,11 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_OPENCL", "ON");
             #[cfg(windows)]
             config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
+            #[cfg(feature = "llm")]
+            config.define("MNN_BUILD_LLM", "ON");
             config
         })
+        .build_target("install")
         .build();
     Ok(())
 }
@@ -238,3 +256,16 @@ pub fn rerun_if_changed(path: impl AsRef<Path>) {
 //         vec![]
 //     }
 // }
+
+pub fn llm(vendor: impl AsRef<Path>, out_dir: impl AsRef<Path>) -> Result<()> {
+    let vendor = vendor.as_ref();
+    // let llm_dir = vendor.join("transformers/llm/engine");
+    // let includes = vec![llm_dir.join("include"), vendor.join("include")];
+    bindgen::builder()
+        .no_copy("LLM")
+        .no_copy("Embedding")
+        .header("mnn_c/llm_c.h")
+        .generate()?
+        .write_to_file(out_dir.as_ref().join("llm.rs"))?;
+    Ok(())
+}

@@ -98,8 +98,10 @@
           MNN_SRC = pkgs.fetchFromGitHub {
             owner = "alibaba";
             repo = "MNN";
-            rev = "2.9.0";
-            hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
+            # rev = "2.9.0";
+            # hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
+            rev = "d9f7679db27e6beb84703b9757f48af063f48ebb";
+            sha256 = "sha256-fnoCwZfnnPVZDq0irMRCD/AD0AMxRsHWGKHpuccbr48=";
           };
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -133,6 +135,8 @@
               cargo-with
               cargo-expand
               delta
+              (mnn.override
+                {buildLlm = true;})
             ];
           });
       }

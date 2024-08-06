@@ -28,10 +28,11 @@ metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
 opencl = ["mnn-sys/opencl"]
+llm = ["mnn-sys/llm"]
 error-report = ["dep:error-stack"]
 # Re exports some enums and structs with `#[derive(clap::ValueEnum, Debug)]`
 clap = ["dep:clap"]
-default = ["error-report"]
+default = ["error-report", "llm", "opencl"]
 
 [dev-dependencies]
 anyhow = "1.0.86"

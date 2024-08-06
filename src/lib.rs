@@ -22,5 +22,12 @@ pub mod prelude {
     pub use error_stack::{Report, ResultExt};
     pub use libc::*;
 }
+pub mod expr;
+pub mod pipeline;
 #[cfg(feature = "clap")]
 pub mod utils;
+
+#[cfg(feature = "llm")]
+pub mod llm;
+#[cfg(feature = "llm")]
+pub use llm::*;

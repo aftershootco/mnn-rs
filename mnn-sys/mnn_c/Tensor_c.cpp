@@ -1,4 +1,4 @@
-#include "Tensor_c.h"
+#include "tensor_c.h"
 #include "MNN/Tensor.hpp"
 #include <iostream>
 void code_bits_lanes(halide_type_t *type) {

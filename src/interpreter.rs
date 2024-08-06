@@ -8,6 +8,12 @@ pub struct Interpreter {
     pub(crate) __marker: PhantomData<()>,
 }
 
+impl Drop for Interpreter {
+    fn drop(&mut self) {
+        unsafe { mnn_sys::Interpreter_destroy(self.interpreter) }
+    }
+}
+
 impl Interpreter {
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();

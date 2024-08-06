@@ -1,6 +1,6 @@
 #ifndef SCHEDULE_C_H
 #define SCHEDULE_C_H
-#include "Backend_c.h"
+#include "backend_c.h"
 #include <MNN/MNNForwardType.h>
 #include <stddef.h>
 
