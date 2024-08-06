@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+void *create_ostream(int out);
+
 typedef struct {
 #ifdef __cplusplus
   std::string *cppstr;
@@ -14,6 +16,7 @@ typedef struct {
   void *cppstr;
 #endif
 } LLMString;
+const char *LLMString_as_str(LLMString *);
 
 typedef struct {
 #ifdef __cplusplus
@@ -29,7 +32,9 @@ void LLM_chat(LLM self);
 void LLM_reset(LLM self);
 void LLM_trace(LLM self, int start);
 void LLM_load(LLM self);
-LLMString LLM_generate(LLM self, const int *ids, size_t size);
+// LLMString LLM_generate(LLM self, const int *ids, size_t size);
+LLMString LLM_generate(LLM self, const int *ids, size_t size, void *out,
+                       const char *end_with);
 LLMString LLM_response(LLM self, const char *user_content);
 
 typedef struct {

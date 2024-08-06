@@ -38,6 +38,8 @@ pub enum ErrorKind {
     AsciiError,
     #[error("HalideType mismatch: got {got}")]
     HalideTypeMismatch { got: &'static str },
+    #[error("LLM Error")]
+    LlmError,
 }
 
 impl MNNError {
