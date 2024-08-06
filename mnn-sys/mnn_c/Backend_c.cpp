@@ -1,4 +1,4 @@
-#include "Backend_c.h"
+#include "backend_c.h"
 #include <MNN/MNNForwardType.h>
 
 MNNBackendConfig *mnnbc_create() {

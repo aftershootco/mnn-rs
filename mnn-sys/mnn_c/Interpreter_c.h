@@ -1,9 +1,9 @@
 #ifndef INTERPRETER_C_H
 #define INTERPRETER_C_H
-#include "Backend_c.h"
-#include "Schedule_c.h"
-#include "ErrorCode_c.h"
-#include "Tensor_c.h"
+#include "backend_c.h"
+#include "schedule_c.h"
+#include "error_code_c.h"
+#include "tensor_c.h"
 #include "utils.h"
 #include <MNN/HalideRuntime.h>
 #include <MNN/MNNForwardType.h>

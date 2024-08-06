@@ -79,11 +79,11 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         rerun_if_changed(e.path());
     });
     const HEADERS: &[&str] = &[
-        "ErrorCode_c.h",
-        "Interpreter_c.h",
-        "Tensor_c.h",
-        "Backend_c.h",
-        "Schedule_c.h",
+        "error_code_c.h",
+        "interpreter_c.h",
+        "tensor_c.h",
+        "backend_c.h",
+        "schedule_c.h",
     ];
 
     let bindings = bindgen::Builder::default()

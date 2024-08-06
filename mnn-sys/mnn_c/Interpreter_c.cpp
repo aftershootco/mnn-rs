@@ -1,4 +1,4 @@
-#include "Interpreter_c.h"
+#include "interpreter_c.h"
 #include "MNN/Interpreter.hpp"
 #include <MNN/MNNForwardType.h>
 #include <cstdlib>
