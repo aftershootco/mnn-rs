@@ -128,23 +128,23 @@
         };
         packages.default = mnn-runner;
 
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rust-bindgen-unwrapped
-            mnn
-            libiconv
-            cargo-zigbuild
-          ];
-        };
-        # devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
-        #   // {
-        #     packages = with pkgs; [
-        #       lldb
-        #       cargo-with
-        #       cargo-expand
-        #       delta
-        #     ];
-        #   });
+        # devShells.default = pkgs.mkShell {
+        #   buildInputs = with pkgs; [
+        #     rust-bindgen-unwrapped
+        #     mnn
+        #     libiconv
+        #     cargo-zigbuild
+        #   ];
+        # };
+        devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
+          // {
+            packages = with pkgs; [
+              lldb
+              cargo-with
+              cargo-expand
+              delta
+            ];
+          });
       }
     );
 }

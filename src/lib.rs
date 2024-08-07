@@ -25,3 +25,6 @@ pub mod prelude {
 
 #[cfg(feature = "clap")]
 pub mod utils;
+
+// #[cfg(feature = "benchmark")]
+pub mod benchmark;
