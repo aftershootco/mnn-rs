@@ -95,14 +95,6 @@
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               xcbuild
             ];
-          # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
-          # MNN_SRC = pkgs.fetchFromGitHub {
-          #   owner = "alibaba";
-          #   repo = "MNN";
-          #   rev = "2.9.0";
-          #   hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
-          # };
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
         mnn-runner = craneLib.buildPackage (commonArgs
@@ -128,23 +120,30 @@
         };
         packages.default = mnn-runner;
 
-        # devShells.default = pkgs.mkShell {
-        #   buildInputs = with pkgs; [
-        #     rust-bindgen-unwrapped
-        #     mnn
-        #     libiconv
-        #     cargo-zigbuild
-        #   ];
-        # };
-        devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
-          // {
+        devShells = rec {
+          default = wasm;
+          wasm = pkgs.mkShell {
+            hardeningDisable = ["all"];
+            buildInputs = with pkgs; [opencl-headers];
             packages = with pkgs; [
-              lldb
-              cargo-with
-              cargo-expand
-              delta
+              llvmPackages.clang.cc
+              rust-bindgen-unwrapped
+              cmake
+              mnn
+              libiconv
             ];
-          });
+          };
+          rust = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
+            // {
+              hardeningDisable = ["all"];
+              packages = with pkgs; [
+                lldb
+                cargo-with
+                cargo-expand
+                delta
+              ];
+            });
+        };
       }
     );
 }

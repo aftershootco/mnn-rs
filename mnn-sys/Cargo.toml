@@ -19,6 +19,9 @@ vulkan = []
 metal = []
 coreml = ["metal"]
 opencl = []
+openmp = []
+mnn-threadpool = []
+default = ["mnn-threadpool"]
 
 [dependencies]
 libc = "0.2.155"
