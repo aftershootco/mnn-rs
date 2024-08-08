@@ -16,7 +16,14 @@ static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
 });
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
-    if vendor.as_ref().read_dir()?.flatten().count() == 0 {
+    if vendor
+        .as_ref()
+        .read_dir()
+        .with_context(|| format!("Vendor directory missing: {}", vendor.as_ref().display()))?
+        .flatten()
+        .count()
+        == 0
+    {
         anyhow::bail!("Vendor not found maybe you need to run \"git submodule update --init\"")
     }
     Ok(())

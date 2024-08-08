@@ -7,7 +7,7 @@ links = "mnn"
 [build-dependencies]
 anyhow = "1.0.86"
 bindgen = "0.69.4"
-cc = { version = "1.1.5", features = ["parallel"] }
+cc = { version = "1.1.5", features = [] }
 cmake = { git = "https://github.com/blonteractor/cmake-rs", features = ["parallel"] }
 diffy = "0.4.0"
 dunce = "1.0.4"
