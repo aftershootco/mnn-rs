@@ -89,6 +89,7 @@ fn main() -> Result<()> {
 }
 
 pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
+    // let extra_args = std::env::var("BINDGEN_EXTRA_CLANG_ARGS").context("Failed to get BINDGEN_EXTRA_CLANG_ARGS").unwrap_or("".into());
     let vendor = vendor.as_ref();
     let mnn_c = PathBuf::from(MANIFEST_DIR).join("mnn_c");
     mnn_c.read_dir()?.flatten().for_each(|e| {
@@ -117,7 +118,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .pipe(|builder| {
             if is_emscripten() {
                 println!("cargo:rustc-cdylib-link-arg=-fvisibility=default");
-                println!("cargo:rustc-cdylib-link-arg=--no-entry");
                 builder
                     .clang_arg("-fvisibility=default")
                     .clang_arg("--target=wasm32-emscripten")
@@ -125,8 +125,8 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
                 builder
             }
         })
-        // .detect_include_paths(true)
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
+        // .clang_args(extra_args.split_whitespace())
         .pipe(|generator| {
             HEADERS.iter().fold(generator, |gen, header| {
                 gen.header(mnn_c.join(header).to_string_lossy())
@@ -148,10 +148,13 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .generate_cstr(true)
         .generate_inline_functions(true)
         .size_t_is_usize(true)
+        .emit_diagnostics()
+        .detect_include_paths(false)
+        .ctypes_prefix("core::ffi")
         // .tap(|d| {
+        //     // eprintln!("Full bindgen: {}", d.command_line_flags().join(" "));
         //     std::fs::write("bindgen.txt", d.command_line_flags().join(" ")).ok();
         // })
-        .ctypes_prefix("core::ffi")
         .generate()?;
     bindings.write_to_file(out.as_ref().join("mnn_c.rs"))?;
     Ok(())
