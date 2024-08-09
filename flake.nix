@@ -70,7 +70,9 @@
           targets = ["wasm32-unknown-emscripten"];
         };
         rustEmscriptenToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-emscripten"];};
+        rustWasmToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-unknown"];};
         craneLibEmcc = (crane.mkLib pkgs).overrideToolchain rustEmscriptenToolchainNightly;
+        craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustWasmToolchainNightly;
         src = ./.;
         emccArgs = {
           inherit src;
@@ -102,12 +104,26 @@
             cmake
           ];
         };
+        wasmArgs =
+          emccArgs
+          // {
+            RUSTFLAGS = "--Z wasm_c_abi=spec";
+            cargoExtraArgs = "--package runner --target wasm32-unknown-unknown";
+          };
         emscriptenArtifacts = craneLibEmcc.buildDepsOnly emccArgs;
+        wasmArtifacts = craneLibWasm.buildDepsOnly wasmArgs;
       in {
         packages = rec {
-          default = wasm-runner;
-          wasm-runner-artifacts = emscriptenArtifacts;
-          wasm-runner = craneLibEmcc.buildPackage (emccArgs
+          default = wasm-runner-emscripten;
+          wasm-runner-unknown = craneLibWasm.buildPackage (wasmArgs
+            // {
+              cargoArtifacts = wasmArtifacts;
+              installPhaseCommand = ''
+                mkdir -p $out/bin
+                cp target/wasm32-unknown-unknown/release/{benchmark,runner}.{wasm,js} $out/bin/
+              '';
+            });
+          wasm-runner-emscripten = craneLibEmcc.buildPackage (emccArgs
             // {
               cargoArtifacts = emscriptenArtifacts;
               installPhaseCommand = ''

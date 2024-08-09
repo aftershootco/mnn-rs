@@ -181,6 +181,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             config.define("MNN_OPENCL", "ON");
             if is_emscripten() {
                 config.compiler("emcc");
+                // We can't compile wasm32-unknown-unknown with emscripten
+                config.target("wasm32-unknown-emscripten");
             }
             config
         })
