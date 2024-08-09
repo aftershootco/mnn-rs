@@ -72,9 +72,8 @@
         rustEmscriptenToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-emscripten"];};
         craneLibEmcc = (crane.mkLib pkgs).overrideToolchain rustEmscriptenToolchainNightly;
         src = ./.;
-        version = "0.1.0";
         emccArgs = {
-          inherit src version;
+          inherit src;
           pname = "wasm-runner";
           EM_CONFIG = pkgs.writeText ".emscripten" (builtins.readFile "${pkgs.emscripten}/share/emscripten/.emscripten");
           configurePhase = ''
@@ -101,7 +100,6 @@
           nativeBuildInputs = with pkgs; [
             emscripten
             cmake
-            # rustPlatform.bindgenHook
           ];
         };
         emscriptenArtifacts = craneLibEmcc.buildDepsOnly emccArgs;
@@ -113,9 +111,8 @@
             // {
               cargoArtifacts = emscriptenArtifacts;
               installPhaseCommand = ''
-                mkdir -p $out/
-                find target/wasm32-unknown-emscripten/release/examples -type f -name "*.wasm" -exec cp {} $out/ \;
-                find target/wasm32-unknown-emscripten/release/examples -type f -name "*.js" -exec cp {} $out/ \;
+                mkdir -p $out/bin
+                cp target/wasm32-unknown-emscripten/release/{benchmark,runner}.{wasm,js} $out/bin/
               '';
             });
         };
@@ -126,7 +123,7 @@
             // {
               hardeningDisable = ["all"];
               packages = with pkgs; [
-                llvmPackages.clang.cc
+                llvmPackages.clang
                 rust-bindgen-unwrapped
                 stableToolchainWithRustAnalyzer
               ];
