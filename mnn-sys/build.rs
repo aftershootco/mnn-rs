@@ -273,7 +273,8 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             if is_emscripten() {
                 config
                     .define("CMAKE_C_COMPILER", "emcc")
-                    .define("CMAKE_CXX_COMPILER", "em++");
+                    .define("CMAKE_CXX_COMPILER", "em++")
+                    .target("wasm32-unknown-emscripten");
             }
             config
         })
