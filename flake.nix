@@ -87,7 +87,7 @@
             # export BINDGEN_EXTRA_CLANG_ARGS="-I$EM_CACHE/sysroot/include";
             runHook postConfigure
           '';
-          BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.emscripten}/share/emscripten/cache/sysroot/include";
+          # BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.emscripten}/share/emscripten/cache/sysroot/include";
           # BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=${pkgs.emscripten}/share/emscripten/cache/sysroot";
           MNN_SRC = pkgs.fetchFromGitHub {
             owner = "alibaba";
