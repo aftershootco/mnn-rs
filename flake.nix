@@ -93,9 +93,11 @@
             hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
           };
           hardeningDisable = ["all"];
-          buildPhase = ''
-            BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$EM_CACHE/sysroot" cargo build --release --target wasm32-unknown-emscripten
-          '';
+          cargoExtraArgs = "--package runner --target wasm32-unknown-emscripten";
+          # buildPhaseCargoCommand = ''
+          #   cargo build --package runner --release --target wasm32-unknown-emscripten
+          # '';
+          doCheck = false;
           nativeBuildInputs = with pkgs; [
             emscripten
             cmake
@@ -107,24 +109,16 @@
         packages = rec {
           default = wasm-runner;
           wasm-runner-artifacts = emscriptenArtifacts;
-          wasm-runner = craneLibEmcc.buildPackage (emccArgs // {cargoArtifacts = emscriptenArtifacts;});
+          wasm-runner = craneLibEmcc.buildPackage (emccArgs
+            // {
+              cargoArtifacts = emscriptenArtifacts;
+              installPhaseCommand = ''
+                mkdir -p $out/
+                find target/wasm32-unknown-emscripten/release/examples -type f -name "*.wasm" -exec cp {} $out/ \;
+                find target/wasm32-unknown-emscripten/release/examples -type f -name "*.js" -exec cp {} $out/ \;
+              '';
+            });
         };
-        # checks = {
-        #   mnn-runner-clippy = craneLibEmcc.cargoClippy (commonArgs
-        #     // {
-        #       inherit cargoArtifacts;
-        #       cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-        #     });
-        #   mnn-runner-fmt = craneLibEmcc.cargoFmt {
-        #     inherit src;
-        #   };
-        #   mnn-runner-nextest = craneLibEmcc.cargoNextest (commonArgs
-        #     // {
-        #       inherit cargoArtifacts;
-        #       partitions = 1;
-        #       partitionType = "count";
-        #     });
-        # };
 
         devShells = rec {
           default = wasm;
@@ -136,18 +130,7 @@
                 rust-bindgen-unwrapped
                 stableToolchainWithRustAnalyzer
               ];
-              # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
             });
-          # rust = (craneLibEmcc.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
-          #   // {
-          #     hardeningDisable = ["all"];
-          #     packages = with pkgs; [
-          #       lldb
-          #       cargo-with
-          #       cargo-expand
-          #       delta
-          #     ];
-          #   });
         };
       }
     );
