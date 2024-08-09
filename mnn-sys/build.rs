@@ -80,6 +80,23 @@ fn main() -> Result<()> {
         // #[cfg(feature = "opencl")]
         // println!("cargo:rustc-link-lib=static=opencl");
     }
+    if is_emscripten() {
+        // println!("cargo:rustc-link-lib=static=stdc++");
+        let emscripten_root = std::process::Command::new("em-config")
+            .arg("EMSCRIPTEN_ROOT")
+            .output()?
+            .stdout;
+        let emscripten_root = std::str::from_utf8(&emscripten_root)?.trim();
+        let wasm32_emscripten_libs = PathBuf::from(emscripten_root).join("cache/sysroot/lib/wasm32-emscripten");
+        println!(
+            "cargo:rustc-link-search=native={}",
+            wasm32_emscripten_libs.display()
+        );
+        std::fs::copy(
+            dbg!(wasm32_emscripten_libs.join("libc++-noexcept.a")),
+            dbg!(install_dir.join("lib").join("libstdc++.a")),
+        )?;
+    }
     println!(
         "cargo:rustc-link-search=native={}",
         install_dir.join("lib").display()
@@ -89,7 +106,6 @@ fn main() -> Result<()> {
 }
 
 pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
-    // let extra_args = std::env::var("BINDGEN_EXTRA_CLANG_ARGS").context("Failed to get BINDGEN_EXTRA_CLANG_ARGS").unwrap_or("".into());
     let vendor = vendor.as_ref();
     let mnn_c = PathBuf::from(MANIFEST_DIR).join("mnn_c");
     mnn_c.read_dir()?.flatten().for_each(|e| {

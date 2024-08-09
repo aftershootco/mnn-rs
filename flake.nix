@@ -83,10 +83,12 @@
             cp -r ${pkgs.emscripten}/share/emscripten/cache .emscripten_cache
             chmod -R u+w .emscripten_cache
             export EM_CACHE="$(realpath .emscripten_cache)"
-            # export EM_CACHE="$(realpath $(mktemp -d emcache.XXXXXXXXXX))"
+            # export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$EM_CACHE/sysroot";
+            # export BINDGEN_EXTRA_CLANG_ARGS="-I$EM_CACHE/sysroot/include";
             runHook postConfigure
           '';
-          BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=$EM_CACHE/sysroot";
+          BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.emscripten}/share/emscripten/cache/sysroot/include";
+          # BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=${pkgs.emscripten}/share/emscripten/cache/sysroot";
           MNN_SRC = pkgs.fetchFromGitHub {
             owner = "alibaba";
             repo = "MNN";
@@ -99,6 +101,7 @@
           #   cargo build --package runner --release --target wasm32-unknown-emscripten
           # '';
           doCheck = false;
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           nativeBuildInputs = with pkgs; [
             emscripten
             cmake
@@ -120,7 +123,9 @@
               cargoArtifacts = wasmArtifacts;
               installPhaseCommand = ''
                 mkdir -p $out/bin
-                cp target/wasm32-unknown-unknown/release/{benchmark,runner}.{wasm,js} $out/bin/
+                find target -type f -name '*.wasm' -exec cp {} $out/bin/ \;
+                find target -type f -name '*.js' -exec cp {} $out/bin/ \;
+                # cp target/wasm32-unknown-unknown/release/{benchmark,runner}.{wasm,js} $out/bin/
               '';
             });
           wasm-runner-emscripten = craneLibEmcc.buildPackage (emccArgs

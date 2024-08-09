@@ -45,7 +45,7 @@ impl BackendConfig {
         }
     }
 
-    pub unsafe fn set_shared_context(&mut self, shared_context: *mut libc::c_void) {
+    pub unsafe fn set_shared_context(&mut self, shared_context: *mut core::ffi::c_void) {
         unsafe {
             mnn_sys::mnnbc_set_shared_context(self.inner, shared_context);
         }

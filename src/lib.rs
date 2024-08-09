@@ -20,7 +20,7 @@ pub mod prelude {
     pub use crate::error::*;
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
-    pub use libc::*;
+    pub use core::ffi::*;
 }
 
 #[cfg(feature = "clap")]

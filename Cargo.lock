@@ -402,7 +402,6 @@ dependencies = [
  "castaway",
  "clap",
  "error-stack",
- "libc",
  "mnn-sys",
  "paste",
  "tap",
