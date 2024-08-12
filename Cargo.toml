@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    ".",
+    ".", "mnn-js",
     "mnn-sys",
     "runner",
 ]

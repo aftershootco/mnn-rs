@@ -324,6 +324,7 @@ pub fn rerun_if_changed(path: impl AsRef<Path>) {
 //         vec![]
 //     }
 // }
+
 pub fn is_emscripten() -> bool {
     // *TARGET_OS == "emscripten" &&
     *TARGET_ARCH == "wasm32"

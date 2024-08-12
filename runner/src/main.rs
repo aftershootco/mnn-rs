@@ -3,6 +3,7 @@ use clap::Parser;
 use mnn::*;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
+use wasm_bindgen::prelude::*;
 
 macro_rules! time {
     ($($x:expr),+ ; $text: expr) => {
@@ -58,7 +59,17 @@ impl Cli {
     }
 }
 
-fn main() -> Result<()> {
+#[wasm_bindgen(main)]
+fn main() {
+    main_err().expect("Failed to run")
+}
+
+#[wasm_bindgen]
+pub fn test_bench() -> Result<(), JsError> {
+    main_err().map_err(|e| JsError::new(&format!("{:?}", e)))
+}
+
+fn main_err() -> Result<()> {
     let cli = Cli::parse();
     let mut net = mnn::Interpreter::from_file(&cli.model)?;
     let mut config = ScheduleConfig::new();

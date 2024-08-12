@@ -65,12 +65,18 @@
         inherit (pkgs) lib;
 
         # stableToolchain = pkgs.rust-bin.stable.latest.default;
-        stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override {
+        stableToolchainWithRustAnalyzer = pkgs.rust-bin.nightly.latest.default.override {
           extensions = ["rust-src" "rust-analyzer"];
-          targets = ["wasm32-unknown-emscripten"];
+          targets = [
+            "wasm32-unknown-emscripten"
+            "wasm32-unknown-unknown"
+          ];
         };
         rustEmscriptenToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-emscripten"];};
-        rustWasmToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-unknown"];};
+        rustWasmToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = ["rust-src"];
+          targets = ["wasm32-unknown-unknown"];
+        };
         craneLibEmcc = (crane.mkLib pkgs).overrideToolchain rustEmscriptenToolchainNightly;
         craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustWasmToolchainNightly;
         src = ./.;
@@ -121,11 +127,18 @@
           wasm-runner-unknown = craneLibWasm.buildPackage (wasmArgs
             // {
               cargoArtifacts = wasmArtifacts;
+              # buildPhase = ''RUSTFLAGS="--Z wasm_c_abi=spec" cargo build --package runner --release --target wasm32-unknown-unknown'';
+              buildPhase = ''
+                HOME=./wasme RUSTFLAGS="--Z wasm_c_abi=spec --cfg=web_sys_unstable_apis" cargo build --package runner --release --target wasm32-unknown-unknown
+                wasm-bindgen target/wasm32-unknown-unknown/release/runner.wasm --out-dir target/wasm32-unknown-unknown/release --target web
+              '';
+              nativeBuildInputs = wasmArgs.nativeBuildInputs ++ [pkgs.wasm-pack pkgs.wasm-bindgen-cli];
               installPhaseCommand = ''
                 mkdir -p $out/bin
-                find target -type f -name '*.wasm' -exec cp {} $out/bin/ \;
-                find target -type f -name '*.js' -exec cp {} $out/bin/ \;
+                # find target -type f -name '*.wasm' -exec cp {} $out/bin/ \;
+                # find target -type f -name '*.js' -exec cp {} $out/bin/ \;
                 # cp target/wasm32-unknown-unknown/release/{benchmark,runner}.{wasm,js} $out/bin/
+                cp target/wasm32-unknown-unknown/release/*.{wasm,js,ts} $out/bin/
               '';
             });
           wasm-runner-emscripten = craneLibEmcc.buildPackage (emccArgs
@@ -134,6 +147,17 @@
               installPhaseCommand = ''
                 mkdir -p $out/bin
                 cp target/wasm32-unknown-emscripten/release/{benchmark,runner}.{wasm,js} $out/bin/
+              '';
+            });
+          mnn-js = craneLibWasm.buildPackage (wasmArgs
+            // {
+              # cargoExtraArgs = "--package mnn-js --target wasm32-unknown-unknown";
+              buildPhase = ''RUSTFLAGS="-Clink-arg=-fuse-ld=wasm-ld --Z wasm_c_abi=spec" cargo build --package mnn-js --release --target wasm32-unknown-unknown'';
+              HOME = ".";
+              nativeBuildInputs = wasmArgs.nativeBuildInputs ++ [pkgs.wasm-pack pkgs.wasm-bindgen-cli pkgs.lld];
+              installPhaseCommand = ''
+                mkdir -p $out/bin
+                cp target/wasm32-unknown-unknown/release/mnn-js.{wasm,js} $out/bin/
               '';
             });
         };
@@ -147,6 +171,11 @@
                 llvmPackages.clang
                 rust-bindgen-unwrapped
                 stableToolchainWithRustAnalyzer
+                # rustup
+                wasm-pack
+                wasm-bindgen-cli
+                binaryen
+                nodejs_22
               ];
             });
         };
