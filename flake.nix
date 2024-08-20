@@ -2,7 +2,7 @@
   description = "A simple rust flake using rust-overlay and craneLib";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     crane = {
       url = "github:ipetkov/crane";
@@ -47,104 +47,155 @@
                   cargoLock = {lockFile = "${src}/Cargo.lock";};
                   doCheck = false;
                 };
+              # emscripten = prev.emscripten.override {
+              #   patches = [./patches/no-stack-ir.patch];
+              # };
+              # Need the master of binaryen since --no-stack-ir is not yet in the tagged release
+              binaryen = prev.binaryen.overrideAttrs {
+                src = pkgs.fetchFromGitHub {
+                  owner = "WebAssembly";
+                  repo = "binaryen";
+                  rev = "d945aa489a1ad62c130e04ceea8492c7a728ab57";
+                  hash = "sha256-mRm92P64J8fyODvwzU2bTjHQSVqr0rp0VvouGj2biVk=";
+                };
+              };
             })
           ];
         };
         inherit (pkgs) lib;
 
-        stableToolchain = pkgs.rust-bin.stable.latest.default;
-        stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override {
+        # stableToolchain = pkgs.rust-bin.stable.latest.default;
+        stableToolchainWithRustAnalyzer = pkgs.rust-bin.nightly.latest.default.override {
           extensions = ["rust-src" "rust-analyzer"];
-          # Extra targets if required
           targets = [
-            #   "x86_64-unknown-linux-gnu"
-            # "x86_64-unknown-linux-musl"
             "wasm32-unknown-emscripten"
-            #   "x86_64-apple-darwin"
-            #   "aarch64-apple-darwin"
+            "wasm32-unknown-unknown"
           ];
         };
-        craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
+        rustEmscriptenToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {targets = ["wasm32-unknown-emscripten"];};
+        rustWasmToolchainNightly = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = ["rust-src"];
+          targets = ["wasm32-unknown-unknown"];
+        };
+        rustToolchain = pkgs.rust-bin.nightly.latest.default.override {extensions = ["rust-src"];};
+        craneLibEmcc = (crane.mkLib pkgs).overrideToolchain rustEmscriptenToolchainNightly;
+        craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustWasmToolchainNightly;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         src = ./.;
-        commonArgs = {
-          inherit src;
+        MNN_SRC = pkgs.fetchFromGitHub {
+          owner = "alibaba";
+          repo = "MNN";
+          rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
+          hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
+        };
+        emccArgs = {
+          inherit src MNN_SRC;
+          pname = "wasm-runner";
+          EM_CONFIG = pkgs.writeText ".emscripten" (builtins.readFile "${pkgs.emscripten}/share/emscripten/.emscripten");
+          configurePhase = ''
+            runHook preConfigureHooks
+            cp -r ${pkgs.emscripten}/share/emscripten/cache .emscripten_cache
+            chmod -R u+w .emscripten_cache
+            export EM_CACHE="$(realpath .emscripten_cache)"
+            # export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$EM_CACHE/sysroot";
+            # export BINDGEN_EXTRA_CLANG_ARGS="-I$EM_CACHE/sysroot/include";
+            runHook postConfigure
+          '';
+          # BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.emscripten}/share/emscripten/cache/sysroot/include";
+          # BINDGEN_EXTRA_CLANG_ARGS = "--sysroot=${pkgs.emscripten}/share/emscripten/cache/sysroot";
+          hardeningDisable = ["all"];
           cargoExtraArgs = "--package runner --target wasm32-unknown-emscripten";
-          buildInputs = with pkgs;
-            [
-              # (mnn.override {
-              #   # enableMetal = true;
-              #   enableVulkan = true;
-              #   buildConverter = true;
-              # })
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              libiconv
-              pkgs.darwin.apple_sdk.frameworks.Metal
-              pkgs.darwin.apple_sdk.frameworks.OpenCL
-              pkgs.darwin.apple_sdk.frameworks.CoreML
-              pkgs.darwin.apple_sdk.frameworks.CoreVideo
-            ];
-
-          nativeBuildInputs = with pkgs;
-            [
-              cmake
-              pkg-config
-              emscripten
-              rustPlatform.bindgenHook
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              xcbuild
-            ];
-          # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          # PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (with pkgs;[ openssl.dev zlib.dev ]);
-          # MNN_SRC = pkgs.fetchFromGitHub {
-          #   owner = "alibaba";
-          #   repo = "MNN";
-          #   rev = "2.9.0";
-          #   hash = "sha256-7kpErL53VHksUurTUndlBRNcCL8NRpVuargMk0EBtxA=";
-          # };
+          # buildPhaseCargoCommand = ''
+          #   cargo build --package runner --release --target wasm32-unknown-emscripten
+          # '';
+          doCheck = false;
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          nativeBuildInputs = with pkgs; [
+            emscripten
+            cmake
+          ];
         };
-        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-        mnn-runner = craneLib.buildPackage (commonArgs
+        wasmArgs =
+          emccArgs
           // {
-            inherit cargoArtifacts;
-          });
-      in {
-        checks = {
-          mnn-runner-clippy = craneLib.cargoClippy (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            });
-          mnn-runner-fmt = craneLib.cargoFmt {
-            inherit src;
+            RUSTFLAGS = "--Z wasm_c_abi=spec";
+            cargoExtraArgs = "--package runner --target wasm32-unknown-unknown";
           };
-          mnn-runner-nextest = craneLib.cargoNextest (commonArgs
+        cargoArgs = {
+          inherit src MNN_SRC;
+          pname = "runner";
+          cargoExtraArgs = "--package runner";
+          doCheck = false;
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
+          nativeBuildInputs = with pkgs; [
+            cmake
+            llvmPackages.libclang.lib
+          ];
+        };
+
+        emscriptenArtifacts = craneLibEmcc.buildDepsOnly emccArgs;
+        wasmArtifacts = craneLibWasm.buildDepsOnly wasmArgs;
+      in {
+        packages = rec {
+          default = wasm-runner-emscripten;
+          runner = craneLib.buildPackage cargoArgs;
+          wasm-runner-unknown = craneLibWasm.buildPackage (wasmArgs
             // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
+              cargoArtifacts = wasmArtifacts;
+              # buildPhase = ''RUSTFLAGS="--Z wasm_c_abi=spec" cargo build --package runner --release --target wasm32-unknown-unknown'';
+              buildPhase = ''
+                HOME=./wasme RUSTFLAGS="--Z wasm_c_abi=spec --cfg=web_sys_unstable_apis" cargo build --package runner --release --target wasm32-unknown-unknown
+                wasm-bindgen target/wasm32-unknown-unknown/release/runner.wasm --out-dir target/wasm32-unknown-unknown/release --target web || true
+              '';
+              nativeBuildInputs = wasmArgs.nativeBuildInputs ++ [pkgs.wasm-pack pkgs.wasm-bindgen-cli];
+              installPhaseCommand = ''
+                mkdir -p $out/bin
+                # find target -type f -name '*.wasm' -exec cp {} $out/bin/ \;
+                # find target -type f -name '*.js' -exec cp {} $out/bin/ \;
+                # cp target/wasm32-unknown-unknown/release/{benchmark,runner}.{wasm,js} $out/bin/
+                cp target/wasm32-unknown-unknown/release/*.{wasm,js,ts} $out/bin/
+              '';
+            });
+          wasm-runner-emscripten = craneLibEmcc.buildPackage (emccArgs
+            // {
+              cargoArtifacts = emscriptenArtifacts;
+              installPhaseCommand = ''
+                mkdir -p $out/bin
+                cp target/wasm32-unknown-emscripten/release/{benchmark,runner}.{wasm,js} $out/bin/
+              '';
+            });
+          mnn-js = craneLibWasm.buildPackage (wasmArgs
+            // {
+              # cargoExtraArgs = "--package mnn-js --target wasm32-unknown-unknown";
+              buildPhase = ''RUSTFLAGS="-Clink-arg=-fuse-ld=wasm-ld --Z wasm_c_abi=spec" cargo build --package mnn-js --release --target wasm32-unknown-unknown'';
+              HOME = ".";
+              nativeBuildInputs = wasmArgs.nativeBuildInputs ++ [pkgs.wasm-pack pkgs.wasm-bindgen-cli pkgs.lld];
+              installPhaseCommand = ''
+                mkdir -p $out/bin
+                cp target/wasm32-unknown-unknown/release/mnn-js.{wasm,js} $out/bin/
+              '';
             });
         };
-        packages.default = mnn-runner;
 
-        # devShells.default = pkgs.mkShell {
-        #   buildInputs = with pkgs; [
-        #     rust-bindgen-unwrapped
-        #     mnn
-        #     libiconv
-        #     cargo-zigbuild
-        #   ];
-        # };
-        devShells.default = (craneLib.overrideToolchain stableToolchainWithRustAnalyzer).devShell (commonArgs
-          // {
-            packages = with pkgs; [
-              lldb
-              cargo-with
-              cargo-expand
-              delta
-            ];
-          });
+        devShells = rec {
+          default = wasm;
+          wasm = pkgs.mkShell (emccArgs
+            // {
+              hardeningDisable = ["all"];
+              packages = with pkgs; [
+                llvmPackages.clang.cc
+                rust-bindgen-unwrapped
+                stableToolchainWithRustAnalyzer
+                # rustup
+                wasm-pack
+                wasm-bindgen-cli
+                binaryen
+                nodejs_22
+                miniserve
+              ];
+            });
+        };
       }
     );
 }
