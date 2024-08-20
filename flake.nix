@@ -130,7 +130,7 @@
               # buildPhase = ''RUSTFLAGS="--Z wasm_c_abi=spec" cargo build --package runner --release --target wasm32-unknown-unknown'';
               buildPhase = ''
                 HOME=./wasme RUSTFLAGS="--Z wasm_c_abi=spec --cfg=web_sys_unstable_apis" cargo build --package runner --release --target wasm32-unknown-unknown
-                wasm-bindgen target/wasm32-unknown-unknown/release/runner.wasm --out-dir target/wasm32-unknown-unknown/release --target web
+                wasm-bindgen target/wasm32-unknown-unknown/release/runner.wasm --out-dir target/wasm32-unknown-unknown/release --target web || true
               '';
               nativeBuildInputs = wasmArgs.nativeBuildInputs ++ [pkgs.wasm-pack pkgs.wasm-bindgen-cli];
               installPhaseCommand = ''
@@ -168,7 +168,7 @@
             // {
               hardeningDisable = ["all"];
               packages = with pkgs; [
-                llvmPackages.clang
+                llvmPackages.clang.cc
                 rust-bindgen-unwrapped
                 stableToolchainWithRustAnalyzer
                 # rustup
@@ -176,6 +176,7 @@
                 wasm-bindgen-cli
                 binaryen
                 nodejs_22
+                miniserve
               ];
             });
         };
