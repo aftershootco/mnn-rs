@@ -178,7 +178,7 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .generate_inline_functions(true)
         .size_t_is_usize(true)
         .emit_diagnostics()
-        .detect_include_paths(false)
+        .detect_include_paths(std::env::var("TARGET") == std::env::var("HOST"))
         .ctypes_prefix("core::ffi")
         // .tap(|d| {
         //     // eprintln!("Full bindgen: {}", d.command_line_flags().join(" "));
