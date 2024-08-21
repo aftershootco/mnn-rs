@@ -105,10 +105,6 @@ fn main() -> Result<()> {
             "cargo:rustc-link-search=native={}",
             wasm32_emscripten_libs.display()
         );
-        // std::fs::copy(
-        //     wasm32_emscripten_libs.join("libc++-noexcept.a"),
-        //     install_dir.join("lib").join("libstdc++.a"),
-        // )?;
     }
     println!(
         "cargo:rustc-link-search=native={}",
@@ -134,14 +130,11 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
 
     let bindings = bindgen::Builder::default()
         .pipe(|builder| {
-            #[cfg(feature = "vulkan")]
-            let builder = builder.clang_arg("-DMNN_VULKAN=1");
-            #[cfg(feature = "metal")]
-            let builder = builder.clang_arg("-DMNN_METAL=1");
-            #[cfg(feature = "coreml")]
-            let builder = builder.clang_arg("-DMNN_COREML=1");
-            #[cfg(feature = "opencl")]
-            let builder = builder.clang_arg("-DMNN_OPENCL=1");
+            let builder = builder
+                .clang_arg(CxxOption::VULKAN.cxx())
+                .clang_arg(CxxOption::METAL.cxx())
+                .clang_arg(CxxOption::COREML.cxx())
+                .clang_arg(CxxOption::OPENCL.cxx());
             builder
         })
         .pipe(|builder| {
@@ -254,21 +247,16 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         // https://github.com/rust-lang/cc-rs/pull/717
         // .define("CMAKE_BUILD_TYPE", "Release")
         .pipe(|config| {
-            #[cfg(not(feature = "mnn-threadpool"))]
-            config.define("MNN_USE_THREAD_POOL", "OFF");
-            #[cfg(feature = "openmp")]
-            config.define("MNN_OPENMP", "ON");
-
-            #[cfg(feature = "vulkan")]
-            config.define("MNN_VULKAN", "ON");
-            #[cfg(feature = "metal")]
-            config.define("MNN_METAL", "ON");
-            #[cfg(feature = "coreml")]
-            config.define("MNN_COREML", "ON");
-            #[cfg(feature = "opencl")]
-            config.define("MNN_OPENCL", "ON");
-            #[cfg(windows)]
-            config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
+            config.define("MNN_USE_THREAD_POOL", CxxOption::THREADPOOL.cmake_value());
+            config.define("MNN_OPENMP", CxxOption::OPENMP.cmake_value());
+            config.define("MNN_VULKAN", CxxOption::VULKAN.cmake_value());
+            config.define("MNN_METAL", CxxOption::METAL.cmake_value());
+            config.define("MNN_COREML", CxxOption::COREML.cmake_value());
+            config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
+            // #[cfg(windows)]
+            if *TARGET_OS == "windows" {
+                config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
+            }
 
             if is_emscripten() {
                 config
@@ -331,4 +319,121 @@ pub fn is_emscripten() -> bool {
 
 pub fn emscripten_cache() -> &'static str {
     &EMSCRIPTEN_CACHE
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CxxOptionValue {
+    On,
+    Off,
+    Value(&'static str),
+}
+
+impl From<bool> for CxxOptionValue {
+    fn from(b: bool) -> Self {
+        if b {
+            Self::On
+        } else {
+            Self::Off
+        }
+    }
+}
+
+impl CxxOptionValue {
+    pub const fn from_bool(value: bool) -> Self {
+        match value {
+            true => Self::On,
+            false => Self::Off,
+        }
+    }
+}
+
+impl From<&'static str> for CxxOptionValue {
+    fn from(s: &'static str) -> Self {
+        match s {
+            "ON" => Self::On,
+            "OFF" => Self::Off,
+            _ => Self::Value(s),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CxxOption {
+    pub name: &'static str,
+    pub value: CxxOptionValue,
+}
+
+macro_rules! cxx_option_from_feature {
+    ($feature:literal, $cxx:literal) => {{
+        CxxOption::from_bool($cxx, cfg!(feature = $feature))
+    }};
+}
+impl CxxOption {
+    const fn from_bool(name: &'static str, value: bool) -> Self {
+        Self {
+            name,
+            value: CxxOptionValue::from_bool(value),
+        }
+    }
+    pub const VULKAN: CxxOption = cxx_option_from_feature!("vulkan", "MNN_VULKAN");
+    pub const METAL: CxxOption = cxx_option_from_feature!("metal", "MNN_METAL");
+    pub const COREML: CxxOption = cxx_option_from_feature!("coreml", "MNN_COREML");
+    pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
+    pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");
+    pub const THREADPOOL: CxxOption =
+        cxx_option_from_feature!("mnn-threadpool", "MNN_USE_THREAD_POOL");
+
+    pub fn new(name: &'static str, value: impl Into<CxxOptionValue>) -> Self {
+        Self {
+            name,
+            value: value.into(),
+        }
+    }
+
+    pub fn on(mut self) -> Self {
+        self.value = CxxOptionValue::On;
+        self
+    }
+
+    pub fn off(mut self) -> Self {
+        self.value = CxxOptionValue::Off;
+        self
+    }
+
+    pub fn with_value(mut self, value: &'static str) -> Self {
+        self.value = CxxOptionValue::Value(value);
+        self
+    }
+
+    pub fn cmake(&self) -> String {
+        match &self.value {
+            CxxOptionValue::On => format!("-D{}=ON", self.name),
+            CxxOptionValue::Off => format!("-D{}=OFF", self.name),
+            CxxOptionValue::Value(v) => format!("-D{}={}", self.name, v),
+        }
+    }
+
+    pub fn cmake_value(&self) -> &'static str {
+        match &self.value {
+            CxxOptionValue::On => "ON",
+            CxxOptionValue::Off => "OFF",
+            CxxOptionValue::Value(v) => v,
+        }
+    }
+
+    pub fn cxx(&self) -> String {
+        match &self.value {
+            CxxOptionValue::On => format!("-D{}=1", self.name),
+            CxxOptionValue::Off => format!("-D{}=0", self.name),
+            CxxOptionValue::Value(v) => format!("-D{}={}", self.name, v),
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        match self.value {
+            CxxOptionValue::On => true,
+            CxxOptionValue::Off => false,
+            CxxOptionValue::Value(_) => true,
+        }
+    }
 }

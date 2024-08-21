@@ -20,7 +20,7 @@ mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
 paste = "1.0.15"
 tap = "1.0.1"
 thiserror = "1.0.63"
-error-stack = { version = "0.5.0", optional = true }
+error-stack = { version = "0.5.0" }
 clap = { version = "4.5.9", features = ["derive"], optional = true }
 
 [features]
@@ -28,10 +28,11 @@ metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
 opencl = ["mnn-sys/opencl"]
-error-report = ["dep:error-stack"]
+mnn-threadpool = ["mnn-sys/mnn-threadpool"]
+# error-report = ["dep:error-stack"]
 # Re exports some enums and structs with `#[derive(clap::ValueEnum, Debug)]`
 clap = ["dep:clap"]
-default = ["error-report"]
+default = ["mnn-threadpool"]
 
 [dev-dependencies]
 anyhow = "1.0.86"

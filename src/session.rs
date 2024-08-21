@@ -1,4 +1,4 @@
-use crate::{prelude::*, Interpreter};
+use crate::prelude::*;
 
 pub struct Session {
     pub(crate) session: *mut mnn_sys::Session,

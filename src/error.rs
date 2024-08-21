@@ -2,10 +2,7 @@ use mnn_sys::ErrorCode;
 
 pub type Result<T, E = MNNError> = core::result::Result<T, E>;
 pub struct MNNError {
-    #[cfg(feature = "error-report")]
     kind: error_stack::Report<ErrorKind>,
-    #[cfg(not(feature = "error-report"))]
-    kind: ErrorKind,
 }
 
 impl core::fmt::Display for MNNError {
@@ -43,7 +40,6 @@ pub enum ErrorKind {
 impl MNNError {
     #[track_caller]
     pub fn new(kind: ErrorKind) -> Self {
-        #[cfg(feature = "error-report")]
         let kind = error_stack::Report::new(kind);
         Self { kind }
     }
@@ -69,10 +65,7 @@ macro_rules! ensure {
     };
     ($cond:expr, $from:expr, $to:expr) => {
         if (!$cond) {
-            #[cfg(feature = "error-report")]
             return Err(error_stack::Report::new($from).change_context($to));
-            #[cfg(not(feature = "error-report"))]
-            return Err(crate::error::MNNError::new($to));
         }
     };
 }
@@ -101,10 +94,7 @@ impl MNNError {
         self,
         printable: impl core::fmt::Display + core::fmt::Debug + Send + Sync + 'static,
     ) -> Self {
-        #[cfg(feature = "error-report")]
         let kind = self.kind.attach_printable(printable);
-        #[cfg(not(feature = "error-report"))]
-        let kind = self.kind;
         Self { kind }
     }
 }
