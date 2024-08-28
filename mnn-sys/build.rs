@@ -67,6 +67,10 @@ fn main() -> Result<()> {
         std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
         try_patch_file("patches/typedef_template.patch", &intptr)
             .context("Failed to patch vendor")?;
+        let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
+        #[cfg(unix)]
+        std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
+        try_patch_file("patches/halide_type_t_64.patch", intptr).context("Failed to patch vendor")?;
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
@@ -129,6 +133,7 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
     ];
 
     let bindings = bindgen::Builder::default()
+        // .clang_args(["-x", "c++"])
         .pipe(|builder| {
             let builder = builder
                 .clang_arg(CxxOption::VULKAN.cxx())
@@ -154,10 +159,10 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
                 gen.header(mnn_c.join(header).to_string_lossy())
             })
         })
-        .rustified_enum("MemoryMode")
-        .rustified_enum("PowerMode")
-        .rustified_enum("PrecisionMode")
-        .rustified_enum("SessionMode")
+        .newtype_enum("MemoryMode")
+        .newtype_enum("PowerMode")
+        .newtype_enum("PrecisionMode")
+        .newtype_enum("SessionMode")
         .rustified_enum("DimensionType")
         .rustified_enum("HandleDataType")
         .rustified_enum("MapType")

@@ -20,6 +20,7 @@ metal = []
 coreml = ["metal"]
 opencl = []
 openmp = []
+opengl = []
 mnn-threadpool = []
 default = ["mnn-threadpool"]
 

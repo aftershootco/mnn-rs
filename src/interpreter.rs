@@ -1,6 +1,48 @@
-use crate::{prelude::*, Device, Ref, Tensor};
+use crate::{prelude::*, Device, Ref, Tensor, TensorType};
 use mnn_sys::HalideType;
-pub use mnn_sys::SessionMode;
+
+#[derive(Debug, Copy, Clone)]
+#[repr(u32)]
+pub enum SessionMode {
+    #[doc = "About CallBack, Default Session_Debug*/\n/** runSessionWithCallBack is allowed and can get internal op info"]
+    Debug = mnn_sys::SessionMode::Session_Debug.0,
+    #[doc = "runSessionWithCallBack is not valid and can't get any info of op in\nsession"]
+    Release = mnn_sys::SessionMode::Session_Release.0,
+    #[doc = "About input tenosr, Default Session_Input_Inside*/\n/** The input tensor is alloced by session, input data after session resized"]
+    InputInside = mnn_sys::SessionMode::Session_Input_Inside.0,
+    #[doc = "The input tensor is alloced by user, set input data before session\nresize"]
+    InputUser = mnn_sys::SessionMode::Session_Input_User.0,
+    #[doc = "The output tensor depends on session, and can't be separate used"]
+    OutputInside = mnn_sys::SessionMode::Session_Output_Inside.0,
+    #[doc = "The output tensor can be separated from session"]
+    OutputUser = mnn_sys::SessionMode::Session_Output_User.0,
+    #[doc = "Try Resize Session when create Session or not, default direct:"]
+    ResizeDirect = mnn_sys::SessionMode::Session_Resize_Direct.0,
+    #[doc = "Try Resize Session when create Session or not, default direct:"]
+    ResizeDefer = mnn_sys::SessionMode::Session_Resize_Defer.0,
+    #[doc = "Determine the Execution's forward type is determine by user or auto\ndetermine"]
+    BackendFix = mnn_sys::SessionMode::Session_Backend_Fix.0,
+    #[doc = "Determine the Execution's forward type is determine by user or auto\ndetermine"]
+    BackendAuto = mnn_sys::SessionMode::Session_Backend_Auto.0,
+    #[doc = "Determine static memory whether recyle in resizeSession or just cache the\nmemory"]
+    MemoryCollect = mnn_sys::SessionMode::Session_Memory_Collect.0,
+    #[doc = "Determine static memory whether recyle in resizeSession or just cache the\nmemory"]
+    MemoryCache = mnn_sys::SessionMode::Session_Memory_Cache.0,
+    #[doc = "Determine whether use codegen function"]
+    CodegenDisable = mnn_sys::SessionMode::Session_Codegen_Disable.0,
+    #[doc = "Determine whether use codegen function"]
+    CodegenEnable = mnn_sys::SessionMode::Session_Codegen_Enable.0,
+    #[doc = "Dynamic Reisze Optimization"]
+    ResizeCheck = mnn_sys::SessionMode::Session_Resize_Check.0,
+    #[doc = "Dynamic Reisze Optimization"]
+    ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix.0,
+}
+
+impl SessionMode {
+    fn to_mnn_sys(&self) -> mnn_sys::SessionMode {
+        mnn_sys::SessionMode(*self as u32)
+    }
+}
 
 #[repr(transparent)]
 pub struct Interpreter {
@@ -34,8 +76,45 @@ impl Interpreter {
         })
     }
 
-    pub fn set_session_mode(&mut self, mode: mnn_sys::SessionMode) {
-        unsafe { mnn_sys::Interpreter_setSessionMode(self.interpreter, mode) }
+    pub fn set_session_mode(&mut self, mode: SessionMode) {
+        unsafe { mnn_sys::Interpreter_setSessionMode(self.interpreter, mode.to_mnn_sys()) }
+    }
+
+    pub fn resize_session(&self, session: &mut crate::Session) {
+        unsafe { mnn_sys::Interpreter_resizeSession(self.interpreter, session.session) }
+    }
+
+    pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsRef<[i32]>) {
+        let dims = dims.as_ref();
+        let dims_len = dims.len();
+        unsafe {
+            mnn_sys::Interpreter_resizeTensor(
+                self.interpreter,
+                tensor.tensor,
+                dims.as_ptr(),
+                dims_len,
+            )
+        }
+    }
+
+    pub fn resize_tensor_by_nchw<T: TensorType>(
+        &self,
+        tensor: &mut Tensor<T>,
+        batch: i32,
+        channel: i32,
+        height: i32,
+        width: i32,
+    ) {
+        unsafe {
+            mnn_sys::Interpreter_resizeTensorByNCHW(
+                self.interpreter,
+                tensor.tensor,
+                batch,
+                channel,
+                height,
+                width,
+            )
+        }
     }
 
     pub fn create_session(
@@ -148,7 +227,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { (*self.tensor_info).name.to_cstr() }
             .to_str()
-            .expect("FIX ME later")
+            .expect("Tensor name is not utf-8")
     }
 
     pub fn tensor<H: HalideType>(&self) -> Result<Tensor<Ref<'t, Device<H>>>> {

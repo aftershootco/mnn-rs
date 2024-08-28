@@ -26,7 +26,7 @@ pub enum ErrorKind {
     #[error("Invalid input: expected {expected}, got {got}")]
     SizeMismatch { expected: usize, got: usize },
     #[error("Failed to copy tensor")]
-    TensorCopyFailed,
+    TensorCopyFailed(i32),
     #[error("IO Error")]
     IOError,
     #[error("Interpreter Error")]
@@ -35,6 +35,8 @@ pub enum ErrorKind {
     AsciiError,
     #[error("HalideType mismatch: got {got}")]
     HalideTypeMismatch { got: &'static str },
+    #[error("Parse Error")]
+    ParseError,
 }
 
 impl MNNError {
@@ -75,7 +77,7 @@ macro_rules! error {
         crate::error::MNNError::new($kind)
     };
     ($kind:expr, $from:expr) => {
-        crate::error::MNNError::new(error_stack::Report::new($from).change_context($kind))
+        crate::error::MNNError::from(error_stack::Report::new($from).change_context($kind))
     };
 }
 

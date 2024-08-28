@@ -27,12 +27,6 @@ typedef struct {
 TensorInfoArray *createTensorInfoArray(size_t count);
 void destroyTensorInfoArray(TensorInfoArray *array);
 TensorInfo *getTensorInfoArray(TensorInfoArray const *array, size_t index);
-typedef struct {
-  halide_type_code_t code;
-  uint8_t bits;
-  uint16_t lanes;
-} halide_type_c;
-
 #ifdef __cplusplus
 }
 #endif

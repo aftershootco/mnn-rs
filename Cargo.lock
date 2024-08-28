@@ -116,6 +116,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b236fc92302c97ed75b38da1f4917b5cdda4984745740f153a5d3059e48d725e"
 
 [[package]]
+name = "candice"
+version = "0.1.0"
+
+[[package]]
 name = "castaway"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -204,6 +208,15 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 name = "cmake"
 version = "0.1.50"
 source = "git+https://github.com/blonteractor/cmake-rs#b96aab10486f2c1540422dd4e6f38e983745fd5a"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "cmake"
+version = "0.1.51"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb1e43aa7fd152b1f968787f7dbcdeb306d1867ff373c69955211876c053f91a"
 dependencies = [
  "cc",
 ]
@@ -364,8 +377,6 @@ dependencies = [
  "error-stack",
  "libc",
  "mnn-sys",
- "paste",
- "tap",
  "thiserror",
 ]
 
@@ -376,7 +387,7 @@ dependencies = [
  "anyhow",
  "bindgen",
  "cc",
- "cmake",
+ "cmake 0.1.50",
  "diffy",
  "dunce",
  "fs_extra",
@@ -424,6 +435,12 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "pkg-config"
+version = "0.3.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "prettyplease"
@@ -488,11 +505,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "candice",
  "clap",
  "fast_image_resize",
  "mnn",
  "owo-colors",
  "serde_json",
+ "turbojpeg",
 ]
 
 [[package]]
@@ -607,6 +626,29 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "turbojpeg"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "742872834554e7119ad535e5cc6312b48a61151a9db5f119ad6cfe543fdfc636"
+dependencies = [
+ "libc",
+ "thiserror",
+ "turbojpeg-sys",
+]
+
+[[package]]
+name = "turbojpeg-sys"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fa6daade3b979fb7454cce5ebcb9772ce7a1cf476ea27ed20ed06e13d9bc983"
+dependencies = [
+ "anyhow",
+ "cmake 0.1.51",
+ "libc",
+ "pkg-config",
 ]
 
 [[package]]

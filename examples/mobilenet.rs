@@ -1,4 +1,3 @@
-use ffi::MNNForwardType;
 use mnn::*;
 use std::path::PathBuf;
 
@@ -12,10 +11,10 @@ pub fn main() -> anyhow::Result<()> {
     let mut interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
-    config.set_type(MNNForwardType::MNN_FORWARD_METAL);
+    config.set_type(ForwardType::CPU);
     let mut backend_config = BackendConfig::new();
-    backend_config.set_precision_mode(PrecisionMode::Precision_High);
-    backend_config.set_power_mode(PowerMode::Power_High);
+    backend_config.set_precision_mode(PrecisionMode::High);
+    backend_config.set_power_mode(PowerMode::High);
 
     config.set_backend_config(&backend_config);
     let now = std::time::Instant::now();
@@ -38,7 +37,7 @@ pub fn main() -> anyhow::Result<()> {
     let now = std::time::Instant::now();
     image.copy_from_host_tensor(&image_tensor)?;
     println!("copy time for image tensor: {:?}", now.elapsed());
-    let output = interpreter.output(&session, "dense")?;
+    let output = interpreter.output::<f32>(&session, "dense")?;
     // mask.host_mut::<f32>().fill(0.7f32);
 
     // image.copy_from_host_tensor(&unit_tensor)?;

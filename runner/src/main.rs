@@ -1,5 +1,7 @@
 use anyhow::Result;
+use candice::*;
 use clap::Parser;
+use fast_image_resize::PixelType;
 use mnn::*;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
@@ -24,17 +26,21 @@ pub struct Cli {
     #[clap(short, long)]
     pub model: PathBuf,
     #[clap(short, long, default_value = "cpu")]
-    forward: mnn::utils::ForwardType,
-    #[clap(short, long, default_value = "high")]
-    pub precision: mnn::utils::Modes,
-    #[clap(short = 'P', long, default_value = "high")]
-    pub power: mnn::utils::Modes,
+    forward: mnn::ForwardType,
+    // #[clap(short, long, default_value = "high")]
+    // pub precision: mnn::PrecisionMode,
+    // #[clap(short = 'P', long, default_value = "high")]
+    // pub power: mnn::PowerMode,
     #[clap(
         short,
         long,
         default_value_t = std::thread::available_parallelism().expect("No available threads")
     )]
     pub threads: std::num::NonZeroUsize,
+    #[clap(short, long)]
+    pub resize_batch: Option<u16>,
+    #[clap(short, long)]
+    pub input: Option<PathBuf>,
 }
 
 impl Cli {
@@ -48,12 +54,13 @@ impl Cli {
                 anyhow::anyhow!("Could not get file name from path: {:?}", self.model)
             })?;
         Ok(current_dir.join(format!(
-            "{}_{}_{:?}_Precision{:?}_Power{:?}",
+            // "{}_{}_{:?}_Precision{:?}_Power{:?}",
+            "{}_{}_{:?}",
             out.as_ref(),
             model_name,
             self.forward,
-            self.precision,
-            self.power
+            // self.precision,
+            // self.power
         )))
     }
 }
@@ -62,24 +69,65 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut net = mnn::Interpreter::from_file(&cli.model)?;
     let mut config = ScheduleConfig::new();
-    config.set_type(cli.forward.to_forward_type());
+    config.set_type(cli.forward);
     config.set_num_threads(cli.threads.get() as i32);
     let mut backend_config = BackendConfig::new();
-    backend_config.set_precision_mode(cli.precision.to_precision_mode());
-    backend_config.set_power_mode(cli.power.to_power_mode());
+    backend_config.set_precision_mode(PrecisionMode::High);
+    backend_config.set_power_mode(PowerMode::High);
     config.set_backend_config(&backend_config);
 
-    net.set_session_mode(SessionMode::Session_Release);
-    let session = time!(net.create_session(&mut config)?; "Loading model".red());
+    net.set_session_mode(SessionMode::Release);
+    let mut session = time!(net.create_session(&mut config)?; "Loading model".red());
     let inputs = net.inputs(&session);
+    let outputs = net.outputs(&session);
+
+    if let Some(resize_batch) = cli.resize_batch {
+        for input in inputs.iter() {
+            let mut tensor = input.tensor::<f32>()?;
+            let mut shape = tensor.shape().as_ref().to_owned();
+            shape[0] = resize_batch as i32;
+            net.resize_tensor(&mut tensor, shape);
+        }
+        // for output in outputs.iter() {
+        //     let mut tensor = output.tensor::<f32>()?;
+        //     let mut shape = tensor.shape().as_ref().to_owned();
+        //     shape[0] = resize_batch as i32;
+        //     net.resize_tensor(&mut tensor, shape);
+        // }
+        net.resize_session(&mut session);
+    }
 
     for input in inputs.iter() {
         let name = input.name();
         let mut tensor = input.tensor::<f32>()?;
         let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
-        tensor.print_shape();
-        cpu_tensor.print_shape();
-        time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
+        if let Some(input) = &cli.input {
+            let image = std::fs::read(input)?;
+            let image_tj = turbojpeg::decompress(&image, turbojpeg::PixelFormat::RGB)?;
+            let image = image_tj.pixels;
+            let input_image = fast_image_resize::images::Image::from_vec_u8(
+                image_tj.width as u32,
+                image_tj.height as u32,
+                image,
+                fast_image_resize::PixelType::U8x3,
+            )?;
+            let shape = cpu_tensor.shape();
+            let shape = shape.as_ref();
+            let x = shape[1] as u32;
+            let y = shape[0] as u32;
+            let mut output_image =
+                fast_image_resize::images::Image::new(x, y, fast_image_resize::PixelType::U8x3);
+            let mut resizer = fast_image_resize::Resizer::new();
+            resizer.resize(&input_image, &mut output_image, None)?;
+            let out_float: Vec<f32> = output_image.buffer().iter().map(|f| *f as f32).collect();
+
+            // let out_float: &[f32] = time!(bytemuck::cast_slice(&image));
+            cpu_tensor.host_mut().copy_from_slice(&out_float);
+        } else {
+            time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
+        }
+        let cpu_input = cpu_tensor.host();
+        std::fs::write("input_bin", bytemuck::cast_slice(cpu_input))?;
         time!(tensor.copy_from_host_tensor(&cpu_tensor)?; format!("Copying tensor {}", name.yellow()));
     }
 
@@ -97,14 +145,13 @@ fn main() -> Result<()> {
         let shape = cpu_tensor.shape();
         let n = cpu_tensor.batch();
         let c = cpu_tensor.channel();
-        let h = cpu_tensor.height();
         let w = cpu_tensor.width();
-        match (n, c, h, w) {
+        let h = cpu_tensor.height();
+        match (n, c, w, h) {
             (1, 3, _, _) if h == w && h != 0 => {
                 println!("Saving output tensor {} as image", name.green());
                 let out_vec = cpu_tensor.host().to_vec();
                 let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
-                // let mut out_ppm = b"P6\n512 512\n255\n".to_vec();
                 out_ppm.extend(out_vec.iter().map(|x: &f32| *x as u8));
                 std::fs::write(cli.out_name(name)?.with_extension("ppm"), out_ppm)?;
             }
@@ -119,7 +166,7 @@ fn main() -> Result<()> {
                 println!("Saving output tensor {} as binary", name.blue());
                 let data = cpu_tensor.host();
                 std::fs::write(
-                    cli.out_name(name)?.with_extension("bin"),
+                    cli.out_name(name)?.push_extension("bin"),
                     bytemuck::cast_slice(data),
                 )?;
             }

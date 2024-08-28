@@ -13,30 +13,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.86"
 castaway = "0.2.3"
 libc = "0.2.155"
 mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
-paste = "1.0.15"
-tap = "1.0.1"
 thiserror = "1.0.63"
 error-stack = { version = "0.5.0" }
-clap = { version = "4.5.9", features = ["derive"], optional = true }
 
 [features]
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 vulkan = ["mnn-sys/vulkan"]
 opencl = ["mnn-sys/opencl"]
+opengl = ["mnn-sys/opengl"]
+# Disable mnn-threadpool to enable this
+openmp = ["mnn-sys/openmp"] 
 mnn-threadpool = ["mnn-sys/mnn-threadpool"]
-# error-report = ["dep:error-stack"]
-# Re exports some enums and structs with `#[derive(clap::ValueEnum, Debug)]`
-clap = ["dep:clap"]
 default = ["mnn-threadpool"]
+parse = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
 clap = { version = "4.5.9", features = ["derive"] }
-# fast_image_resize = "4.2.1"
-# zune-core = "0.4.12"
-# zune-image = { version = "0.4.15", default-features = false, features = ["jpeg", "png"] }

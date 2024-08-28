@@ -184,6 +184,8 @@
             // {
               hardeningDisable = ["all"];
               packages = with pkgs; [
+                mnn
+                darwin.apple_sdk.frameworks.OpenCL
                 llvmPackages.clang.cc
                 rust-bindgen-unwrapped
                 stableToolchainWithRustAnalyzer

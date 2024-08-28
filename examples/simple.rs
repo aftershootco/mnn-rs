@@ -1,4 +1,4 @@
-use mnn::utils::*;
+// use mnn::utils::*;
 use mnn::*;
 use std::path::PathBuf;
 
@@ -6,12 +6,12 @@ use std::path::PathBuf;
 pub struct Cli {
     // image: PathBuf,
     model: PathBuf,
-    #[clap(short, long, default_value = "metal")]
-    forward: ForwardType,
-    #[clap(short, long, default_value = "high")]
-    precision: Modes,
-    #[clap(short = 'P', long, default_value = "high")]
-    power: Modes,
+    // #[clap(short, long, default_value = "metal")]
+    // forward: ForwardType,
+    // #[clap(short, long, default_value = "high")]
+    // precision: Modes,
+    // #[clap(short = 'P', long, default_value = "high")]
+    // power: Modes,
 }
 
 pub fn main() -> anyhow::Result<()> {
@@ -20,10 +20,10 @@ pub fn main() -> anyhow::Result<()> {
     let mut interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
-    config.set_type(cli.forward.to_forward_type());
+    config.set_type(ForwardType::CPU);
     let mut backend_config = BackendConfig::new();
-    backend_config.set_precision_mode(cli.precision.to_precision_mode());
-    backend_config.set_power_mode(cli.power.to_power_mode());
+    backend_config.set_precision_mode(PrecisionMode::High);
+    backend_config.set_power_mode(PowerMode::High);
     config.set_backend_config(&backend_config);
 
     let now = std::time::Instant::now();

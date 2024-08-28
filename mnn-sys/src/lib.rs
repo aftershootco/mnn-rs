@@ -12,17 +12,9 @@ impl DimensionType {
     pub const NCHW: Self = Self::CAFFE;
     pub const NC4HW4: Self = Self::CAFFE_C4;
 }
-
 impl halide_type_t {
-    pub fn new(code: halide_type_code_t, bits: u8) -> Self {
-        Self::new_with_lanes(code, bits, 1)
-    }
-    pub fn new_with_lanes(code: halide_type_code_t, bits: u8, lanes: u16) -> Self {
-        Self {
-            code: code as u8,
-            bits,
-            lanes,
-        }
+    unsafe fn new(code: halide_type_code_t, bits: u8, lanes: u16) -> Self {
+        Self { code, bits, lanes }
     }
 }
 
@@ -43,7 +35,9 @@ macro_rules! halide_types {
             impl seal::Sealed for $t {}
             impl HalideType for $t {
                 fn halide_type_of() -> halide_type_t {
-                    $ht
+                    unsafe {
+                        $ht
+                    }
                 }
             }
         )*
@@ -51,17 +45,17 @@ macro_rules! halide_types {
 }
 
 halide_types! {
-    f32 => halide_type_t::new(halide_type_code_t::halide_type_float, 32),
-    f64 => halide_type_t::new(halide_type_code_t::halide_type_float, 64),
-    bool => halide_type_t::new(halide_type_code_t::halide_type_uint, 1),
-    u8 => halide_type_t::new(halide_type_code_t::halide_type_uint, 8),
-    u16 => halide_type_t::new(halide_type_code_t::halide_type_uint, 16),
-    u32 => halide_type_t::new(halide_type_code_t::halide_type_uint, 32),
-    u64 => halide_type_t::new(halide_type_code_t::halide_type_uint, 64),
-    i8 => halide_type_t::new(halide_type_code_t::halide_type_int, 8),
-    i16 => halide_type_t::new(halide_type_code_t::halide_type_int, 16),
-    i32 => halide_type_t::new(halide_type_code_t::halide_type_int, 32),
-    i64 => halide_type_t::new(halide_type_code_t::halide_type_int, 64)
+    f32 =>  halide_type_t::new(halide_type_code_t::halide_type_float, 32, 1),
+    f64 =>  halide_type_t::new(halide_type_code_t::halide_type_float, 64, 1),
+    bool => halide_type_t::new(halide_type_code_t::halide_type_uint, 1, 1),
+    u8 =>   halide_type_t::new(halide_type_code_t::halide_type_uint, 8,1),
+    u16 =>  halide_type_t::new(halide_type_code_t::halide_type_uint, 16,1),
+    u32 =>  halide_type_t::new(halide_type_code_t::halide_type_uint, 32,1),
+    u64 =>  halide_type_t::new(halide_type_code_t::halide_type_uint, 64,1),
+    i8 =>   halide_type_t::new(halide_type_code_t::halide_type_int, 8,1),
+    i16 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 16,1),
+    i32 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 32,1),
+    i64 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 64,1)
 }
 
 impl Drop for CString {

@@ -110,6 +110,46 @@ impl<H: HalideType> Tensor<Device<H>> {
 }
 
 use mnn_sys::*;
+
+/// The type of the tensor dimension  
+/// If you are manually specifying the shapes then this doesn't really matter  
+/// N -> Batch size
+/// C -> Channel
+/// H -> Height
+/// W -> Width
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DimensionType {
+    /// Caffe style dimensions or NCHW
+    Caffe,
+    /// Caffe style dimensions with channel packed in 4 bytes or NC4HW4
+    CaffeC4,
+    /// Tensorflow style dimensions or NHWC
+    TensorFlow,
+}
+
+impl DimensionType {
+    pub const NHWC: Self = Self::TensorFlow;
+    pub const NCHW: Self = Self::Caffe;
+    pub const NC4HW4: Self = Self::CaffeC4;
+    pub fn to_mnn_sys(&self) -> mnn_sys::DimensionType {
+        match self {
+            DimensionType::Caffe => mnn_sys::DimensionType::CAFFE,
+            DimensionType::CaffeC4 => mnn_sys::DimensionType::CAFFE_C4,
+            DimensionType::TensorFlow => mnn_sys::DimensionType::TENSORFLOW,
+        }
+    }
+}
+
+impl From<mnn_sys::DimensionType> for DimensionType {
+    fn from(dm: mnn_sys::DimensionType) -> Self {
+        match dm {
+            mnn_sys::DimensionType::CAFFE => DimensionType::Caffe,
+            mnn_sys::DimensionType::CAFFE_C4 => DimensionType::CaffeC4,
+            mnn_sys::DimensionType::TENSORFLOW => DimensionType::TensorFlow,
+        }
+    }
+}
+
 impl<T: TensorType> Tensor<T> {
     pub unsafe fn from_ptr(tensor: *mut mnn_sys::Tensor) -> Self {
         Self {
@@ -117,15 +157,17 @@ impl<T: TensorType> Tensor<T> {
             __marker: PhantomData,
         }
     }
+    /// Copies the data from a host tensor to the self tensor
     pub fn copy_from_host_tensor(&mut self, tensor: &Tensor<Host<T::H>>) -> Result<()> {
         let ret = unsafe { Tensor_copyFromHostTensor(self.tensor, tensor.tensor) };
-        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed);
+        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
         Ok(())
     }
 
+    /// Copies the data from the self tensor to a host tensor
     pub fn copy_to_host_tensor(&self, tensor: &mut Tensor<Host<T::H>>) -> Result<()> {
         let ret = unsafe { Tensor_copyToHostTensor(self.tensor, tensor.tensor) };
-        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed);
+        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
         Ok(())
     }
 
@@ -133,6 +175,7 @@ impl<T: TensorType> Tensor<T> {
         unsafe { Tensor_deviceId(self.tensor) }
     }
 
+    /// Get the shape of the tensor
     pub fn shape(&self) -> mnn_sys::TensorShape {
         unsafe { Tensor_shape(self.tensor) }
     }
@@ -187,22 +230,16 @@ impl<T: TensorType> Tensor<T> {
         Tensor_buffer_mut(self.tensor)
     }
 
-    pub fn get_diemension_type(&self) -> mnn_sys::DimensionType {
-        unsafe { Tensor_getDimensionType(self.tensor) }
+    pub fn get_dimension_type(&self) -> DimensionType {
+        From::from(unsafe { Tensor_getDimensionType(self.tensor) })
     }
 
-    pub fn get_type(&self) -> mnn_sys::halide_type_c {
-        let type_ = unsafe { Tensor_getType(self.tensor) };
-        type_
+    pub fn get_type(&self) -> mnn_sys::halide_type_t {
+        unsafe { Tensor_getType(self.tensor) }
     }
 
     pub fn is_type_of<H: HalideType>(&self) -> bool {
         let htc = halide_type_of::<H>();
-        let htc = halide_type_c {
-            code: unsafe { halide_type_code_t::from_u32(htc.code as u32) },
-            bits: htc.bits,
-            lanes: htc.lanes,
-        };
         unsafe { Tensor_isTypeOf(self.tensor, htc) }
     }
 }
@@ -216,7 +253,6 @@ impl<T: HostTensorType> Tensor<T> {
                 got: std::any::type_name::<T::H>(),
             }
         );
-
         let result = unsafe {
             let data = mnn_sys::Tensor_host(self.tensor).cast();
             core::slice::from_raw_parts(data, size)
@@ -257,12 +293,91 @@ impl<T: DeviceTensorType> Tensor<T> {
         }
     }
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host<T::H>> {
-        let tensor = unsafe { Tensor_createHostTensorFromDevice(self.tensor, copy_data as i32) };
-        debug_assert!(!tensor.is_null());
+        let shape = self.shape();
+        let dm_type = self.get_dimension_type();
+        let mut out = Tensor::new(shape, dm_type);
 
-        unsafe { Tensor::from_ptr(tensor) }
+        if copy_data {
+            self.copy_to_host_tensor(&mut out)
+                .expect("Failed to copy data from device tensor");
+        }
+        out
     }
 }
+
+impl<T: OwnedTensorType> Tensor<T> {
+    pub fn new(shape: impl AsRef<[i32]>, dm_type: DimensionType) -> Self {
+        let shape = shape.as_ref();
+        dbg!(shape);
+        let tensor = unsafe {
+            if T::device() {
+                Tensor_createDevice(
+                    shape.as_ptr(),
+                    shape.len(),
+                    halide_type_of::<T::H>(),
+                    dm_type.to_mnn_sys(),
+                )
+            } else {
+                Tensor_createWith(
+                    shape.as_ptr(),
+                    shape.len(),
+                    halide_type_of::<T::H>(),
+                    core::ptr::null_mut(),
+                    DimensionType::Caffe.to_mnn_sys(),
+                )
+            }
+        };
+        debug_assert!(!tensor.is_null());
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
+// impl<T: HalideType> Tensor<Host<T>> {
+//     pub fn new(shape: &[i32], data: &mut [T]) -> Self {
+//         let tensor = unsafe {
+//         };
+//         debug_assert!(!tensor.is_null());
+//         Self {
+//             tensor,
+//             __marker: PhantomData,
+//         }
+//     }
+//
+//     // pub fn new_with_host_data(shape: &[usize], data: &[T::H]) -> Self {
+//     //     let tensor = unsafe {
+//     //         Tensor_createHostTensorWithData(
+//     //             shape.as_ptr(),
+//     //             shape.len() as i32,
+//     //             data.as_ptr().cast(),
+//     //             data.len() as i32,
+//     //         )
+//     //     };
+//     //     debug_assert!(!tensor.is_null());
+//     //     Self {
+//     //         tensor,
+//     //         __marker: PhantomData,
+//     //     }
+//     // }
+//
+//     // pub fn new_with_host_data_mut(shape: &[usize], data: &mut [T::H]) -> Self {
+//     //     let tensor = unsafe {
+//     //         Tensor_createHostTensorWithData(
+//     //             shape.as_ptr(),
+//     //             shape.len() as i32,
+//     //             data.as_mut_ptr().cast(),
+//     //             data.len() as i32,
+//     //         )
+//     //     };
+//     //     debug_assert!(!tensor.is_null());
+//     //     Self {
+//     //         tensor,
+//     //         __marker: PhantomData,
+//     //     }
+//     // }
+// }
 
 impl<T: OwnedTensorType> Clone for Tensor<T> {
     fn clone(&self) -> Tensor<T> {
@@ -270,6 +385,100 @@ impl<T: OwnedTensorType> Clone for Tensor<T> {
         Self {
             tensor: tensor_ptr,
             __marker: PhantomData,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct TensorShape {
+    pub(crate) shape: [i32; 4],
+    pub(crate) size: usize,
+}
+
+impl core::ops::Deref for TensorShape {
+    type Target = [i32];
+
+    fn deref(&self) -> &Self::Target {
+        &self.shape[..self.size]
+    }
+}
+
+impl core::ops::Index<usize> for TensorShape {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.shape[..self.size][index]
+    }
+}
+
+impl core::ops::IndexMut<usize> for TensorShape {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.shape[..self.size][index]
+    }
+}
+
+impl core::ops::DerefMut for TensorShape {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.shape[..self.size]
+    }
+}
+
+impl core::fmt::Debug for TensorShape {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", &self.shape[..self.size])
+    }
+}
+
+pub trait AsTensorShape {
+    fn as_tensor_shape(self) -> TensorShape;
+}
+
+impl<const S: usize> AsTensorShape for [i32; S] {
+    fn as_tensor_shape(self) -> TensorShape {
+        if S > 4 {
+            TensorShape {
+                shape: self[..4].try_into().expect("Impossible"),
+                size: 4,
+            }
+        } else {
+            TensorShape {
+                shape: self[..S].try_into().expect("Impossible"),
+                size: S,
+            }
+        }
+    }
+}
+
+impl AsTensorShape for &[i32] {
+    fn as_tensor_shape(self) -> TensorShape {
+        if self.len() > 4 {
+            TensorShape {
+                shape: self[..4].try_into().expect("Impossible"),
+                size: 4,
+            }
+        } else {
+            TensorShape {
+                shape: self.try_into().expect("Impossible"),
+                size: self.len(),
+            }
+        }
+    }
+}
+
+impl AsTensorShape for Vec<i32> {
+    fn as_tensor_shape(self) -> TensorShape {
+        let len = self.len();
+        if len > 4 {
+            TensorShape {
+                shape: self[..4].try_into().expect("Impossible"),
+                size: 4,
+            }
+        } else {
+            TensorShape {
+                shape: self.try_into().expect("Impossible"),
+                size: len,
+            }
         }
     }
 }
