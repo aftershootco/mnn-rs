@@ -308,7 +308,6 @@ impl<T: DeviceTensorType> Tensor<T> {
 impl<T: OwnedTensorType> Tensor<T> {
     pub fn new(shape: impl AsRef<[i32]>, dm_type: DimensionType) -> Self {
         let shape = shape.as_ref();
-        dbg!(shape);
         let tensor = unsafe {
             if T::device() {
                 Tensor_createDevice(
