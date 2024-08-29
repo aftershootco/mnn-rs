@@ -2,45 +2,51 @@ use crate::{prelude::*, Device, Ref, Tensor, TensorType};
 use mnn_sys::HalideType;
 
 #[derive(Debug, Copy, Clone)]
-#[repr(u32)]
+#[cfg_attr(windows, repr(i32))]
+#[cfg_attr(unix, repr(u32))]
 pub enum SessionMode {
     #[doc = "About CallBack, Default Session_Debug*/\n/** runSessionWithCallBack is allowed and can get internal op info"]
-    Debug = mnn_sys::SessionMode::Session_Debug.0,
+    Debug = mnn_sys::SessionMode::Session_Debug,
     #[doc = "runSessionWithCallBack is not valid and can't get any info of op in\nsession"]
-    Release = mnn_sys::SessionMode::Session_Release.0,
+    Release = mnn_sys::SessionMode::Session_Release,
     #[doc = "About input tenosr, Default Session_Input_Inside*/\n/** The input tensor is alloced by session, input data after session resized"]
-    InputInside = mnn_sys::SessionMode::Session_Input_Inside.0,
+    InputInside = mnn_sys::SessionMode::Session_Input_Inside,
     #[doc = "The input tensor is alloced by user, set input data before session\nresize"]
-    InputUser = mnn_sys::SessionMode::Session_Input_User.0,
+    InputUser = mnn_sys::SessionMode::Session_Input_User,
     #[doc = "The output tensor depends on session, and can't be separate used"]
-    OutputInside = mnn_sys::SessionMode::Session_Output_Inside.0,
+    OutputInside = mnn_sys::SessionMode::Session_Output_Inside,
     #[doc = "The output tensor can be separated from session"]
-    OutputUser = mnn_sys::SessionMode::Session_Output_User.0,
+    OutputUser = mnn_sys::SessionMode::Session_Output_User,
     #[doc = "Try Resize Session when create Session or not, default direct:"]
-    ResizeDirect = mnn_sys::SessionMode::Session_Resize_Direct.0,
+    ResizeDirect = mnn_sys::SessionMode::Session_Resize_Direct,
     #[doc = "Try Resize Session when create Session or not, default direct:"]
-    ResizeDefer = mnn_sys::SessionMode::Session_Resize_Defer.0,
+    ResizeDefer = mnn_sys::SessionMode::Session_Resize_Defer,
     #[doc = "Determine the Execution's forward type is determine by user or auto\ndetermine"]
-    BackendFix = mnn_sys::SessionMode::Session_Backend_Fix.0,
+    BackendFix = mnn_sys::SessionMode::Session_Backend_Fix,
     #[doc = "Determine the Execution's forward type is determine by user or auto\ndetermine"]
-    BackendAuto = mnn_sys::SessionMode::Session_Backend_Auto.0,
+    BackendAuto = mnn_sys::SessionMode::Session_Backend_Auto,
     #[doc = "Determine static memory whether recyle in resizeSession or just cache the\nmemory"]
-    MemoryCollect = mnn_sys::SessionMode::Session_Memory_Collect.0,
+    MemoryCollect = mnn_sys::SessionMode::Session_Memory_Collect,
     #[doc = "Determine static memory whether recyle in resizeSession or just cache the\nmemory"]
-    MemoryCache = mnn_sys::SessionMode::Session_Memory_Cache.0,
+    MemoryCache = mnn_sys::SessionMode::Session_Memory_Cache,
     #[doc = "Determine whether use codegen function"]
-    CodegenDisable = mnn_sys::SessionMode::Session_Codegen_Disable.0,
+    CodegenDisable = mnn_sys::SessionMode::Session_Codegen_Disable,
     #[doc = "Determine whether use codegen function"]
-    CodegenEnable = mnn_sys::SessionMode::Session_Codegen_Enable.0,
+    CodegenEnable = mnn_sys::SessionMode::Session_Codegen_Enable,
     #[doc = "Dynamic Reisze Optimization"]
-    ResizeCheck = mnn_sys::SessionMode::Session_Resize_Check.0,
+    ResizeCheck = mnn_sys::SessionMode::Session_Resize_Check,
     #[doc = "Dynamic Reisze Optimization"]
-    ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix.0,
+    ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix,
 }
 
 impl SessionMode {
-    fn to_mnn_sys(&self) -> mnn_sys::SessionMode {
-        mnn_sys::SessionMode(*self as u32)
+    #[cfg(windows)]
+    fn to_mnn_sys(&self) -> i32 {
+        *self as i32
+    }
+    #[cfg(unix)]
+    fn to_mnn_sys(&self) -> u32 {
+        *self as u32
     }
 }
 

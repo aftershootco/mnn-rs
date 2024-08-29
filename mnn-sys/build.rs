@@ -162,7 +162,7 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .newtype_enum("MemoryMode")
         .newtype_enum("PowerMode")
         .newtype_enum("PrecisionMode")
-        .newtype_enum("SessionMode")
+        .constified_enum_module("SessionMode")
         .rustified_enum("DimensionType")
         .rustified_enum("HandleDataType")
         .rustified_enum("MapType")

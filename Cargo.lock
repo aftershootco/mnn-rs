@@ -116,10 +116,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b236fc92302c97ed75b38da1f4917b5cdda4984745740f153a5d3059e48d725e"
 
 [[package]]
-name = "candice"
-version = "0.1.0"
-
-[[package]]
 name = "castaway"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -505,7 +501,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
- "candice",
  "clap",
  "fast_image_resize",
  "mnn",

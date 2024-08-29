@@ -7,7 +7,7 @@ default-run = "runner"
 [dependencies]
 anyhow = "1.0.86"
 bytemuck = "1.16.1"
-candice = { version = "0.1.0", path = "../../candice" }
+# candice = { version = "0.1.0", path = "../../candice" }
 clap = { version = "4.5.11", features = ["derive"] }
 fast_image_resize = "4.2.1"
 mnn = { version = "0.1.0", path = "..", features = ["opencl", "parse"] }
