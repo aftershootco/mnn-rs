@@ -1,4 +1,4 @@
-use crate::{prelude::*, Device, Ref, Tensor, TensorType};
+use crate::{prelude::*, AsTensorShape, Device, Ref, Tensor, TensorType};
 use mnn_sys::HalideType;
 
 #[derive(Debug, Copy, Clone)]
@@ -90,14 +90,14 @@ impl Interpreter {
         unsafe { mnn_sys::Interpreter_resizeSession(self.interpreter, session.session) }
     }
 
-    pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsRef<[i32]>) {
-        let dims = dims.as_ref();
-        let dims_len = dims.len();
+    pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
+        let dims = dims.as_tensor_shape();
+        let dims_len = dims.size;
         unsafe {
             mnn_sys::Interpreter_resizeTensor(
                 self.interpreter,
                 tensor.tensor,
-                dims.as_ptr(),
+                dims.shape.as_ptr(),
                 dims_len,
             )
         }
