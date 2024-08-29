@@ -1,7 +1,6 @@
 use anyhow::Result;
 use candice::*;
 use clap::Parser;
-use fast_image_resize::PixelType;
 use mnn::*;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;

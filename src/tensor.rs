@@ -151,7 +151,12 @@ impl From<mnn_sys::DimensionType> for DimensionType {
 }
 
 impl<T: TensorType> Tensor<T> {
+    /// This function constructs a Tensor type from a raw pointer
+    ///# Safety
+    /// Since this constructs a Tensor from a raw pointer we have no way to guarantee that it's a
+    /// valid tensor or it's lifetime 
     pub unsafe fn from_ptr(tensor: *mut mnn_sys::Tensor) -> Self {
+        assert!(!tensor.is_null());
         Self {
             tensor,
             __marker: PhantomData,
@@ -176,8 +181,8 @@ impl<T: TensorType> Tensor<T> {
     }
 
     /// Get the shape of the tensor
-    pub fn shape(&self) -> mnn_sys::TensorShape {
-        unsafe { Tensor_shape(self.tensor) }
+    pub fn shape(&self) -> TensorShape {
+        unsafe { Tensor_shape(self.tensor) }.into()
     }
 
     pub fn dimensions(&self) -> usize {
@@ -221,11 +226,15 @@ impl<T: TensorType> Tensor<T> {
     }
 
     /// DO not use this function directly
+    /// # Safety
+    /// This is just provided as a 1:1 compat mostly for possible later use
     pub unsafe fn halide_buffer(&self) -> *const halide_buffer_t {
         Tensor_buffer(self.tensor)
     }
 
-    /// DO not use this function directly
+    /// Do not use this function directly
+    /// # Safety
+    /// This is just provided as a 1:1 compat mostly for possible later use
     pub unsafe fn halide_buffer_mut(&self) -> *mut halide_buffer_t {
         Tensor_buffer_mut(self.tensor)
     }
@@ -295,7 +304,7 @@ impl<T: DeviceTensorType> Tensor<T> {
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host<T::H>> {
         let shape = self.shape();
         let dm_type = self.get_dimension_type();
-        let mut out = Tensor::new(shape, dm_type);
+        let mut out = Tensor::new(TensorShape::from(shape), dm_type);
 
         if copy_data {
             self.copy_to_host_tensor(&mut out)
@@ -306,20 +315,20 @@ impl<T: DeviceTensorType> Tensor<T> {
 }
 
 impl<T: OwnedTensorType> Tensor<T> {
-    pub fn new(shape: impl AsRef<[i32]>, dm_type: DimensionType) -> Self {
-        let shape = shape.as_ref();
+    pub fn new(shape: impl AsTensorShape, dm_type: DimensionType) -> Self {
+        let shape = shape.as_tensor_shape();
         let tensor = unsafe {
             if T::device() {
                 Tensor_createDevice(
-                    shape.as_ptr(),
-                    shape.len(),
+                    shape.shape.as_ptr(),
+                    shape.size,
                     halide_type_of::<T::H>(),
                     dm_type.to_mnn_sys(),
                 )
             } else {
                 Tensor_createWith(
-                    shape.as_ptr(),
-                    shape.len(),
+                    shape.shape.as_ptr(),
+                    shape.size,
                     halide_type_of::<T::H>(),
                     core::ptr::null_mut(),
                     DimensionType::Caffe.to_mnn_sys(),
@@ -395,6 +404,24 @@ pub struct TensorShape {
     pub(crate) size: usize,
 }
 
+impl From<mnn_sys::TensorShape> for TensorShape {
+    fn from(value: mnn_sys::TensorShape) -> Self {
+        Self {
+            shape: value.shape,
+            size: value.size,
+        }
+    }
+}
+
+impl From<TensorShape> for mnn_sys::TensorShape {
+    fn from(value: TensorShape) -> Self {
+        Self {
+            shape: value.shape,
+            size: value.size,
+        }
+    }
+}
+
 impl core::ops::Deref for TensorShape {
     type Target = [i32];
 
@@ -430,54 +457,66 @@ impl core::fmt::Debug for TensorShape {
 }
 
 pub trait AsTensorShape {
-    fn as_tensor_shape(self) -> TensorShape;
+    fn as_tensor_shape(&self) -> TensorShape;
 }
 
-impl<const S: usize> AsTensorShape for [i32; S] {
-    fn as_tensor_shape(self) -> TensorShape {
-        if S > 4 {
-            TensorShape {
-                shape: self[..4].try_into().expect("Impossible"),
-                size: 4,
-            }
-        } else {
-            TensorShape {
-                shape: self[..S].try_into().expect("Impossible"),
-                size: S,
-            }
-        }
-    }
-}
-
-impl AsTensorShape for &[i32] {
-    fn as_tensor_shape(self) -> TensorShape {
-        if self.len() > 4 {
-            TensorShape {
-                shape: self[..4].try_into().expect("Impossible"),
-                size: 4,
-            }
-        } else {
-            TensorShape {
-                shape: self.try_into().expect("Impossible"),
-                size: self.len(),
-            }
-        }
-    }
-}
-
-impl AsTensorShape for Vec<i32> {
-    fn as_tensor_shape(self) -> TensorShape {
-        let len = self.len();
+impl<T: AsRef<[i32]>> AsTensorShape for T {
+    fn as_tensor_shape(&self) -> TensorShape {
+        let this = self.as_ref();
+        let len = this.len();
         if len > 4 {
             TensorShape {
-                shape: self[..4].try_into().expect("Impossible"),
+                shape: this[..4].try_into().expect("Impossible"),
                 size: 4,
             }
         } else {
             TensorShape {
-                shape: self.try_into().expect("Impossible"),
+                shape: this.iter().chain(std::iter::repeat(&1)).take(4).copied().collect::<Vec<i32>>().try_into().expect("Impossible"),
                 size: len,
             }
+        }
+    }
+}
+
+impl AsTensorShape for TensorShape {
+    fn as_tensor_shape(&self) -> TensorShape {
+        *self
+    }
+}
+
+#[cfg(test)]
+mod as_tensor_shape_tests {
+    use super::AsTensorShape;
+    macro_rules! shape_test {
+        ($t:ty, $kind: expr, $value: expr) => {
+            eprintln!("Testing {} with {} shape", stringify!($t), $kind);
+            $value.as_tensor_shape();
+        }
+    }
+    #[test]
+    fn as_tensor_shape_test_vec() {
+        shape_test!(Vec<i32>, "small", vec![1,2,3]);
+        shape_test!(Vec<i32>, "large",vec![12,23,34,45,67]);
+    }
+    #[test]
+    fn as_tensor_shape_test_array() {
+        shape_test!([i32; 3], "small", [1,2,3]);
+        shape_test!([i32; 5], "large",[12,23,34,45,67]);
+    }
+    #[test]
+    fn as_tensor_shape_test_ref() {
+        shape_test!(&[i32], "small", &[1,2,3]);
+        shape_test!(&[i32], "large",&[12,23,34,45,67]);
+    }
+}
+
+#[cfg(test)]
+mod tensor_tests {
+    #[test]
+    #[should_panic]
+    fn unsafe_nullptr_tensor() {
+        unsafe {
+            super::Tensor::<super::Host<i32>>::from_ptr(core::ptr::null_mut());
         }
     }
 }
