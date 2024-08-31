@@ -51,7 +51,12 @@ impl SessionHandle {
                     f(&mut session_runner)
                 }))
                 .unwrap_or_else(|e| {
-                    Err(Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e)))
+                    let mut err =
+                        Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e));
+                    if let Some(location) = e.downcast_ref::<core::panic::Location>() {
+                        err = err.attach_printable(format!("{:?}", location));
+                    };
+                    Err(MNNError::from(err))
                 });
                 tx.send(result)
                     .change_context(ErrorKind::SyncError)
@@ -76,6 +81,7 @@ impl SessionHandle {
         rx.recv()
             .change_context(ErrorKind::SyncError)
             .attach_printable("Internal Error: Unable to recv message")?
+            .change_context(ErrorKind::SyncError)
             .attach_printable("Callback Error: Error in the provided callback")?;
         Ok(())
     }

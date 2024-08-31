@@ -52,6 +52,7 @@ pub use schedule::*;
 pub use session::*;
 pub use tensor::*;
 
+#[cfg(feature = "sync")]
 pub mod sync;
 
 pub mod prelude {
