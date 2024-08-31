@@ -17,8 +17,22 @@
           inherit system;
         };
       in {
+        packages.venv = pkgs.stdenv.mkDerivation {
+          src = ./.;
+          name = "venv";
+          buildInputs = [(pkgs.python311.withPackages (ps: [ps.pip ps.virtualenv]))];
+          buildPhase = ''
+            virtualenv -p python3 venv
+            source venv/bin/activate
+            pip install tensorflow tf2onnx onnxruntime
+          '';
+          installPhase = ''
+            mkdir -p $out
+            cp -r venv $out
+          '';
+        };
         devShell = pkgs.mkShell {
-          packages = [(pkgs.python311.withPackages (ps: [ps.pip ps.tensorflow]))];
+          packages = [(pkgs.python311.withPackages (ps: [ps.pip]))];
         };
       }
     );
