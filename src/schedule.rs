@@ -22,7 +22,7 @@ pub enum ForwardType {
 }
 
 impl ForwardType {
-    fn to_mnn_sys(&self) -> MNNForwardType {
+    fn to_mnn_sys(self) -> MNNForwardType {
         match self {
             ForwardType::Auto => MNNForwardType::MNN_FORWARD_AUTO,
             ForwardType::All => MNNForwardType::MNN_FORWARD_ALL,
@@ -105,6 +105,12 @@ impl Drop for ScheduleConfig {
 }
 
 unsafe impl Send for ScheduleConfig {}
+
+impl Default for ScheduleConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ScheduleConfig {
     pub fn as_ptr_mut(&mut self) -> *mut MNNScheduleConfig {

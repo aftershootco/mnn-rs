@@ -56,7 +56,7 @@ impl SessionHandle {
                     if let Some(location) = e.downcast_ref::<core::panic::Location>() {
                         err = err.attach_printable(format!("{:?}", location));
                     };
-                    Err(MNNError::from(err))
+                    Err(err)
                 });
                 tx.send(result)
                     .change_context(ErrorKind::SyncError)

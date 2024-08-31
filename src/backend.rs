@@ -9,6 +9,20 @@ pub struct BackendConfig {
     __marker: core::marker::PhantomData<()>,
 }
 
+impl Drop for BackendConfig {
+    fn drop(&mut self) {
+        unsafe {
+            mnn_sys::mnnbc_destroy(self.inner);
+        }
+    }
+}
+
+impl Default for BackendConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum PowerMode {
     Low,

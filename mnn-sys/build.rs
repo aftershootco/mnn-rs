@@ -136,14 +136,10 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
 
     let bindings = bindgen::Builder::default()
         // .clang_args(["-x", "c++"])
-        .pipe(|builder| {
-            let builder = builder
-                .clang_arg(CxxOption::VULKAN.cxx())
-                .clang_arg(CxxOption::METAL.cxx())
-                .clang_arg(CxxOption::COREML.cxx())
-                .clang_arg(CxxOption::OPENCL.cxx());
-            builder
-        })
+        .clang_arg(CxxOption::VULKAN.cxx())
+        .clang_arg(CxxOption::METAL.cxx())
+        .clang_arg(CxxOption::COREML.cxx())
+        .clang_arg(CxxOption::OPENCL.cxx())
         .pipe(|builder| {
             if is_emscripten() {
                 println!("cargo:rustc-cdylib-link-arg=-fvisibility=default");

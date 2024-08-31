@@ -27,6 +27,7 @@ typedef struct MNNBackendConfig MNNBackendConfig;
 // };
 
 MNNBackendConfig *mnnbc_create();
+void mnnbc_destroy(MNNBackendConfig *config);
 void mnnbc_set_memory_mode(MNNBackendConfig *config, MemoryMode memory_mode);
 void mnnbc_set_power_mode(MNNBackendConfig *config, PowerMode power_mode);
 void mnnbc_set_precision_mode(MNNBackendConfig *config, PrecisionMode precision_mode);

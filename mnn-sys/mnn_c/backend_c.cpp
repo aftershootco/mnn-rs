@@ -5,6 +5,10 @@ MNNBackendConfig *mnnbc_create() {
   return reinterpret_cast<MNNBackendConfig *>(new MNN::BackendConfig());
 }
 
+void mnnbc_destroy(MNNBackendConfig *config) {
+  delete reinterpret_cast<MNN::BackendConfig *>(config);
+}
+
 void mnnbc_set_memory_mode(MNNBackendConfig *config, MemoryMode memory_mode) {
   reinterpret_cast<MNN::BackendConfig *>(config)->memory =
       static_cast<MNN::BackendConfig::MemoryMode>(memory_mode);

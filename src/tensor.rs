@@ -305,7 +305,7 @@ impl<T: DeviceTensorType> Tensor<T> {
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host<T::H>> {
         let shape = self.shape();
         let dm_type = self.get_dimension_type();
-        let mut out = Tensor::new(TensorShape::from(shape), dm_type);
+        let mut out = Tensor::new(shape, dm_type);
 
         if copy_data {
             self.copy_to_host_tensor(&mut out)

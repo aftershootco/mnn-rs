@@ -149,11 +149,11 @@ impl Interpreter {
         TensorList::from_ptr(inputs)
     }
 
-    pub fn input<'i, H: HalideType>(
-        &'i self,
-        session: &crate::Session,
+    pub fn input<'s, H: HalideType>(
+        &self,
+        session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<Ref<'i, Device<H>>>> {
+    ) -> Result<Tensor<Ref<'s, Device<H>>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -174,11 +174,11 @@ impl Interpreter {
         Ok(tensor)
     }
 
-    pub fn output<'i, H: HalideType>(
-        &'i self,
-        session: &crate::Session,
+    pub fn output<'s, H: HalideType>(
+        &self,
+        session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<Ref<'_, Device<H>>>> {
+    ) -> Result<Tensor<Ref<'s, Device<H>>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
@@ -293,7 +293,7 @@ impl<'t> TensorList<'t> {
 
     pub fn get(&self, index: usize) -> Option<TensorInfo<'t, '_>> {
         if index >= self.size() {
-            return None;
+            None
         } else {
             let gtinfo = unsafe { mnn_sys::getTensorInfoArray(self.inner, index) };
             if !gtinfo.is_null() {
