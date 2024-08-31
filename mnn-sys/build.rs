@@ -238,10 +238,10 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
 }
 
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
-    // let threads = std::thread::available_parallelism()?;
+    let threads = std::thread::available_parallelism()?;
     cmake::Config::new(path)
         .cxxflag("-std=c++14")
-        // .define("CMAKE_BUILD_PARALLEL_LEVEL", threads.to_string())
+        .parallel(threads.get() as u8)
         .define("MNN_BUILD_SHARED_LIBS", "OFF")
         .define("MNN_SEP_BUILD", "OFF")
         .define("MNN_PORTABLE_BUILD", "ON")

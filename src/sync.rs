@@ -47,7 +47,13 @@ impl SessionHandle {
                     CallbackEnum::Callback(f) => f,
                     CallbackEnum::Close => break,
                 };
-                tx.send(f(&mut session_runner))
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    f(&mut session_runner)
+                }))
+                .unwrap_or_else(|e| {
+                    Err(Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e)))
+                });
+                tx.send(result)
                     .change_context(ErrorKind::SyncError)
                     .attach_printable(
                         "Internal Error: Failed to send result via oneshot channel",
@@ -67,7 +73,10 @@ impl SessionHandle {
         self.sender
             .send((CallbackEnum::Callback(f), tx))
             .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
-        rx.recv().change_context(ErrorKind::SyncError)??;
+        rx.recv()
+            .change_context(ErrorKind::SyncError)
+            .attach_printable("Internal Error: Unable to recv message")?
+            .attach_printable("Callback Error: Error in the provided callback")?;
         Ok(())
     }
 }
