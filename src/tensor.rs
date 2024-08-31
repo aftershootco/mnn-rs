@@ -154,7 +154,7 @@ impl<T: TensorType> Tensor<T> {
     /// This function constructs a Tensor type from a raw pointer
     ///# Safety
     /// Since this constructs a Tensor from a raw pointer we have no way to guarantee that it's a
-    /// valid tensor or it's lifetime 
+    /// valid tensor or it's lifetime
     pub unsafe fn from_ptr(tensor: *mut mnn_sys::Tensor) -> Self {
         assert!(!tensor.is_null());
         Self {
@@ -301,6 +301,7 @@ impl<T: DeviceTensorType> Tensor<T> {
             Tensor_wait(self.tensor, map_type, finish as i32);
         }
     }
+
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host<T::H>> {
         let shape = self.shape();
         let dm_type = self.get_dimension_type();
@@ -471,7 +472,14 @@ impl<T: AsRef<[i32]>> AsTensorShape for T {
             }
         } else {
             TensorShape {
-                shape: this.iter().chain(std::iter::repeat(&1)).take(4).copied().collect::<Vec<i32>>().try_into().expect("Impossible"),
+                shape: this
+                    .iter()
+                    .chain(std::iter::repeat(&1))
+                    .take(4)
+                    .copied()
+                    .collect::<Vec<i32>>()
+                    .try_into()
+                    .expect("Impossible"),
                 size: len,
             }
         }
@@ -491,22 +499,22 @@ mod as_tensor_shape_tests {
         ($t:ty, $kind: expr, $value: expr) => {
             eprintln!("Testing {} with {} shape", stringify!($t), $kind);
             $value.as_tensor_shape();
-        }
+        };
     }
     #[test]
     fn as_tensor_shape_test_vec() {
-        shape_test!(Vec<i32>, "small", vec![1,2,3]);
-        shape_test!(Vec<i32>, "large",vec![12,23,34,45,67]);
+        shape_test!(Vec<i32>, "small", vec![1, 2, 3]);
+        shape_test!(Vec<i32>, "large", vec![12, 23, 34, 45, 67]);
     }
     #[test]
     fn as_tensor_shape_test_array() {
-        shape_test!([i32; 3], "small", [1,2,3]);
-        shape_test!([i32; 5], "large",[12,23,34,45,67]);
+        shape_test!([i32; 3], "small", [1, 2, 3]);
+        shape_test!([i32; 5], "large", [12, 23, 34, 45, 67]);
     }
     #[test]
     fn as_tensor_shape_test_ref() {
-        shape_test!(&[i32], "small", &[1,2,3]);
-        shape_test!(&[i32], "large",&[12,23,34,45,67]);
+        shape_test!(&[i32], "small", &[1, 2, 3]);
+        shape_test!(&[i32], "large", &[12, 23, 34, 45, 67]);
     }
 }
 

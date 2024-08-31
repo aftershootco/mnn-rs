@@ -70,7 +70,8 @@ fn main() -> Result<()> {
         let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
         std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
-        try_patch_file("patches/halide_type_t_64.patch", intptr).context("Failed to patch vendor")?;
+        try_patch_file("patches/halide_type_t_64.patch", intptr)
+            .context("Failed to patch vendor")?;
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)

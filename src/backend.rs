@@ -1,3 +1,6 @@
+use crate::prelude::*;
+use std::str::FromStr;
+
 use mnn_sys::*;
 
 #[repr(transparent)]
@@ -18,6 +21,49 @@ impl PowerMode {
             Self::Low => mnn_sys::PowerMode::Power_Low,
             Self::Normal => mnn_sys::PowerMode::Power_Normal,
             Self::High => mnn_sys::PowerMode::Power_High,
+        }
+    }
+}
+impl FromStr for PowerMode {
+    type Err = MNNError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "low" => Ok(Self::Low),
+            "normal" => Ok(Self::Normal),
+            "high" => Ok(Self::High),
+            _ => {
+                Err(error!(ErrorKind::ParseError)
+                    .attach_printable(format!("invalid power mode: {s}")))
+            }
+        }
+    }
+}
+
+impl FromStr for MemoryMode {
+    type Err = MNNError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "low" => Ok(Self::Low),
+            "normal" => Ok(Self::Normal),
+            "high" => Ok(Self::High),
+            _ => {
+                Err(error!(ErrorKind::ParseError)
+                    .attach_printable(format!("invalid memory mode: {s}")))
+            }
+        }
+    }
+}
+
+impl FromStr for PrecisionMode {
+    type Err = MNNError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "low" => Ok(Self::Low),
+            "normal" => Ok(Self::Normal),
+            "high" => Ok(Self::High),
+            "low_bf16" => Ok(Self::LowBf16),
+            _ => Err(error!(ErrorKind::ParseError)
+                .attach_printable(format!("invalid precision mode: {s}"))),
         }
     }
 }
@@ -55,7 +101,6 @@ impl PrecisionMode {
         }
     }
 }
-
 
 impl BackendConfig {
     pub fn as_ptr_mut(&self) -> *mut MNNBackendConfig {

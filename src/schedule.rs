@@ -2,10 +2,6 @@ use mnn_sys::*;
 use std::ffi::CString;
 
 use crate::prelude::*;
-pub struct ScheduleConfig {
-    pub(crate) inner: *mut MNNScheduleConfig,
-    pub(crate) __marker: core::marker::PhantomData<()>,
-}
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub enum ForwardType {
@@ -93,6 +89,22 @@ impl core::str::FromStr for ForwardType {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct ScheduleConfig {
+    pub(crate) inner: *mut MNNScheduleConfig,
+    pub(crate) __marker: core::marker::PhantomData<()>,
+}
+
+impl Drop for ScheduleConfig {
+    fn drop(&mut self) {
+        unsafe {
+            mnn_sys::mnnsc_destroy(self.inner);
+        }
+    }
+}
+
+unsafe impl Send for ScheduleConfig {}
 
 impl ScheduleConfig {
     pub fn as_ptr_mut(&mut self) -> *mut MNNScheduleConfig {

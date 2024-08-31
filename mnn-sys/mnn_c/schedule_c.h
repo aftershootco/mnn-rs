@@ -11,6 +11,7 @@ extern "C" {
 typedef struct MNNScheduleConfig MNNScheduleConfig;
 
 MNNScheduleConfig *mnnsc_create();
+void mnnsc_destroy(MNNScheduleConfig *config);
 void mnnsc_set_save_tensors(MNNScheduleConfig *config,
                             const char *const *saveTensors,
                             size_t saveTensorsSize);

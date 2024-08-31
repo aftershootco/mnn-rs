@@ -56,6 +56,8 @@ pub struct Interpreter {
     pub(crate) __marker: PhantomData<()>,
 }
 
+unsafe impl Send for Interpreter {}
+
 impl Interpreter {
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();
@@ -161,7 +163,7 @@ impl Interpreter {
                 c_name.as_ptr(),
             )
         };
-        ensure!(!input.is_null(), ErrorKind::IOError);
+        ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(input) };
         ensure!(
             tensor.is_type_of::<H>(),

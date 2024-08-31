@@ -18,6 +18,7 @@ libc = "0.2.155"
 mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
 thiserror = "1.0.63"
 error-stack = { version = "0.5.0" }
+oneshot = "0.1.8"
 
 [features]
 metal = ["mnn-sys/metal"]
@@ -33,4 +34,5 @@ parse = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
+bytemuck = "1.17.1"
 clap = { version = "4.5.9", features = ["derive"] }

@@ -6,6 +6,10 @@ pub struct Cli {
     model: PathBuf,
     #[clap(short, long)]
     forward: ForwardType,
+    #[clap(short, long, default_value = "high")]
+    power: PowerMode,
+    #[clap(short, long, default_value = "high")]
+    precision: PrecisionMode,
 }
 
 macro_rules! time {
@@ -52,6 +56,8 @@ pub fn main() -> anyhow::Result<()> {
         let tensor = x.tensor::<f32>().expect("No tensor");
         time!(tensor.wait(ffi::MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
         println!("{}: {:?}", x.name(), tensor.shape());
+        let cpu_tensor = tensor.create_host_tensor_from_device(true);
+        std::fs::write(format!("{}.bin", x.name()), bytemuck::cast_slice(cpu_tensor.host())).expect("Unable to write");
     });
     Ok(())
 }

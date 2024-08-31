@@ -196,6 +196,7 @@
                 binaryen
                 nodejs_22
                 miniserve
+                cargo-nextest
               ];
             });
         };

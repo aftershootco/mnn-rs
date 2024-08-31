@@ -37,6 +37,10 @@ pub enum ErrorKind {
     HalideTypeMismatch { got: &'static str },
     #[error("Parse Error")]
     ParseError,
+    #[error("Sync Error")]
+    SyncError,
+    #[error("Tensor Error")]
+    TensorError,
 }
 
 impl MNNError {
@@ -65,9 +69,27 @@ macro_rules! ensure {
             return Err(crate::error::MNNError::new($kind));
         }
     };
+
+    ($cond:expr, $kind:expr; $($printable:expr),*) => {
+        if !($cond) {
+            return Err(crate::error::MNNError::new($kind)
+                $(.attach_printable($printable))*
+            )
+        }
+    };
+
+
     ($cond:expr, $from:expr, $to:expr) => {
         if (!$cond) {
             return Err(error_stack::Report::new($from).change_context($to));
+        }
+    };
+    ($cond:expr, $from:expr, $to:expr; $($printable:expr),*) => {
+        if (!$cond) {
+            return Err(error_stack::Report::new($from)
+                .change_context($to)
+                $(.attach_printable($printable))*
+            )
         }
     };
 }

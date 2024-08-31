@@ -41,6 +41,8 @@ pub use schedule::*;
 pub use session::*;
 pub use tensor::*;
 
+pub mod sync;
+
 pub mod prelude {
     pub use crate::error::*;
     pub use core::marker::PhantomData;
