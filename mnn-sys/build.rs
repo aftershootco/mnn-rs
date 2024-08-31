@@ -74,11 +74,12 @@ fn main() -> Result<()> {
             .context("Failed to patch vendor")?;
     }
 
+    let install_dir = out_dir.join("mnn-install");
+    build_cmake(&vendor, &install_dir)?;
+
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
     mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
-    let install_dir = out_dir.join("mnn-install");
-    build_cmake(&vendor, &install_dir)?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
     if *TARGET_OS == "macos" {
         #[cfg(feature = "metal")]
@@ -237,10 +238,10 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
 }
 
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
-    let threads = std::thread::available_parallelism()?;
+    // let threads = std::thread::available_parallelism()?;
     cmake::Config::new(path)
-        .parallel(threads.get() as u8)
         .cxxflag("-std=c++14")
+        // .define("CMAKE_BUILD_PARALLEL_LEVEL", threads.to_string())
         .define("MNN_BUILD_SHARED_LIBS", "OFF")
         .define("MNN_SEP_BUILD", "OFF")
         .define("MNN_PORTABLE_BUILD", "ON")

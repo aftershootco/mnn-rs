@@ -13,7 +13,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-castaway = "0.2.3"
 libc = "0.2.155"
 mnn-sys = { version = "0.1.0", path = "mnn-sys", features = [] }
 thiserror = "1.0.63"
@@ -29,6 +28,7 @@ opengl = ["mnn-sys/opengl"]
 # Disable mnn-threadpool to enable this
 openmp = ["mnn-sys/openmp"] 
 mnn-threadpool = ["mnn-sys/mnn-threadpool"]
+sync = []
 default = ["mnn-threadpool"]
 parse = []
 

@@ -22,6 +22,17 @@
 //! std::fs::write("output.bin", output_tensor.host().to_vec()).unwrap();
 //! ```
 //! **NOTE:**  The library is still in development and the API is subject to change.   
+//!
+//! ## Features
+//! - `metal`: Enable mnn Metal backend
+//! - `coreml`: Enable mnn CoreML backend
+//! - `vulkan`: Enable mnn Vulkan backend (unimplemented from rust wrapper)
+//! - `opencl`: Enable mnn OpenCL backend
+//! - `opengl`: Enable mnn OpenGL backend (unimplemented from rust wrapper)
+//! - `openmp`: Enable mnn Openmp ( disable the mnn-threadpool feature to enable this)
+//! - `mnn-threadpool`: Enable mnn threadpool ( enabled by default can't be used with openmp)
+//! - `sync`: Enable sync api
+//! - `parse`: Enable parsing of some enums from string
 
 pub mod ffi {
     pub use mnn_sys::*;
