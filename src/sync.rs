@@ -32,7 +32,9 @@ pub struct SessionRunner {
 impl SessionHandle {
     pub fn new(mut interpreter: Interpreter, mut config: ScheduleConfig) -> Result<Self> {
         let (sender, receiver) = std::sync::mpsc::channel::<CallbackSender>();
-        let handle = std::thread::spawn(move || -> Result<()> {
+
+        let builder = std::thread::Builder::new().name("mnn-sync-session-thread".to_string());
+        let handle = builder.spawn(move || -> Result<()> {
             let session = interpreter.create_session(&mut config)?;
             let mut session_runner = SessionRunner {
                 interpreter,
