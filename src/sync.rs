@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::*;
 
-type Callback = Box<dyn FnOnce(&mut SessionRunner) -> Result<()> + Send + Sync + 'static>;
+type Callback = Box<dyn FnOnce(&mut SessionRunner) -> Result<()> + Send + 'static>;
 pub enum CallbackEnum {
     Callback(Callback),
     Close,
@@ -17,9 +17,8 @@ pub struct SessionHandle {
 
 impl Drop for SessionHandle {
     fn drop(&mut self) {
-        let (tx, rx) = oneshot::channel();
         self.sender
-            .send((CallbackEnum::Close, tx))
+            .send(CallbackEnum::Close)
             .expect("Failed to close SessionHandle");
         // rx.recv().expect("Failed to close SessionHandle");
     }
@@ -74,7 +73,7 @@ impl SessionHandle {
         &self,
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
-        let f = Box::new(f);
+        let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
             let result = f(sr)?;
@@ -84,13 +83,14 @@ impl SessionHandle {
             Ok(())
         };
         self.sender
-            .send(CallbackEnum::Callback(f))
+            .send(CallbackEnum::Callback(Box::new(wrapped_f)))
             .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
-        Ok(rx.recv()
+        Ok(rx
+            .recv()
             .change_context(ErrorKind::SyncError)
-            .attach_printable("Internal Error: Unable to recv message")?
-            .change_context(ErrorKind::SyncError)
-            .attach_printable("Callback Error: Error in the provided callback")?)
+            .attach_printable("Internal Error: Unable to recv message")?)
+        // .change_context(ErrorKind::SyncError)
+        // .attach_printable("Callback Error: Error in the provided callback")?)
     }
 }
 
@@ -219,12 +219,11 @@ pub fn test_sync_api_race() {
         })
         .expect("Failed to run");
 
-    session_handle
+    let vec: Vec<f32> = session_handle
         .run(|sr| {
             let output = sr.interpreter().output::<f32>(&sr.session(), "output")?;
             let cpu_output = output.create_host_tensor_from_device(true);
-            cpu_output.host().to_vec();
-            Ok(())
+            Ok(cpu_output.host().to_vec())
         })
         .expect("Sed");
 }

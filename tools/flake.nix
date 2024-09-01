@@ -32,7 +32,7 @@
           '';
         };
         devShell = pkgs.mkShell {
-          packages = [(pkgs.python311.withPackages (ps: [ps.pip ps.tf2onnx]))];
+          packages = [(pkgs.python311.withPackages (ps: [ps.pip ps.onnx ps.onnxruntime]))];
         };
       }
     );
