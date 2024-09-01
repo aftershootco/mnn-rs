@@ -34,40 +34,44 @@ impl SessionHandle {
         let (sender, receiver) = std::sync::mpsc::channel::<CallbackSender>();
 
         let builder = std::thread::Builder::new().name("mnn-sync-session-thread".to_string());
-        let handle = builder.spawn(move || -> Result<()> {
-            let session = interpreter.create_session(&mut config)?;
-            let mut session_runner = SessionRunner {
-                interpreter,
-                session,
-            };
-            loop {
-                let f = receiver
-                    .recv()
-                    .change_context(ErrorKind::SyncError)
-                    .attach_printable("Internal Error: Unable to recv (Sender Dropped)")?;
-                let f = match f {
-                    CallbackEnum::Callback(f) => f,
-                    CallbackEnum::Close => break,
+        let handle = builder
+            .spawn(move || -> Result<()> {
+                let session = interpreter.create_session(&mut config)?;
+                let mut session_runner = SessionRunner {
+                    interpreter,
+                    session,
                 };
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    f(&mut session_runner)
-                }))
-                .unwrap_or_else(|e| {
-                    let mut err =
-                        Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e));
-                    if let Some(location) = e.downcast_ref::<core::panic::Location>() {
-                        err = err.attach_printable(format!("{:?}", location));
+                loop {
+                    let f = receiver
+                        .recv()
+                        .change_context(ErrorKind::SyncError)
+                        .attach_printable("Internal Error: Unable to recv (Sender Dropped)")?;
+                    let f = match f {
+                        CallbackEnum::Callback(f) => f,
+                        CallbackEnum::Close => break,
                     };
-                    Err(MNNError::from(err))
-                });
-                // tx.send(result)
-                //     .change_context(ErrorKind::SyncError)
-                //     .attach_printable(
-                //         "Internal Error: Failed to send result via oneshot channel",
-                //     )?;
-            }
-            Ok(())
-        });
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        f(&mut session_runner)
+                    }))
+                    .unwrap_or_else(|e| {
+                        let mut err =
+                            Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e));
+                        if let Some(location) = e.downcast_ref::<core::panic::Location>() {
+                            err = err.attach_printable(format!("{:?}", location));
+                        };
+                        Err(MNNError::from(err))
+                    });
+                    // tx.send(result)
+                    //     .change_context(ErrorKind::SyncError)
+                    //     .attach_printable(
+                    //         "Internal Error: Failed to send result via oneshot channel",
+                    //     )?;
+                }
+                Ok(())
+            })
+            .change_context(ErrorKind::SyncError)
+            .attach_printable("Internal Error: Failed to create session thread")?;
+
         Ok(Self { handle, sender })
     }
 
