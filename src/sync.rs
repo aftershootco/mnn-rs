@@ -33,7 +33,7 @@ impl SessionHandle {
     pub fn new(mut interpreter: Interpreter, mut config: ScheduleConfig) -> Result<Self> {
         let (sender, receiver) = std::sync::mpsc::channel::<CallbackSender>();
 
-        let builder = std::thread::Builder::new().name("mnn-sync-session-thread".to_string());
+        let builder = std::thread::Builder::new().name("mnn-session-thread".to_string());
         let handle = builder
             .spawn(move || -> Result<()> {
                 let session = interpreter.create_session(&mut config)?;
@@ -58,6 +58,9 @@ impl SessionHandle {
                             Report::new(ErrorKind::SyncError).attach_printable(format!("{:?}", e));
                         if let Some(location) = e.downcast_ref::<core::panic::Location>() {
                             err = err.attach_printable(format!("{:?}", location));
+                        };
+                        if let Some(backtrace) = e.downcast_ref::<std::backtrace::Backtrace>() {
+                            err = err.attach_printable(format!("{:?}", backtrace));
                         };
                         Err(MNNError::from(err))
                     });
