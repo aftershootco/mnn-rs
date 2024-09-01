@@ -6,7 +6,8 @@ pub enum CallbackEnum {
     Callback(Callback),
     Close,
 }
-type CallbackSender = (CallbackEnum, oneshot::Sender<Result<()>>);
+// type CallbackSender = (CallbackEnum, oneshot::Sender<Result<()>>);
+type CallbackSender = CallbackEnum;
 
 pub struct SessionHandle {
     #[allow(dead_code)]
@@ -39,7 +40,7 @@ impl SessionHandle {
                 session,
             };
             loop {
-                let (f, tx) = receiver
+                let f = receiver
                     .recv()
                     .change_context(ErrorKind::SyncError)
                     .attach_printable("Internal Error: Unable to recv (Sender Dropped)")?;
@@ -58,32 +59,38 @@ impl SessionHandle {
                     };
                     Err(MNNError::from(err))
                 });
-                tx.send(result)
-                    .change_context(ErrorKind::SyncError)
-                    .attach_printable(
-                        "Internal Error: Failed to send result via oneshot channel",
-                    )?;
+                // tx.send(result)
+                //     .change_context(ErrorKind::SyncError)
+                //     .attach_printable(
+                //         "Internal Error: Failed to send result via oneshot channel",
+                //     )?;
             }
             Ok(())
         });
         Ok(Self { handle, sender })
     }
 
-    pub fn run(
+    pub fn run<R: Send + Sync + 'static>(
         &self,
-        f: impl FnOnce(&mut SessionRunner) -> Result<()> + Send + Sync + 'static,
-    ) -> Result<()> {
+        f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
+    ) -> Result<R> {
         let f = Box::new(f);
         let (tx, rx) = oneshot::channel();
+        let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
+            let result = f(sr)?;
+            tx.send(result)
+                .change_context(ErrorKind::SyncError)
+                .attach_printable("Internal Error: Failed to send result via oneshot channel")?;
+            Ok(())
+        };
         self.sender
-            .send((CallbackEnum::Callback(f), tx))
+            .send(CallbackEnum::Callback(f))
             .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
-        rx.recv()
+        Ok(rx.recv()
             .change_context(ErrorKind::SyncError)
             .attach_printable("Internal Error: Unable to recv message")?
             .change_context(ErrorKind::SyncError)
-            .attach_printable("Callback Error: Error in the provided callback")?;
-        Ok(())
+            .attach_printable("Callback Error: Error in the provided callback")?)
     }
 }
 
