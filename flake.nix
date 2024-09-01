@@ -32,7 +32,7 @@
           inherit system;
           overlays = [
             rust-overlay.overlays.default
-            mnn-overlay.overlays.${system}.default
+            # mnn-overlay.overlays.${system}.default
             (final: prev: {
               cargo-with = let
                 pname = "cargo-with";
@@ -59,6 +59,7 @@
                   hash = "sha256-mRm92P64J8fyODvwzU2bTjHQSVqr0rp0VvouGj2biVk=";
                 };
               };
+              mnn = mnn-overlay.packages.${system}.mnn.override {buildConverter = true;};
             })
           ];
         };
@@ -185,17 +186,10 @@
               hardeningDisable = ["all"];
               packages = with pkgs; [
                 mnn
-                # darwin.apple_sdk.frameworks.OpenCL
-                # darwin.apple_sdk.frameworks.Metal
-                llvmPackages.clang.cc
-                rust-bindgen-unwrapped
+                darwin.apple_sdk.frameworks.OpenCL
+                darwin.apple_sdk.frameworks.CoreML
+                darwin.apple_sdk.frameworks.Metal
                 stableToolchainWithRustAnalyzer
-                # rustup
-                wasm-pack
-                wasm-bindgen-cli
-                binaryen
-                nodejs_22
-                miniserve
                 cargo-nextest
               ];
             });

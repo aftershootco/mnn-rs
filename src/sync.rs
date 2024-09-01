@@ -56,7 +56,7 @@ impl SessionHandle {
                     if let Some(location) = e.downcast_ref::<core::panic::Location>() {
                         err = err.attach_printable(format!("{:?}", location));
                     };
-                    Err(err)
+                    Err(MNNError::from(err))
                 });
                 tx.send(result)
                     .change_context(ErrorKind::SyncError)
@@ -70,7 +70,7 @@ impl SessionHandle {
     }
 
     pub fn run(
-        &mut self,
+        &self,
         f: impl FnOnce(&mut SessionRunner) -> Result<()> + Send + Sync + 'static,
     ) -> Result<()> {
         let f = Box::new(f);

@@ -3,7 +3,7 @@ use candice::*;
 use clap::Parser;
 use mnn::*;
 use owo_colors::OwoColorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 macro_rules! time {
     ($($x:expr),+ ; $text: expr) => {
@@ -104,29 +104,32 @@ fn main() -> Result<()> {
             let image = std::fs::read(input)?;
             let image_tj = turbojpeg::decompress(&image, turbojpeg::PixelFormat::RGB)?;
             let image = image_tj.pixels;
-            let input_image = fast_image_resize::images::Image::from_vec_u8(
-                image_tj.width as u32,
-                image_tj.height as u32,
-                image,
-                fast_image_resize::PixelType::U8x3,
-            )?;
-            let shape = cpu_tensor.shape();
-            let shape = shape.as_ref();
-            let x = shape[1] as u32;
-            let y = shape[0] as u32;
-            let mut output_image =
-                fast_image_resize::images::Image::new(x, y, fast_image_resize::PixelType::U8x3);
-            let mut resizer = fast_image_resize::Resizer::new();
-            resizer.resize(&input_image, &mut output_image, None)?;
-            let out_float: Vec<f32> = output_image.buffer().iter().map(|f| *f as f32).collect();
-
-            // let out_float: &[f32] = time!(bytemuck::cast_slice(&image));
+            // let input_image = fast_image_resize::images::Image::from_vec_u8(
+            //     image_tj.width as u32,
+            //     image_tj.height as u32,
+            //     image,
+            //     fast_image_resize::PixelType::U8x3,
+            // )?;
+            // let shape = cpu_tensor.shape();
+            // let shape = shape.as_ref();
+            // let x = shape[2] as u32;
+            // let y = shape[3] as u32;
+            // let mut output_image =
+            //     fast_image_resize::images::Image::new(x, y, fast_image_resize::PixelType::U8x3);
+            // let mut resizer = fast_image_resize::Resizer::new();
+            // resizer.resize(&input_image, &mut output_image, None)?;
+            // // let out_float: Vec<f32> =
+            let out_u8 = output_image.into_vec();
+            write_vec_to_ppm(&out_u8, x, y, cli.out_name(name)?.with_extension("ppm"))?;
+            let array_3d = ndarray::Array3::from_shape_vec([x as usize, y as usize, 3], out_u8)?;
+            let transposed_array = array_3d.permuted_axes([2, 0, 1]);
+            let transposed_array = transposed_array.mapv(|f| f as f32) / 255f32;
+            let out_float = transposed_array.iter().copied().collect::<Vec<f32>>();
             cpu_tensor.host_mut().copy_from_slice(&out_float);
         } else {
             time!(cpu_tensor.host_mut().fill(1.0); format!("Filling tensor {}", name.green()));
         }
-        let cpu_input = cpu_tensor.host();
-        std::fs::write("input_bin", bytemuck::cast_slice(cpu_input))?;
+        // let cpu_input = cpu_tensor.host();
         time!(tensor.copy_from_host_tensor(&cpu_tensor)?; format!("Copying tensor {}", name.yellow()));
     }
 
@@ -147,20 +150,25 @@ fn main() -> Result<()> {
         let w = cpu_tensor.width();
         let h = cpu_tensor.height();
         match (n, c, w, h) {
-            (1, 3, _, _) if h == w && h != 0 => {
+            (1, 3, h, w) if h == w && h != 0 => {
                 println!("Saving output tensor {} as image", name.green());
-                let out_vec = cpu_tensor.host().to_vec();
+                let out_vec: Vec<f32> = cpu_tensor.host().to_vec();
+
+                let array_3d =
+                    ndarray::Array3::from_shape_vec([3, h as usize, w as usize], out_vec)?;
+                let array_3d = array_3d.permuted_axes([1, 2, 0]) * 255f32;
+                let out_float = array_3d.mapv(|f| f as u8);
                 let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
-                out_ppm.extend(out_vec.iter().map(|x: &f32| *x as u8));
+                out_ppm.extend(out_float);
                 std::fs::write(cli.out_name(name)?.with_extension("ppm"), out_ppm)?;
             }
             // (128 | 16, 3 | 2, _, _) => {
-            _ if shape.size == 2 => {
-                let json = serde_json::to_string_pretty(&cpu_tensor.host())?;
-                println!("Saving output tensor {}.json as json: ", name.green());
-                // println!("{}", json);
-                std::fs::write(cli.out_name(name)?.with_extension("json"), json)?;
-            }
+            // _ if shape.size() == 2 => {
+            //     let json = serde_json::to_string_pretty(&cpu_tensor.host())?;
+            //     println!("Saving output tensor {}.json as json: ", name.green());
+            //     // println!("{}", json);
+            //     std::fs::write(cli.out_name(name)?.with_extension("json"), json)?;
+            // }
             _ => {
                 println!("Saving output tensor {} as binary", name.blue());
                 let data = cpu_tensor.host();
@@ -172,5 +180,12 @@ fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+pub fn write_vec_to_ppm(image: &[u8], h: u32, w: u32, name: impl AsRef<Path>) -> Result<()> {
+    let mut out_ppm: Vec<u8> = format!("P6\n{w} {h}\n255\n").bytes().collect();
+    out_ppm.extend(image);
+    std::fs::write(name, out_ppm)?;
     Ok(())
 }
