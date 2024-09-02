@@ -251,6 +251,30 @@ impl<T: TensorType> Tensor<T> {
         let htc = halide_type_of::<H>();
         unsafe { Tensor_isTypeOf(self.tensor, htc) }
     }
+
+    pub fn fill(&mut self, value: T::H)
+    where
+        T::H: Copy,
+    {
+        if T::host() {
+            let size = self.element_size();
+            assert!(self.is_type_of::<T::H>());
+            let result: &mut [T::H] = unsafe {
+                let data = mnn_sys::Tensor_host_mut(self.tensor).cast();
+                core::slice::from_raw_parts_mut(data, size)
+            };
+            result.fill(value);
+        } else if T::device() {
+            let shape = self.shape();
+            let dm_type = self.get_dimension_type();
+            let mut host = Tensor::new(shape, dm_type);
+            host.fill(value);
+            self.copy_from_host_tensor(&host)
+                .expect("Failed to copy data from host tensor");
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 impl<T: HostTensorType> Tensor<T> {
@@ -528,3 +552,4 @@ mod tensor_tests {
         }
     }
 }
+

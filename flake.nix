@@ -186,7 +186,9 @@
               hardeningDisable = ["all"];
               packages = with pkgs; [
                 mnn
+                libglvnd
                 darwin.apple_sdk.frameworks.OpenCL
+                darwin.apple_sdk.frameworks.OpenGL
                 darwin.apple_sdk.frameworks.CoreML
                 darwin.apple_sdk.frameworks.Metal
                 stableToolchainWithRustAnalyzer

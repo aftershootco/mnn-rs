@@ -1,7 +1,7 @@
 use mnn_sys::*;
 use std::ffi::CString;
 
-use crate::prelude::*;
+use crate::{prelude::*, BackendConfig};
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub enum ForwardType {
@@ -90,9 +90,10 @@ impl core::str::FromStr for ForwardType {
     }
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct ScheduleConfig {
     pub(crate) inner: *mut MNNScheduleConfig,
+    pub(crate) backend_config: Option<BackendConfig>,
     pub(crate) __marker: core::marker::PhantomData<()>,
 }
 
@@ -122,6 +123,7 @@ impl ScheduleConfig {
             let inner = mnnsc_create();
             Self {
                 inner,
+                backend_config: None,
                 __marker: core::marker::PhantomData,
             }
         }
@@ -164,9 +166,15 @@ impl ScheduleConfig {
         }
     }
 
-    pub fn set_backend_config(&mut self, backend_config: &crate::BackendConfig) {
+    pub fn set_backend_config(&mut self, backend_config: impl Into<Option<BackendConfig>>) {
+        self.backend_config = backend_config.into();
+        let ptr = if let Some(ref b) = self.backend_config {
+            b.inner
+        } else {
+            core::ptr::null_mut()
+        };
         unsafe {
-            mnnsc_set_backend_config(self.inner, backend_config.as_ptr_mut());
+            mnnsc_set_backend_config(self.inner, ptr);
         }
     }
 }

@@ -24,10 +24,10 @@ pub fn main() -> anyhow::Result<()> {
     let mut backend_config = BackendConfig::new();
     backend_config.set_precision_mode(PrecisionMode::High);
     backend_config.set_power_mode(PowerMode::High);
-    config.set_backend_config(&backend_config);
+    config.set_backend_config(backend_config);
 
     let now = std::time::Instant::now();
-    let session = interpreter.create_session(&mut config)?;
+    let session = interpreter.create_session(config)?;
     println!("create session time: {:?}", now.elapsed());
     let mut image = interpreter.input(&session, "image")?;
     let mut mask = interpreter.input(&session, "mask")?;

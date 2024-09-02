@@ -2,7 +2,6 @@
 members = [
     ".",
     "mnn-sys",
-    "runner",
 ]
 
 [package]
@@ -18,6 +17,7 @@ mnn-sys = { version = "0.1", path = "mnn-sys", features = [] }
 thiserror = "1.0"
 error-stack = { version = "0.5" }
 oneshot = "0.1"
+tracing = { version = "0.1.40", optional = true }
 
 [features]
 metal = ["mnn-sys/metal"]
@@ -31,6 +31,7 @@ mnn-threadpool = ["mnn-sys/mnn-threadpool"]
 sync = []
 default = ["mnn-threadpool"]
 parse = []
+tracing = ["dep:tracing"]
 
 [dev-dependencies]
 anyhow = "1.0"

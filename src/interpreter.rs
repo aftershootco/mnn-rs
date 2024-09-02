@@ -52,7 +52,7 @@ impl SessionMode {
 
 #[repr(transparent)]
 pub struct Interpreter {
-    pub(crate) interpreter: *mut mnn_sys::Interpreter,
+    pub(crate) inner: *mut mnn_sys::Interpreter,
     pub(crate) __marker: PhantomData<()>,
 }
 
@@ -67,7 +67,7 @@ impl Interpreter {
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
         ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
         Ok(Self {
-            interpreter,
+            inner: interpreter,
             __marker: PhantomData,
         })
     }
@@ -79,17 +79,17 @@ impl Interpreter {
             unsafe { mnn_sys::Interpreter_createFromBuffer(bytes.as_ptr().cast(), size) };
         ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
         Ok(Self {
-            interpreter,
+            inner: interpreter,
             __marker: PhantomData,
         })
     }
 
     pub fn set_session_mode(&mut self, mode: SessionMode) {
-        unsafe { mnn_sys::Interpreter_setSessionMode(self.interpreter, mode.to_mnn_sys()) }
+        unsafe { mnn_sys::Interpreter_setSessionMode(self.inner, mode.to_mnn_sys()) }
     }
 
     pub fn resize_session(&self, session: &mut crate::Session) {
-        unsafe { mnn_sys::Interpreter_resizeSession(self.interpreter, session.session) }
+        unsafe { mnn_sys::Interpreter_resizeSession(self.inner, session.inner) }
     }
 
     pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
@@ -97,7 +97,7 @@ impl Interpreter {
         let dims_len = dims.size;
         unsafe {
             mnn_sys::Interpreter_resizeTensor(
-                self.interpreter,
+                self.inner,
                 tensor.tensor,
                 dims.shape.as_ptr(),
                 dims_len,
@@ -115,7 +115,7 @@ impl Interpreter {
     ) {
         unsafe {
             mnn_sys::Interpreter_resizeTensorByNCHW(
-                self.interpreter,
+                self.inner,
                 tensor.tensor,
                 batch,
                 channel,
@@ -127,11 +127,15 @@ impl Interpreter {
 
     pub fn create_session(
         &mut self,
-        schedule: &mut crate::ScheduleConfig,
+        schedule: crate::ScheduleConfig,
     ) -> Result<crate::session::Session> {
-        let session =
-            unsafe { mnn_sys::Interpreter_createSession(self.interpreter, schedule.as_ptr_mut()) };
-        Ok(unsafe { crate::session::Session::from_ptr(session) })
+        let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
+        assert!(!session.is_null());
+        Ok(crate::session::Session {
+            inner: session,
+            schedule_config: schedule,
+            __marker: PhantomData,
+        })
     }
 
     pub fn model_print_io(path: impl AsRef<std::path::Path>) -> Result<()> {
@@ -144,8 +148,7 @@ impl Interpreter {
     }
 
     pub fn inputs(&self, session: &crate::Session) -> TensorList {
-        let inputs =
-            unsafe { mnn_sys::Interpreter_getSessionInputAll(self.interpreter, session.session) };
+        let inputs = unsafe { mnn_sys::Interpreter_getSessionInputAll(self.inner, session.inner) };
         TensorList::from_ptr(inputs)
     }
 
@@ -157,11 +160,7 @@ impl Interpreter {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
-            mnn_sys::Interpreter_getSessionInput(
-                self.interpreter,
-                session.as_ptr_mut(),
-                c_name.as_ptr(),
-            )
+            mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(input) };
@@ -182,11 +181,7 @@ impl Interpreter {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
-            mnn_sys::Interpreter_getSessionOutput(
-                self.interpreter,
-                session.as_ptr_mut(),
-                c_name.as_ptr(),
-            )
+            mnn_sys::Interpreter_getSessionOutput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!output.is_null(), ErrorKind::IOError);
         let tensor = unsafe { Tensor::from_ptr(output) };
@@ -200,7 +195,7 @@ impl Interpreter {
     }
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
-        let ret = unsafe { mnn_sys::Interpreter_runSession(self.interpreter, session.session) };
+        let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
         ensure!(
             ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
             ErrorKind::InternalError(ret)
@@ -210,7 +205,7 @@ impl Interpreter {
 
     pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
         let outputs =
-            unsafe { mnn_sys::Interpreter_getSessionOutputAll(self.interpreter, session.session) };
+            unsafe { mnn_sys::Interpreter_getSessionOutputAll(self.inner, session.inner) };
         TensorList::from_ptr(outputs)
     }
 }
@@ -219,6 +214,15 @@ impl Interpreter {
 pub struct TensorInfo<'t, 'tl> {
     pub(crate) tensor_info: *mut mnn_sys::TensorInfo,
     pub(crate) __marker: PhantomData<&'tl TensorList<'t>>,
+}
+
+impl core::fmt::Debug for TensorInfo<'_, '_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("TensorInfo")
+            .field("name", &self.name())
+            // .field("tensor", &self.tensor().shape())
+            .finish()
+    }
 }
 
 // impl core::fmt::Debug for TensorInfo<'_, '_> {
@@ -256,6 +260,12 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
 pub struct TensorList<'t> {
     pub(crate) inner: *const mnn_sys::TensorInfoArray,
     pub(crate) __marker: PhantomData<&'t Interpreter>,
+}
+
+impl core::fmt::Debug for TensorList<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
 }
 
 // impl<'t> core::fmt::Debug for TensorList<'t> {

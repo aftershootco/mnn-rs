@@ -36,7 +36,7 @@ impl SessionHandle {
         let builder = std::thread::Builder::new().name("mnn-session-thread".to_string());
         let handle = builder
             .spawn(move || -> Result<()> {
-                let session = interpreter.create_session(&mut config)?;
+                let session = interpreter.create_session(config)?;
                 let mut session_runner = SessionRunner {
                     interpreter,
                     session,

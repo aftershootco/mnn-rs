@@ -5,7 +5,7 @@ use mnn_sys::*;
 
 #[repr(transparent)]
 pub struct BackendConfig {
-    pub inner: *mut MNNBackendConfig,
+    pub(crate) inner: *mut MNNBackendConfig,
     __marker: core::marker::PhantomData<()>,
 }
 
@@ -117,9 +117,6 @@ impl PrecisionMode {
 }
 
 impl BackendConfig {
-    pub fn as_ptr_mut(&self) -> *mut MNNBackendConfig {
-        self.inner
-    }
     pub fn new() -> Self {
         unsafe {
             let inner = mnnbc_create();

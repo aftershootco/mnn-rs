@@ -94,6 +94,8 @@ fn main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=CoreVideo");
         #[cfg(feature = "opencl")]
         println!("cargo:rustc-link-lib=framework=OpenCL");
+        #[cfg(feature = "opengl")]
+        println!("cargo:rustc-link-lib=framework=OpenGL");
     } else {
         // #[cfg(feature = "opencl")]
         // println!("cargo:rustc-link-lib=static=opencl");
@@ -198,6 +200,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         .pipe(|config| {
             #[cfg(feature = "vulkan")]
             config.define("MNN_VULKAN", "1");
+            #[cfg(feature = "opengl")]
+            config.define("MNN_OPENGL", "1");
             #[cfg(feature = "metal")]
             config.define("MNN_METAL", "1");
             #[cfg(feature = "coreml")]
@@ -256,6 +260,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_METAL", CxxOption::METAL.cmake_value());
             config.define("MNN_COREML", CxxOption::COREML.cmake_value());
             config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
+            config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
             // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
@@ -383,6 +388,7 @@ impl CxxOption {
     pub const COREML: CxxOption = cxx_option_from_feature!("coreml", "MNN_COREML");
     pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
     pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");
+    pub const OPENGL: CxxOption = cxx_option_from_feature!("opengl", "MNN_OPENGL");
     pub const THREADPOOL: CxxOption =
         cxx_option_from_feature!("mnn-threadpool", "MNN_USE_THREAD_POOL");
 

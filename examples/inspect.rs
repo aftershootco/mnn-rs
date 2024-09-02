@@ -38,8 +38,8 @@ pub fn main() -> anyhow::Result<()> {
     backend_config.set_precision_mode(PrecisionMode::High);
     backend_config.set_power_mode(PowerMode::High);
 
-    config.set_backend_config(&backend_config);
-    let session = time!(interpreter.create_session(&mut config)?; "create session");
+    config.set_backend_config(backend_config);
+    let session = time!(interpreter.create_session(config)?; "create session");
     let inputs = interpreter.inputs(&session);
     inputs.iter().for_each(|x| {
         let mut tensor = x.tensor::<f32>().expect("No tensor");
