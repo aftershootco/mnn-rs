@@ -158,6 +158,7 @@ pub fn test_sync_api() {
 }
 
 #[test]
+#[ignore = "Needs a model"]
 pub fn test_sync_api_race() {
     let interpreter =
         Interpreter::from_file("./aot_all.mnn").expect("Failed to create interpreter");

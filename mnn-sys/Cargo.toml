@@ -23,6 +23,7 @@ openmp = []
 opengl = []
 mnn-threadpool = []
 default = ["mnn-threadpool"]
+crt_static = []
 
 [dependencies]
 libc = "0.2.155"

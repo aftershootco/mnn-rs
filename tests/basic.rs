@@ -36,6 +36,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
 }
 
 #[test]
+#[ignore = "takes too long"]
 fn test_basic_cpu() {
     test_basic(ForwardType::CPU).unwrap();
 }

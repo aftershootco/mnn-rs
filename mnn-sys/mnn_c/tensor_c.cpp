@@ -120,6 +120,7 @@ void Tensor_setStride(Tensor *tensor, int index, int stride) {
 void Tensor_setLength(Tensor *tensor, int index, int length) {
   reinterpret_cast<MNN::Tensor *>(tensor)->setLength(index, length);
 }
+
 int Tensor_getDeviceInfo(const Tensor *tensor, void *dst, int forwardType) {
   return reinterpret_cast<const MNN::Tensor *>(tensor)->getDeviceInfo(
       dst, forwardType);

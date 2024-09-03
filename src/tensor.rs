@@ -13,7 +13,7 @@ macro_rules! seal {
             )*
         };
     }
-seal!(Host<T>, Device<T>, Ref<'_, T>);
+seal!(Host<T>, Device<T>, Ref<'_, T>, RefMut<'_, T>);
 
 pub trait TensorType: seal::Sealed {
     type H: HalideType;
@@ -30,6 +30,7 @@ pub trait OwnedTensorType: TensorType {}
 pub trait RefTensorType: TensorType {}
 pub trait HostTensorType: TensorType {}
 pub trait DeviceTensorType: TensorType {}
+pub trait MutableTensorType: TensorType {}
 
 impl<H: HalideType> TensorType for Host<H> {
     type H = H;
@@ -40,8 +41,6 @@ impl<H: HalideType> TensorType for Host<H> {
         true
     }
 }
-impl<H: HalideType> OwnedTensorType for Host<H> {}
-impl<H: HalideType> HostTensorType for Host<H> {}
 impl<H: HalideType> TensorType for Device<H> {
     type H = H;
     fn owned() -> bool {
@@ -51,8 +50,6 @@ impl<H: HalideType> TensorType for Device<H> {
         false
     }
 }
-impl<H: HalideType> OwnedTensorType for Device<H> {}
-impl<H: HalideType> DeviceTensorType for Device<H> {}
 
 impl<T: TensorType> TensorType for Ref<'_, T> {
     type H = T::H;
@@ -63,8 +60,29 @@ impl<T: TensorType> TensorType for Ref<'_, T> {
         T::host()
     }
 }
-impl<T: HostTensorType> HostTensorType for Ref<'_, T> {}
+
+impl<T: TensorType> TensorType for RefMut<'_, T> {
+    type H = T::H;
+    fn owned() -> bool {
+        false
+    }
+    fn host() -> bool {
+        T::host()
+    }
+}
+
+impl<H: HalideType> DeviceTensorType for Device<H> {}
+impl<H: HalideType> HostTensorType for Host<H> {}
+impl<H: HalideType> OwnedTensorType for Device<H> {}
+impl<H: HalideType> OwnedTensorType for Host<H> {}
 impl<T: DeviceTensorType> DeviceTensorType for Ref<'_, T> {}
+impl<T: DeviceTensorType> DeviceTensorType for RefMut<'_, T> {}
+impl<T: HostTensorType> HostTensorType for Ref<'_, T> {}
+impl<T: HostTensorType> HostTensorType for RefMut<'_, T> {}
+impl<T: OwnedTensorType> MutableTensorType for T {}
+impl<T: TensorType> MutableTensorType for RefMut<'_, T> {}
+impl<T: TensorType> RefTensorType for Ref<'_, T> {}
+impl<T: TensorType> RefTensorType for RefMut<'_, T> {}
 
 pub struct Host<T = f32> {
     pub(crate) __marker: PhantomData<T>,
@@ -73,7 +91,11 @@ pub struct Device<T = f32> {
     pub(crate) __marker: PhantomData<T>,
 }
 pub struct Ref<'t, T> {
-    pub(crate) __marker: PhantomData<(&'t (), T)>,
+    pub(crate) __marker: PhantomData<&'t [T]>,
+}
+
+pub struct RefMut<'t, T> {
+    pub(crate) __marker: PhantomData<&'t mut [T]>,
 }
 
 pub struct Tensor<T: TensorType> {
@@ -251,7 +273,8 @@ impl<T: TensorType> Tensor<T> {
         let htc = halide_type_of::<H>();
         unsafe { Tensor_isTypeOf(self.tensor, htc) }
     }
-
+}
+impl<T: MutableTensorType> Tensor<T> {
     pub fn fill(&mut self, value: T::H)
     where
         T::H: Copy,
@@ -553,3 +576,60 @@ mod tensor_tests {
     }
 }
 
+impl<T: HostTensorType + RefTensorType> Tensor<T> {
+    pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
+        let shape = shape.as_tensor_shape();
+        let input = input.as_ref();
+        let tensor = unsafe {
+            Tensor_createWith(
+                shape.shape.as_ptr(),
+                shape.size,
+                halide_type_of::<T::H>(),
+                input.as_ptr().cast_mut().cast(),
+                DimensionType::Caffe.to_mnn_sys(),
+            )
+        };
+        debug_assert!(!tensor.is_null());
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+
+    pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[T::H]>) -> Self {
+        let shape = shape.as_tensor_shape();
+        let input = input.as_mut();
+        let tensor = unsafe {
+            Tensor_createWith(
+                shape.shape.as_ptr(),
+                shape.size,
+                halide_type_of::<T::H>(),
+                input.as_mut_ptr().cast(),
+                DimensionType::Caffe.to_mnn_sys(),
+            )
+        };
+        debug_assert!(!tensor.is_null());
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
+#[test]
+pub fn test_tensor_borrowed() {
+    let shape = [1, 2, 3];
+    let data = vec![1, 2, 3, 4, 5, 6];
+    let tensor = Tensor::<Ref<Host<i32>>>::borrowed(&shape, &data);
+    assert_eq!(tensor.shape().as_ref(), shape);
+    assert_eq!(tensor.host(), data.as_slice());
+}
+
+#[test]
+pub fn test_tensor_borrow_mut() {
+    let shape = [1, 2, 3];
+    let mut data = vec![1, 2, 3, 4, 5, 6];
+    let mut tensor = Tensor::<RefMut<Host<i32>>>::borrowed_mut(&shape, &mut data);
+    tensor.host_mut().fill(1);
+    assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
+}

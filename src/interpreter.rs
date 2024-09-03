@@ -1,4 +1,4 @@
-use crate::{prelude::*, AsTensorShape, Device, Ref, Tensor, TensorType};
+use crate::{prelude::*, AsTensorShape, Device, Ref, RefMut, Tensor, TensorType};
 use mnn_sys::HalideType;
 
 #[derive(Debug, Copy, Clone)]
@@ -156,7 +156,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<Ref<'s, Device<H>>>> {
+    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -242,7 +242,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             .expect("Tensor name is not utf-8")
     }
 
-    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<Ref<'t, Device<H>>>> {
+    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };

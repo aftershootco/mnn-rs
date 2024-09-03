@@ -249,11 +249,11 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         .define("MNN_BUILD_CONVERTER", "OFF")
         .define("MNN_BUILD_TOOLS", "OFF")
         .define("CMAKE_INSTALL_PREFIX", install.as_ref())
-        .define("MNN_WIN_RUNTIME_MT", "ON")
         // https://github.com/rust-lang/rust/issues/39016
         // https://github.com/rust-lang/cc-rs/pull/717
         // .define("CMAKE_BUILD_TYPE", "Release")
         .pipe(|config| {
+            config.define("MNN_WIN_RUNTIME_MT", CxxOption::CRT_STATIC.cmake_value());
             config.define("MNN_USE_THREAD_POOL", CxxOption::THREADPOOL.cmake_value());
             config.define("MNN_OPENMP", CxxOption::OPENMP.cmake_value());
             config.define("MNN_VULKAN", CxxOption::VULKAN.cmake_value());
@@ -389,6 +389,7 @@ impl CxxOption {
     pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
     pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");
     pub const OPENGL: CxxOption = cxx_option_from_feature!("opengl", "MNN_OPENGL");
+    pub const CRT_STATIC: CxxOption = cxx_option_from_feature!("opengl", "MNN_WIN_RUNTIME_MT");
     pub const THREADPOOL: CxxOption =
         cxx_option_from_feature!("mnn-threadpool", "MNN_USE_THREAD_POOL");
 

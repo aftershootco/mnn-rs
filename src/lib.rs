@@ -51,6 +51,7 @@ pub use interpreter::*;
 pub use schedule::*;
 pub use session::*;
 pub use tensor::*;
+pub use ffi::HalideType;
 
 #[cfg(feature = "sync")]
 pub mod sync;

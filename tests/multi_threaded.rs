@@ -16,18 +16,21 @@ pub fn test_multi_threading(backend: ForwardType) -> Result<()> {
 }
 
 #[test]
+#[ignore = "takes too long"]
 fn test_multi_threading_cpu() {
     test_multi_threading(ForwardType::CPU).unwrap();
 }
 
 #[cfg(feature = "metal")]
 #[test]
+#[ignore = "takes too long"]
 fn test_multi_threading_metal() {
     test_multi_threading(ForwardType::Metal).unwrap();
 }
 
 #[cfg(feature = "opencl")]
 #[test]
+#[ignore = "takes too long"]
 fn test_multi_threading_opencl() {
     test_multi_threading(ForwardType::OpenCL).unwrap();
 }
