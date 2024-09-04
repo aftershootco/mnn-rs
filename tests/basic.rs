@@ -1,6 +1,4 @@
-mod common {
-    include!("common.rs");
-}
+mod common;
 use common::*;
 use mnn::ForwardType;
 use mnn::ScheduleConfig;

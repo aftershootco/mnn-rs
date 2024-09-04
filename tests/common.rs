@@ -12,6 +12,12 @@ impl Model {
     }
 }
 
+impl Default for Model {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AsRef<[u8]> for Model {
     fn as_ref(&self) -> &[u8] {
         self.bytes

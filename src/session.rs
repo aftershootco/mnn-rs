@@ -2,8 +2,7 @@ use crate::prelude::*;
 
 pub struct Session {
     pub(crate) inner: *mut mnn_sys::Session,
-    // pub(crate) backend_config: BackendConfig,
-    pub(crate) schedule_config: crate::ScheduleConfig,
+    pub(crate) __schedule_config: crate::ScheduleConfig,
     pub(crate) __marker: PhantomData<()>,
 }
 

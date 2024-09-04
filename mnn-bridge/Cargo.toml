@@ -2,6 +2,7 @@
 name = "mnn-bridge"
 version = "0.1.0"
 edition = "2021"
+license = { workspace = true }
 
 [dependencies]
 mnn = { version = "0.1.0", path = "..", default-features = false }

@@ -45,8 +45,8 @@ impl SessionMode {
         *self as i32
     }
     #[cfg(unix)]
-    fn to_mnn_sys(&self) -> u32 {
-        *self as u32
+    fn to_mnn_sys(self) -> u32 {
+        self as u32
     }
 }
 
@@ -61,7 +61,7 @@ unsafe impl Send for Interpreter {}
 impl Interpreter {
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();
-        ensure!(path.exists(), ErrorKind::IOError);
+        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string());
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
@@ -134,7 +134,7 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
-                schedule_config: schedule,
+                __schedule_config: schedule,
                 __marker: PhantomData,
             })
         })
@@ -325,22 +325,5 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
         let idx = self.idx;
         self.idx += 1;
         self.tensor_list.get(idx)
-    }
-}
-
-mod tensordyn {
-    pub struct TensorDyn {}
-    pub enum HalideDynType {
-        F32(f32),
-        F64(f64),
-        BOOL(bool),
-        U8(u8),
-        U16(u16),
-        U32(u32),
-        U64(u64),
-        I8(i8),
-        I16(i16),
-        I32(i32),
-        I64(i64),
     }
 }

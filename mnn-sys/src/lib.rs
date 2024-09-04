@@ -72,6 +72,8 @@ impl CString {
     pub fn as_ptr_mut(&mut self) -> *mut CString {
         core::ptr::addr_of_mut!(*self)
     }
+    /// # Safety
+    /// This function is unsafe because it dereferences a raw pointer.
     pub unsafe fn to_cstr(&self) -> &CStr {
         unsafe { std::ffi::CStr::from_ptr(self.data) }
     }
@@ -84,8 +86,10 @@ impl AsRef<[i32]> for TensorShape {
 }
 
 impl halide_type_code_t {
+    /// # Safety
+    /// This function is unsafe because this basically truansmutes an integer to an enum.
+    /// And if the enum is not valid, it will cause undefined behavior in rust. 
     pub unsafe fn from_u32(code: u32) -> Self {
         unsafe { std::mem::transmute(code) }
     }
 }
-

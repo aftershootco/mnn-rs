@@ -13,6 +13,7 @@ pub struct SessionHandle {
     #[allow(dead_code)]
     pub(crate) handle: std::thread::JoinHandle<Result<()>>,
     pub(crate) sender: std::sync::mpsc::Sender<CallbackSender>,
+    pub(crate) loop_handle: std::sync::mpsc::Receiver<Result<()>>,
 }
 
 impl Drop for SessionHandle {
@@ -30,10 +31,11 @@ pub struct SessionRunner {
 }
 
 impl SessionHandle {
-    pub fn new(mut interpreter: Interpreter, mut config: ScheduleConfig) -> Result<Self> {
+    pub fn new(mut interpreter: Interpreter, config: ScheduleConfig) -> Result<Self> {
         let (sender, receiver) = std::sync::mpsc::channel::<CallbackSender>();
 
         let builder = std::thread::Builder::new().name("mnn-session-thread".to_string());
+        let (tx, rx) = std::sync::mpsc::channel();
         let handle = builder
             .spawn(move || -> Result<()> {
                 let session = interpreter.create_session(config)?;
@@ -64,18 +66,25 @@ impl SessionHandle {
                         };
                         Err(MNNError::from(err))
                     });
-                    // tx.send(result)
-                    //     .change_context(ErrorKind::SyncError)
-                    //     .attach_printable(
-                    //         "Internal Error: Failed to send result via oneshot channel",
-                    //     )?;
+                    tx.send(result)
+                        .change_context(ErrorKind::SyncError)
+                        .attach_printable(
+                            "Internal Error: Failed to send result via oneshot channel",
+                        )?;
                 }
                 Ok(())
             })
             .change_context(ErrorKind::SyncError)
             .attach_printable("Internal Error: Failed to create session thread")?;
+        // rx.recv()
+        //     .change_context(ErrorKind::SyncError)
+        //     .attach_printable("Internal Error: Unable to recv message")??;
 
-        Ok(Self { handle, sender })
+        Ok(Self {
+            handle,
+            sender,
+            loop_handle: rx,
+        })
     }
 
     pub fn run<R: Send + Sync + 'static>(
@@ -98,8 +107,13 @@ impl SessionHandle {
             .recv()
             .change_context(ErrorKind::SyncError)
             .attach_printable("Internal Error: Unable to recv message")?)
-        // .change_context(ErrorKind::SyncError)
-        // .attach_printable("Callback Error: Error in the provided callback")?)
+    }
+
+    pub fn panicked(&self) -> bool {
+        self.loop_handle
+            .try_recv()
+            .map(|p| p.is_err())
+            .unwrap_or(false)
     }
 }
 
@@ -158,11 +172,10 @@ pub fn test_sync_api() {
 }
 
 #[test]
-#[ignore = "Needs a model"]
 pub fn test_sync_api_race() {
     let interpreter =
-        Interpreter::from_file("./aot_all.mnn").expect("Failed to create interpreter");
-    let mut session_handle = SessionHandle::new(interpreter, ScheduleConfig::new())
+        Interpreter::from_file("tests/assets/realesr.mnn").expect("Failed to create interpreter");
+    let session_handle = SessionHandle::new(interpreter, ScheduleConfig::new())
         .expect("Failed to create session handle");
     session_handle
         .run(move |sr| {

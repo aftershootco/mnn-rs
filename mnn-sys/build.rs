@@ -284,7 +284,7 @@ pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result
     let patch = std::fs::read_to_string(&patch)?;
     let patch = diffy::Patch::from_str(&patch)?;
     let file_path = file.as_ref();
-    let file = std::fs::read_to_string(&file_path).context("Failed to read input file")?;
+    let file = std::fs::read_to_string(file_path).context("Failed to read input file")?;
     let patched_file =
         diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
     std::fs::write(file_path, patched_file)?;

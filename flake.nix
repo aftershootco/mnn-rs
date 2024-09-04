@@ -107,22 +107,22 @@
             });
 
           # Ensure that cargo-hakari is up to date
-          mnn-hakari = craneLib.mkCargoDerivation {
-            inherit src;
-            pname = "mnn-hakari";
-            cargoArtifacts = null;
-            doInstallCargoArtifacts = false;
-
-            buildPhaseCargoCommand = ''
-              cargo hakari generate --diff  # workspace-hack Cargo.toml is up-to-date
-              cargo hakari manage-deps --dry-run  # all workspace crates depend on workspace-hack
-              cargo hakari verify
-            '';
-
-            nativeBuildInputs = [
-              pkgs.cargo-hakari
-            ];
-          };
+          # mnn-hakari = craneLib.mkCargoDerivation {
+          #   inherit src;
+          #   pname = "mnn-hakari";
+          #   cargoArtifacts = null;
+          #   doInstallCargoArtifacts = false;
+          #
+          #   buildPhaseCargoCommand = ''
+          #     cargo hakari generate --diff  # workspace-hack Cargo.toml is up-to-date
+          #     cargo hakari manage-deps --dry-run  # all workspace crates depend on workspace-hack
+          #     cargo hakari verify
+          #   '';
+          #
+          #   nativeBuildInputs = [
+          #     pkgs.cargo-hakari
+          #   ];
+          # };
         };
         packages =
           rec {
@@ -149,6 +149,8 @@
               darwin.apple_sdk.frameworks.Metal
               stableToolchainWithRustAnalyzer
               cargo-nextest
+              cargo-hakari
+              cargo-deny
             ];
           };
         };
