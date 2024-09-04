@@ -11,7 +11,7 @@
 //! use mnn::*;
 //! let mut interpreter = Interpreter::from_bytes([0;100]).unwrap();
 //! let mut sc = ScheduleConfig::new();
-//! let session = interpreter.create_session(&mut sc).unwrap();
+//! let session = interpreter.create_session(sc).unwrap();
 //! let mut input = interpreter.input::<f32>(&session, "input").unwrap();
 //! let mut tensor = input.create_host_tensor_from_device(false);
 //! tensor.host_mut().fill(1.0f32);
@@ -41,6 +41,7 @@ pub mod ffi {
 pub mod backend;
 pub mod error;
 pub mod interpreter;
+pub mod profile;
 pub mod schedule;
 pub mod session;
 pub mod tensor;
@@ -51,6 +52,7 @@ pub use interpreter::*;
 pub use schedule::*;
 pub use session::*;
 pub use tensor::*;
+
 pub use ffi::HalideType;
 
 #[cfg(feature = "sync")]
@@ -58,6 +60,7 @@ pub mod sync;
 
 pub mod prelude {
     pub use crate::error::*;
+    pub(crate) use crate::profile::profile;
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
     pub use libc::*;

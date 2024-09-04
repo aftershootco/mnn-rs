@@ -16,7 +16,7 @@ macro_rules! seal {
 seal!(Host<T>, Device<T>, Ref<'_, T>, RefMut<'_, T>);
 
 pub trait TensorType: seal::Sealed {
-    type H: HalideType;
+    type H;
     fn owned() -> bool;
     fn borrowed() -> bool {
         !Self::owned()
@@ -172,7 +172,10 @@ impl From<mnn_sys::DimensionType> for DimensionType {
     }
 }
 
-impl<T: TensorType> Tensor<T> {
+impl<T: TensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     /// This function constructs a Tensor type from a raw pointer
     ///# Safety
     /// Since this constructs a Tensor from a raw pointer we have no way to guarantee that it's a
@@ -274,7 +277,10 @@ impl<T: TensorType> Tensor<T> {
         unsafe { Tensor_isTypeOf(self.tensor, htc) }
     }
 }
-impl<T: MutableTensorType> Tensor<T> {
+impl<T: MutableTensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     pub fn fill(&mut self, value: T::H)
     where
         T::H: Copy,
@@ -300,7 +306,10 @@ impl<T: MutableTensorType> Tensor<T> {
     }
 }
 
-impl<T: HostTensorType> Tensor<T> {
+impl<T: HostTensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     pub fn try_host(&self) -> Result<&[T::H]> {
         let size = self.element_size();
         ensure!(
@@ -342,7 +351,10 @@ impl<T: HostTensorType> Tensor<T> {
     }
 }
 
-impl<T: DeviceTensorType> Tensor<T> {
+impl<T: DeviceTensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     pub fn wait(&self, map_type: MapType, finish: bool) {
         unsafe {
             Tensor_wait(self.tensor, map_type, finish as i32);
@@ -362,7 +374,10 @@ impl<T: DeviceTensorType> Tensor<T> {
     }
 }
 
-impl<T: OwnedTensorType> Tensor<T> {
+impl<T: OwnedTensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     pub fn new(shape: impl AsTensorShape, dm_type: DimensionType) -> Self {
         let shape = shape.as_tensor_shape();
         let tensor = unsafe {
@@ -435,7 +450,10 @@ impl<T: OwnedTensorType> Tensor<T> {
 //     // }
 // }
 
-impl<T: OwnedTensorType> Clone for Tensor<T> {
+impl<T: OwnedTensorType> Clone for Tensor<T>
+where
+    T::H: HalideType,
+{
     fn clone(&self) -> Tensor<T> {
         let tensor_ptr = unsafe { Tensor_clone(self.tensor) };
         Self {
@@ -576,7 +594,10 @@ mod tensor_tests {
     }
 }
 
-impl<T: HostTensorType + RefTensorType> Tensor<T> {
+impl<T: HostTensorType + RefTensorType> Tensor<T>
+where
+    T::H: HalideType,
+{
     pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
         let shape = shape.as_tensor_shape();
         let input = input.as_ref();

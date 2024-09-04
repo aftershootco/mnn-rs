@@ -129,12 +129,14 @@ impl Interpreter {
         &mut self,
         schedule: crate::ScheduleConfig,
     ) -> Result<crate::session::Session> {
-        let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
-        assert!(!session.is_null());
-        Ok(crate::session::Session {
-            inner: session,
-            schedule_config: schedule,
-            __marker: PhantomData,
+        profile!("Creating session"; {
+            let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
+            assert!(!session.is_null());
+            Ok(crate::session::Session {
+                inner: session,
+                schedule_config: schedule,
+                __marker: PhantomData,
+            })
         })
     }
 
@@ -168,7 +170,8 @@ impl Interpreter {
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
                 got: std::any::type_name::<H>(),
-            }
+            };
+            format!("Input tensor \"{name}\" is not of type {}", std::any::type_name::<H>())
         );
         Ok(tensor)
     }
@@ -195,12 +198,14 @@ impl Interpreter {
     }
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
+        profile!("Running session"; {
         let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
         ensure!(
             ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
             ErrorKind::InternalError(ret)
         );
         Ok(())
+        })
     }
 
     pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
@@ -224,15 +229,6 @@ impl core::fmt::Debug for TensorInfo<'_, '_> {
             .finish()
     }
 }
-
-// impl core::fmt::Debug for TensorInfo<'_, '_> {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         f.debug_struct("TensorInfo")
-//             .field("name", &self.name())
-//             .field("tensor", &self.tensor().shape())
-//             .finish()
-//     }
-// }
 
 impl<'t, 'tl> TensorInfo<'t, 'tl> {
     pub fn name(&self) -> &'tl str {
@@ -267,12 +263,6 @@ impl core::fmt::Debug for TensorList<'_> {
         f.debug_list().entries(self.iter()).finish()
     }
 }
-
-// impl<'t> core::fmt::Debug for TensorList<'t> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
-//         f.debug_list().entries(self.iter()).finish()
-//     }
-// }
 
 impl Drop for TensorList<'_> {
     fn drop(&mut self) {
@@ -335,5 +325,22 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
         let idx = self.idx;
         self.idx += 1;
         self.tensor_list.get(idx)
+    }
+}
+
+mod tensordyn {
+    pub struct TensorDyn {}
+    pub enum HalideDynType {
+        F32(f32),
+        F64(f64),
+        BOOL(bool),
+        U8(u8),
+        U16(u16),
+        U32(u32),
+        U64(u64),
+        I8(i8),
+        I16(i16),
+        I32(i32),
+        I64(i64),
     }
 }

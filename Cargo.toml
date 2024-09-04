@@ -30,9 +30,12 @@ crt_static = ["mnn-sys/crt_static"]
 openmp = ["mnn-sys/openmp"] 
 mnn-threadpool = ["mnn-sys/mnn-threadpool"]
 sync = []
-default = ["mnn-threadpool", "sync", "parse"]
 parse = []
 tracing = ["dep:tracing"]
+profile = ["tracing"]
+
+default = ["mnn-threadpool", "sync", "parse"]
+
 
 [dev-dependencies]
 anyhow = "1.0"
