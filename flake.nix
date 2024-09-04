@@ -35,7 +35,10 @@
           overlays = [
             rust-overlay.overlays.default
             (final: prev: {
-              mnn = mnn-overlay.packages.${system}.mnn.override {buildConverter = true;enableVulkan = false;};
+              mnn = mnn-overlay.packages.${system}.mnn.override {
+                buildConverter = true;
+                enableVulkan = false;
+              };
             })
           ];
         };
@@ -57,23 +60,28 @@
           rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
           hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
         };
-        commonArgs = {
-          inherit src MNN_SRC;
-          pname = "mnn";
-          # cargoExtraArgs = "--example inspect";
-          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          # BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
-          nativeBuildInputs = with pkgs; [
-            cmake
-            llvmPackages.libclang.lib
-          ];
-          buildInputs = with pkgs; [] ++ (lib.optionals pkgs.stdenv.isDarwin [
-            darwin.apple_sdk.frameworks.OpenCL
-            darwin.apple_sdk.frameworks.OpenGL
-            darwin.apple_sdk.frameworks.CoreML
-            darwin.apple_sdk.frameworks.Metal
-          ]);
-        };
+        commonArgs =
+          {
+            inherit src MNN_SRC;
+            pname = "mnn";
+            # cargoExtraArgs = "--example inspect";
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+            nativeBuildInputs = with pkgs; [
+              cmake
+              llvmPackages.libclang.lib
+            ];
+            buildInputs = with pkgs;
+              []
+              ++ (lib.optionals pkgs.stdenv.isDarwin [
+                darwin.apple_sdk.frameworks.OpenCL
+                darwin.apple_sdk.frameworks.OpenGL
+                darwin.apple_sdk.frameworks.CoreML
+                darwin.apple_sdk.frameworks.Metal
+              ]);
+          }
+          // (lib.optionalAttrs pkgs.stdenv.isLinux {
+            BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
+          });
         cargoArtifacts = craneLib.buildPackage commonArgs;
       in {
         checks = {
