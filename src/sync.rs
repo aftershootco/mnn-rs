@@ -139,7 +139,7 @@ impl SessionRunner {
 pub fn test_sync_api() {
     let interpreter = Interpreter::from_bytes([0; 100]).expect("Failed to create interpreter");
     let config = ScheduleConfig::new();
-    let mut session_handle =
+    let session_handle =
         SessionHandle::new(interpreter, config).expect("Failed to create session handle");
     let my_arr = [1f32; 100];
     session_handle
@@ -156,14 +156,14 @@ pub fn test_sync_api() {
 
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(&sr.session())?;
+            sr.interpreter().run_session(sr.session())?;
             Ok(())
         })
         .expect("Failed to run");
 
     session_handle
         .run(|sr| {
-            let output = sr.interpreter().output::<f32>(&sr.session(), "output")?;
+            let output = sr.interpreter().output::<f32>(sr.session(), "output")?;
             let cpu_output = output.create_host_tensor_from_device(true);
             cpu_output.host().to_vec();
             Ok(())
@@ -181,7 +181,7 @@ pub fn test_sync_api_race() {
         .run(move |sr| {
             let session = sr.session();
             let interpreter = sr.interpreter();
-            let inputs = interpreter.inputs(&session);
+            let inputs = interpreter.inputs(session);
             inputs.iter().for_each(|x| {
                 let mut tensor = x.tensor::<f32>().expect("No tensor");
                 println!("{}: {:?}", x.name(), tensor.shape());
@@ -197,7 +197,7 @@ pub fn test_sync_api_race() {
 
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(&sr.session())?;
+            sr.interpreter().run_session(sr.session())?;
             Ok(())
         })
         .expect("Failed to run");
@@ -205,7 +205,7 @@ pub fn test_sync_api_race() {
         .run(move |sr| {
             let session = sr.session();
             let interpreter = sr.interpreter();
-            let inputs = interpreter.inputs(&session);
+            let inputs = interpreter.inputs(session);
             inputs.iter().for_each(|x| {
                 let mut tensor = x.tensor::<f32>().expect("No tensor");
                 println!("{}: {:?}", x.name(), tensor.shape());
@@ -222,7 +222,7 @@ pub fn test_sync_api_race() {
         .run(move |sr| {
             let session = sr.session();
             let interpreter = sr.interpreter();
-            let inputs = interpreter.inputs(&session);
+            let inputs = interpreter.inputs(session);
             inputs.iter().for_each(|x| {
                 let mut tensor = x.tensor::<f32>().expect("No tensor");
                 println!("{}: {:?}", x.name(), tensor.shape());
@@ -237,14 +237,14 @@ pub fn test_sync_api_race() {
         .expect("Failed to run");
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(&sr.session())?;
+            sr.interpreter().run_session(sr.session())?;
             Ok(())
         })
         .expect("Failed to run");
 
-    let vec: Vec<f32> = session_handle
+    let _vec: Vec<f32> = session_handle
         .run(|sr| {
-            let output = sr.interpreter().output::<f32>(&sr.session(), "output")?;
+            let output = sr.interpreter().output::<f32>(sr.session(), "output")?;
             let cpu_output = output.create_host_tensor_from_device(true);
             Ok(cpu_output.host().to_vec())
         })

@@ -88,7 +88,7 @@ impl AsRef<[i32]> for TensorShape {
 impl halide_type_code_t {
     /// # Safety
     /// This function is unsafe because this basically truansmutes an integer to an enum.
-    /// And if the enum is not valid, it will cause undefined behavior in rust. 
+    /// And if the enum is not valid, it will cause undefined behavior in rust.
     pub unsafe fn from_u32(code: u32) -> Self {
         unsafe { std::mem::transmute(code) }
     }

@@ -1,8 +1,7 @@
-mod common;
 mod basic {
     include!("basic.rs");
 }
-use common::*;
+use basic::common::*;
 use mnn::ForwardType;
 
 #[cfg(test)]
