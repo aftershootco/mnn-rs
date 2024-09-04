@@ -141,17 +141,20 @@
 
         devShells = {
           default = pkgs.mkShell {
-            packages = with pkgs; [
-              mnn
-              darwin.apple_sdk.frameworks.OpenCL
-              darwin.apple_sdk.frameworks.OpenGL
-              darwin.apple_sdk.frameworks.CoreML
-              darwin.apple_sdk.frameworks.Metal
-              stableToolchainWithRustAnalyzer
-              cargo-nextest
-              cargo-hakari
-              cargo-deny
-            ];
+            packages = with pkgs;
+              [
+                mnn
+                stableToolchainWithRustAnalyzer
+                cargo-nextest
+                cargo-hakari
+                cargo-deny
+              ]
+              ++ (lib.optionals pkgs.stdenv.isDarwin [
+                darwin.apple_sdk.frameworks.OpenCL
+                darwin.apple_sdk.frameworks.OpenGL
+                darwin.apple_sdk.frameworks.CoreML
+                darwin.apple_sdk.frameworks.Metal
+              ]);
           };
         };
       }

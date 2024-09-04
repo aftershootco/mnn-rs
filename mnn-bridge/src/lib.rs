@@ -1,2 +1,4 @@
-pub mod ndarray_bridge;
-pub mod opencv_bridge;
+#[cfg(feature = "ndarray")]
+pub mod ndarray;
+#[cfg(feature = "opencv")]
+pub mod opencv;

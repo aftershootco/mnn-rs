@@ -13,4 +13,4 @@ opencv = { version = "0.92.3", default-features = false, optional = true }
 ndarray = ["dep:ndarray"]
 opencv = ["dep:opencv"]
 
-default = ["ndarray"]
+default = []
