@@ -35,7 +35,7 @@
           overlays = [
             rust-overlay.overlays.default
             (final: prev: {
-              mnn = mnn-overlay.packages.${system}.mnn.override {buildConverter = true;};
+              mnn = mnn-overlay.packages.${system}.mnn.override {buildConverter = true;enableVulkan = false;};
             })
           ];
         };
