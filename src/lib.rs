@@ -1,6 +1,6 @@
 //! # MNN
 //!
-//! Ergonomic rust bindings for MNN
+//! Ergonomic rust bindings for [MNN](https://github.com/alibaba/MNN)
 //!
 //! The main data structures used are [`Tensor`] and [`Interpreter`].   
 //! [Interpreter] should be thread safe and can be used to run multiple sessions concurrently.  
@@ -32,7 +32,32 @@
 //! - `openmp`: Enable mnn Openmp ( disable the mnn-threadpool feature to enable this)
 //! - `mnn-threadpool`: Enable mnn threadpool ( enabled by default can't be used with openmp)
 //! - `sync`: Enable sync api
-//! - `parse`: Enable parsing of some enums from string
+//! - `profile`: Enable profiling ( emits some profiling tracing events )
+//! - `tracing`: Enable tracing ( emits some tracing events )
+//! - `crt_static`: Link statically to the C runtime on windows (noop on other platforms)
+//!
+//! ## License
+//! This links to the MNN library which is licensed under the Apache License 2.0.  
+//! The rust bindings are licensed under the same Apache License 2.0.  
+//!
+//! ## Building
+//! The flake.nix provides a nix-shell with all the dependencies required to build the library.  
+//! If not using nix you'll need to clone the git submodule to get the MNN source code in mnn-sys/vendor first  
+//! Or you can export the MNN_SRC environment variable to point to the MNN source code.  
+//!
+//! ## Compatibility Chart
+//! | MNN Backend | Compiles | Works |
+//! | ----------- | -------- | ----- |
+//! | CPU         | ✅       | ✅    |
+//! | OpenCL      | ✅       | ✅    |
+//! | Metal       | ✅       | ✅    |
+//! | CoreML      | ✅       | 🚸    |
+//! | OpenGL      | ❌       | ❌    |
+//! | Vulkan      | ❌       | ❌    |
+//!
+//! - ✅ - Works  
+//! - 🚸 - Some models work  
+//! - ❌ - Doesn't work
 
 pub mod ffi {
     pub use mnn_sys::*;

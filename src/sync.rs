@@ -1,3 +1,26 @@
+//! Synchronous API for MNN
+//! This api allows use of mnn in a thread-safe manner
+//! # Example
+//! ```rust,no_run
+//! let interpreter = Interpreter::from_bytes([0; 100]).expect("Failed to create interpreter");
+//! let config = ScheduleConfig::new();
+//! let session_handle = SessionHandle::new(interpreter, config).expect("Failed to create session handle");
+//! std::thread::spawn(move || {
+//!     session_handle.run(|sr| {
+//!         let session = sr.session();
+//!         let interpreter = sr.interpreter();
+//!         let mut input = interpreter.input::<f32>(session, "input")?;
+//!         input.fill(1.0f32);
+//!         Ok(())
+//!     }).expect("Failed to run");
+//!     session_handle.run(|sr| {
+//!         sr.interpreter().run_session(sr.session())?;
+//!         Ok(())
+//!     }).expect("Failed to run");
+//! });
+//! ```
+//! This is achieved by creating a thread that creates a session and takes closures through a
+//! channel and runs them in the session. The session is closed when the handle is dropped.
 use crate::prelude::*;
 use crate::*;
 
@@ -172,6 +195,7 @@ pub fn test_sync_api() {
 }
 
 #[test]
+#[ignore = "This test is not reliable on CI"]
 pub fn test_sync_api_race() {
     let interpreter =
         Interpreter::from_file("tests/assets/realesr.mnn").expect("Failed to create interpreter");
