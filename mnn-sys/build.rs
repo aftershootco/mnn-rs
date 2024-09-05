@@ -238,6 +238,163 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     Ok(())
 }
 
+pub fn build_cc(path: impl AsRef<Path>) -> Result<()> {
+    let core = [
+        "core/AutoTime.cpp",
+        "core/Backend.cpp",
+        "core/BufferAllocator.cpp",
+        "core/ConvolutionCommon.cpp",
+        "core/Execution.cpp",
+        "core/FileLoader.cpp",
+        "core/Interpreter.cpp",
+        "core/MNNFileUtils.cpp",
+        "core/MNNMemoryUtils.cpp",
+        "core/OpCommonUtils.cpp",
+        "core/Pipeline.cpp",
+        "core/RuntimeFactory.cpp",
+        "core/Schedule.cpp",
+        "core/Session.cpp",
+        "core/Tensor.cpp",
+        "core/TensorUtils.cpp",
+        "core/WrapExecution.cpp",
+    ];
+    let cv = [
+        "cv/Matrix_CV.cpp",
+        "cv/ImageProcessUtils.cpp",
+        "cv/ImageProcess.cpp",
+    ];
+    let shape = [
+        "shape/ShapeArgMax.cpp",
+        "shape/ShapeAttention.cpp",
+        "shape/ShapeBatchToSpaceND.cpp",
+        "shape/ShapeBinaryOp.cpp",
+        "shape/ShapeBroadcastTo.cpp",
+        "shape/ShapeCast.cpp",
+        "shape/ShapeConcat.cpp",
+        "shape/ShapeConvTranspose3D.cpp",
+        "shape/ShapeConvolution.cpp",
+        "shape/ShapeConvolution3D.cpp",
+        "shape/ShapeCosineSimilarity.cpp",
+        "shape/ShapeCrop.cpp",
+        "shape/ShapeCropAndResize.cpp",
+        "shape/ShapeDeconvolution.cpp",
+        "shape/ShapeDepthToSpace.cpp",
+        "shape/ShapeDequantize.cpp",
+        "shape/ShapeDet.cpp",
+        "shape/ShapeDetectionOutput.cpp",
+        "shape/ShapeDetectionPostProcess.cpp",
+        "shape/ShapeDynamicQuant.cpp",
+        "shape/ShapeExpandDims.cpp",
+        "shape/ShapeFill.cpp",
+        "shape/ShapeGatherND.cpp",
+        "shape/ShapeGatherV2.cpp",
+        "shape/ShapeGridSample.cpp",
+        "shape/ShapeHistogram.cpp",
+        "shape/ShapeInnerProduct.cpp",
+        "shape/ShapeInterp.cpp",
+        "shape/ShapeLSTM.cpp",
+        "shape/ShapeLinSpace.cpp",
+        "shape/ShapeMatMul.cpp",
+        "shape/ShapeMoments.cpp",
+        "shape/ShapeNonMaxSuppressionV2.cpp",
+        "shape/ShapeOneHot.cpp",
+        "shape/ShapePack.cpp",
+        "shape/ShapePadding.cpp",
+        "shape/ShapePermute.cpp",
+        "shape/ShapePlugin.cpp",
+        "shape/ShapePool.cpp",
+        "shape/ShapePool3D.cpp",
+        "shape/ShapePriorbox.cpp",
+        "shape/ShapeProposal.cpp",
+        "shape/ShapeQuantizedAvgPool.cpp",
+        "shape/ShapeQuantizedMaxPool.cpp",
+        "shape/ShapeRNNSequenceGRU.cpp",
+        "shape/ShapeROIAlign.cpp",
+        "shape/ShapeROIPooling.cpp",
+        "shape/ShapeRandomUniform.cpp",
+        "shape/ShapeRange.cpp",
+        "shape/ShapeReduction.cpp",
+        "shape/ShapeRegister.cpp",
+        "shape/ShapeReshape.cpp",
+        "shape/ShapeResize.cpp",
+        "shape/ShapeScatterNd.cpp",
+        "shape/ShapeSegmentMean.cpp",
+        "shape/ShapeSelect.cpp",
+        "shape/ShapeSetDiff1D.cpp",
+        "shape/ShapeShape.cpp",
+        "shape/ShapeSize.cpp",
+        "shape/ShapeSlice.cpp",
+        "shape/ShapeSliceTf.cpp",
+        "shape/ShapeSpaceToBatchND.cpp",
+        "shape/ShapeSpaceToDepth.cpp",
+        "shape/ShapeSplitGelu.cpp",
+        "shape/ShapeSqueeze.cpp",
+        "shape/ShapeStridedSlice.cpp",
+        "shape/ShapeSvd.cpp",
+        "shape/ShapeTensorArray.cpp",
+        "shape/ShapeTensorConvert.cpp",
+        "shape/ShapeTile.cpp",
+        "shape/ShapeTopKV2.cpp",
+        "shape/ShapeTranspose.cpp",
+        "shape/ShapeUnique.cpp",
+        "shape/ShapeUnpack.cpp",
+        "shape/ShapeUnravelIndex.cpp",
+        "shape/ShapeWhere.cpp",
+        "shape/SizeComputer.cpp",
+    ];
+    let utils = ["utils/InitNet.cpp", "utils/JNIHelper.cpp"];
+    let geometry = [
+        "geometry/ConvertUtils.cpp",
+        "geometry/GeometryBatchMatMul.cpp",
+        "geometry/GeometryBinary.cpp",
+        "geometry/GeometryBroadcastTo.cpp",
+        "geometry/GeometryComputer.cpp",
+        "geometry/GeometryComputerUtils.cpp",
+        "geometry/GeometryConcat.cpp",
+        "geometry/GeometryConv2D.cpp",
+        "geometry/GeometryConv2DBackPropFilter.cpp",
+        "geometry/GeometryConv3D.cpp",
+        "geometry/GeometryConvUtils.cpp",
+        "geometry/GeometryConvert.cpp",
+        "geometry/GeometryCosineSimilarity.cpp",
+        "geometry/GeometryCrop.cpp",
+        "geometry/GeometryCumSum.cpp",
+        "geometry/GeometryDepthToSpace.cpp",
+        "geometry/GeometryDet.cpp",
+        "geometry/GeometryDilation2D.cpp",
+        "geometry/GeometryELU.cpp",
+        "geometry/GeometryFill.cpp",
+        "geometry/GeometryGather.cpp",
+        "geometry/GeometryImageOp.cpp",
+        "geometry/GeometryInnerProduct.cpp",
+        "geometry/GeometryLRN.cpp",
+        "geometry/GeometryLSTM.cpp",
+        "geometry/GeometryLayernorm.cpp",
+        "geometry/GeometryOPRegister.cpp",
+        "geometry/GeometryPermute.cpp",
+        "geometry/GeometryPoolGrad.cpp",
+        "geometry/GeometryPooling3D.cpp",
+        "geometry/GeometryReduce.cpp",
+        "geometry/GeometryReshape.cpp",
+        "geometry/GeometryReverseSequence.cpp",
+        "geometry/GeometryScatter.cpp",
+        "geometry/GeometrySelect.cpp",
+        "geometry/GeometryShape.cpp",
+        "geometry/GeometrySlice.cpp",
+        "geometry/GeometrySpaceToBatchND.cpp",
+        "geometry/GeometrySpatialProduct.cpp",
+        "geometry/GeometryStridedSlice.cpp",
+        "geometry/GeometryTensorArray.cpp",
+        "geometry/GeometryThreshold.cpp",
+        "geometry/GeometryTile.cpp",
+        "geometry/GeometryTopK.cpp",
+        "geometry/GeometryUnary.cpp",
+    ];
+
+    let files = cc::Build::new().files(core).compile("mnn_cc");
+    Ok(())
+}
+
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
     let threads = std::thread::available_parallelism()?;
     cmake::Config::new(path)
@@ -361,6 +518,10 @@ impl From<&'static str> for CxxOptionValue {
         match s {
             "ON" => Self::On,
             "OFF" => Self::Off,
+            "1" => Self::On,
+            "0" => Self::Off,
+            "true" => Self::On,
+            "false" => Self::Off,
             _ => Self::Value(s),
         }
     }
@@ -447,4 +608,62 @@ impl CxxOption {
             CxxOptionValue::Value(_) => true,
         }
     }
+}
+
+mod cc_opts {
+    use super::{CxxOption, CxxOptionValue};
+    use std::sync::LazyLock;
+    const ON: CxxOptionValue = super::CxxOptionValue::On;
+    const OFF: CxxOptionValue = super::CxxOptionValue::Off;
+    macro_rules! cmake_options {
+        {$(option($name: ident $desc: tt $state: ident))*} => {
+            $(
+                #[doc = $desc]
+                pub static $name: LazyLock<CxxOption> = LazyLock::<CxxOption>::new(|| { CxxOption {
+                        name: stringify!($name),
+                        value: option_env!(stringify!($name)).map(|item| item.into()).unwrap_or_else(|| $state),
+                    }});
+            )*
+        }
+    }
+
+    cmake_options!(
+        option(MNN_USE_SYSTEM_LIB "For opencl and vulkan, use system lib or use dlopen" OFF)
+        option(MNN_BUILD_HARD "Build -mfloat-abi=hard or not" OFF)
+        option(MNN_BUILD_SHARED_LIBS "MNN build shared or static lib" ON)
+        option(MNN_WIN_RUNTIME_MT "MNN use /MT on Windows dll" OFF)
+        option(MNN_FORBID_MULTI_THREAD "Disable Multi Thread" OFF)
+        option(MNN_OPENMP "Use OpenMP's thread pool implementation. Does not work on iOS or Mac OS" OFF)
+        option(MNN_USE_THREAD_POOL "Use MNN's own thread pool implementation" ON)
+        option(MNN_BUILD_TRAIN "Build MNN's training framework" OFF)
+        option(MNN_BUILD_DEMO "Build demo/exec or not" OFF)
+        option(MNN_BUILD_TOOLS "Build tools/cpp or not" ON)
+        option(MNN_BUILD_QUANTOOLS "Build Quantized Tools or not" OFF)
+        option(MNN_EVALUATION "Build Evaluation Tools or not" OFF)
+        option(MNN_BUILD_CONVERTER "Build Converter" OFF)
+        option(MNN_SUPPORT_DEPRECATED_OP "Enable MNN's tflite quantized op" ON)
+        option(MNN_DEBUG_MEMORY "MNN Debug Memory Access" OFF)
+        option(MNN_DEBUG_TENSOR_SIZE "Enable Tensor Size" OFF)
+        option(MNN_GPU_TRACE "Enable MNN Gpu Debug" OFF)
+        option(MNN_SUPPORT_RENDER "Enable MNN Render Ops" OFF)
+        option(MNN_SUPPORT_TRANSFORMER_FUSE "Enable MNN transformer Fuse Ops" OFF)
+        option(MNN_PORTABLE_BUILD "Link the static version of third party libraries where possible to improve the portability of built executables" OFF)
+        option(MNN_SEP_BUILD "Build MNN Backends and expression separately. Only works with MNN_BUILD_SHARED_LIBS=ON" ON)
+        option(NATIVE_LIBRARY_OUTPUT "Native Library Path" OFF)
+        option(NATIVE_INCLUDE_OUTPUT "Native Include Path" OFF)
+        option(MNN_AAPL_FMWK "Build MNN.framework instead of traditional .a/.dylib" OFF)
+        option(MNN_WITH_PLUGIN "Build with plugin op support." OFF)
+        option(MNN_BUILD_MINI "Build MNN-MINI that just supports fixed shape models." OFF)
+        option(MNN_USE_SSE "Use SSE optimization for x86 if possiable" ON)
+        option(MNN_BUILD_CODEGEN "Build with codegen" OFF)
+        option(MNN_ENABLE_COVERAGE "Build with coverage enable" OFF)
+        option(MNN_BUILD_PROTOBUFFER "Build with protobuffer in MNN" ON)
+        option(MNN_BUILD_OPENCV "Build OpenCV api in MNN." OFF)
+        option(MNN_BUILD_LLM "Build llm library based MNN." OFF)
+        option(MNN_BUILD_DIFFUSION "Build diffusion demo based MNN." OFF)
+        option(MNN_INTERNAL "Build with MNN internal features, such as model authentication, metrics logging" OFF)
+        option(MNN_JNI "Build MNN Jni for java to use" OFF)
+        option(MNN_SUPPORT_BF16 "Enable MNN's bf16 op" OFF)
+        option(MNN_LOW_MEMORY "Build MNN support low memory for weight quant model." OFF)
+    );
 }
