@@ -1,11 +1,12 @@
-//! # MNN
 //!
-//! Ergonomic rust bindings for [MNN](https://github.com/alibaba/MNN)
+//! Ergonomic rust bindings for [MNN](https://github.com/alibaba/MNN)  
 //!
 //! The main data structures used are [`Tensor`] and [`Interpreter`].   
 //! [Interpreter] should be thread safe and can be used to run multiple sessions concurrently.  
 //! [Send] / [Sync] is not implemented for Interpreter yet since we don't know how it will be used.  
 //!
+//! ![Codecov](https://img.shields.io/codecov/c/github/aftershootco/mnn-rs?link=https%3A%2F%2Fapp.codecov.io%2Fgithub%2Faftershootco%2Fmnn-rs)
+//! ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/aftershootco/mnn-rs/build.yaml?link=https%3A%2F%2Fgithub.com%2Faftershootco%2Fmnn-rs%2Factions%2Fworkflows%2Fbuild.yaml)
 //! # Example  
 //! ```rust,no_run
 //! use mnn::*;
