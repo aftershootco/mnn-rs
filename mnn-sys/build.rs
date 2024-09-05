@@ -214,11 +214,12 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
                 config.target("wasm32-unknown-emscripten");
                 config.cpp_link_stdlib("c++-noexcept");
             }
+            #[cfg(feature = "crt_static")]
+            config.static_crt(true);
             config
         })
         .cpp(true)
         .static_flag(true)
-        .static_crt(true)
         .files(files)
         .std("c++14")
         // .pipe(|build| {
