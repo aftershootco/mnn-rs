@@ -69,7 +69,7 @@
           {
             inherit src MNN_SRC;
             pname = "mnn";
-            # cargoExtraArgs = "--example inspect";
+            doCheck = false;
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
             nativeBuildInputs = with pkgs; [
               cmake
@@ -109,33 +109,12 @@
           mnn-deny = craneLib.cargoDeny {
             inherit src;
           };
-          # Run tests with cargo-nextest
-          # Consider setting `doCheck = false` on other crate derivations
-          # if you do not want the tests to run twice
           mnn-nextest = craneLib.cargoNextest (commonArgs
             // {
               inherit cargoArtifacts;
               partitions = 1;
               partitionType = "count";
             });
-
-          # Ensure that cargo-hakari is up to date
-          # mnn-hakari = craneLib.mkCargoDerivation {
-          #   inherit src;
-          #   pname = "mnn-hakari";
-          #   cargoArtifacts = null;
-          #   doInstallCargoArtifacts = false;
-          #
-          #   buildPhaseCargoCommand = ''
-          #     cargo hakari generate --diff  # workspace-hack Cargo.toml is up-to-date
-          #     cargo hakari manage-deps --dry-run  # all workspace crates depend on workspace-hack
-          #     cargo hakari verify
-          #   '';
-          #
-          #   nativeBuildInputs = [
-          #     pkgs.cargo-hakari
-          #   ];
-          # };
         };
         packages =
           rec {
