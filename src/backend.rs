@@ -29,6 +29,7 @@ pub enum PowerMode {
     Normal,
     High,
 }
+
 impl PowerMode {
     fn to_mnn_sys(self) -> mnn_sys::PowerMode {
         match self {
@@ -38,6 +39,7 @@ impl PowerMode {
         }
     }
 }
+
 impl FromStr for PowerMode {
     type Err = MNNError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -88,6 +90,7 @@ pub enum MemoryMode {
     Normal,
     High,
 }
+
 impl MemoryMode {
     fn to_mnn_sys(self) -> mnn_sys::MemoryMode {
         match self {
@@ -117,6 +120,7 @@ impl PrecisionMode {
 }
 
 impl BackendConfig {
+    /// Create a new backend config
     pub fn new() -> Self {
         unsafe {
             let inner = mnnbc_create();
@@ -127,24 +131,29 @@ impl BackendConfig {
         }
     }
 
+    /// Sets the [MemoryMode] for the backend
     pub fn set_memory_mode(&mut self, mode: MemoryMode) {
         unsafe {
             mnn_sys::mnnbc_set_memory_mode(self.inner, mode.to_mnn_sys());
         }
     }
 
+    /// Sets the [PowerMode] for the backend
     pub fn set_power_mode(&mut self, mode: PowerMode) {
         unsafe {
             mnn_sys::mnnbc_set_power_mode(self.inner, mode.to_mnn_sys());
         }
     }
 
+    /// Sets the [PrecisionMode] for the backend
     pub fn set_precision_mode(&mut self, mode: PrecisionMode) {
         unsafe {
             mnn_sys::mnnbc_set_precision_mode(self.inner, mode.to_mnn_sys());
         }
     }
 
+    /// Sets the flags for the backend
+    /// What the flag represents is depends on each backend or isn't documented
     pub fn set_flags(&mut self, flags: usize) {
         unsafe {
             mnn_sys::mnnbc_set_flags(self.inner, flags);

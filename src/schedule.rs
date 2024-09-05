@@ -39,7 +39,7 @@ impl ForwardType {
             ForwardType::CoreML => MNNForwardType::MNN_FORWARD_NN,
         }
     }
-    #[cfg(feature = "parse")]
+
     fn list() -> Vec<&'static str> {
         vec![
             "auto",
@@ -59,7 +59,6 @@ impl ForwardType {
     }
 }
 
-#[cfg(feature = "parse")]
 impl core::str::FromStr for ForwardType {
     type Err = MNNError;
 

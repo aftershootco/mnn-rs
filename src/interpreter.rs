@@ -65,7 +65,7 @@ impl Interpreter {
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
-        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError; "Failed to create interpreter", "Interpreter_createFromFile returned null");
         Ok(Self {
             inner: interpreter,
             __marker: PhantomData,
