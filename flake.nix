@@ -53,7 +53,12 @@
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
-        src = ./.;
+
+        mnnFilters = path: type: (craneLib.filterCargoSources path type) || (lib.hasSuffix ".patch" path || lib.hasSuffix ".mnn" path || lib.hasSuffix ".h" path || lib.hasSuffix ".cpp" path);
+        src = lib.cleanSourceWith {
+          filter = mnnFilters;
+          src = ./.;
+        };
         MNN_SRC = pkgs.fetchFromGitHub {
           owner = "alibaba";
           repo = "MNN";
