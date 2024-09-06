@@ -1,7 +1,7 @@
 //! Synchronous API for MNN
-//! This api allows use of mnn in a thread-safe manner
+//! This api allows use of mnn in a thread-safe manner  
 //! # Example
-//! ```rust,no_run
+//! ```
 //! use mnn::sync::*;
 //! use mnn::*;
 //! let interpreter = Interpreter::from_bytes([0; 100]).expect("Failed to create interpreter");
@@ -21,8 +21,20 @@
 //!     }).expect("Failed to run");
 //! });
 //! ```
-//! This is achieved by creating a thread that creates a session and takes closures through a
-//! channel and runs them in the session. The session is closed when the handle is dropped.
+//! ## Architecture
+//! This is achieved by creating a [std::thread::Thread] that creates a [Session] and takes [FnOnce] through a  
+//!
+//! [std::sync::mpsc] channel and runs them in the [Session].
+//!
+//! The [Session] is closed when the [SessionHandle] is dropped.  
+//!
+//! The following is a diagram of the architecture of the sync api  
+#![doc = "<div align=''>\n"]
+#![doc = include_str!("../docs/assets/mnn-architecture.svg")]
+#![doc = "</div>\n"]
+//! When you run a closure it is sent to the thread and executed in that session and the result is  
+//! sent back to the main thread via a [oneshot::Sender]
+
 use crate::prelude::*;
 use crate::*;
 

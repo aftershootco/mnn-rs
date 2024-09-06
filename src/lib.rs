@@ -36,7 +36,6 @@
 //! - `profile`: Enable profiling ( emits some profiling tracing events )
 //! - `tracing`: Enable tracing ( emits some tracing events )
 //! - `crt_static`: Link statically to the C runtime on windows (noop on other platforms)
-//!
 //! ## License
 //! This links to the MNN library which is licensed under the Apache License 2.0.  
 //! The rust bindings are licensed under the same Apache License 2.0.  
