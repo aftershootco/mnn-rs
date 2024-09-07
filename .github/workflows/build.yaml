@@ -37,6 +37,13 @@ jobs:
       - run: nix build -L '.#${{ matrix.attr }}'
 
   docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/magic-nix-cache-action@main
+    - uses: DeterminateSystems/flake-checker-action@main
+
     - name: Exit if not on master branch
       if: github.ref == 'refs/heads/master'
       run: exit 0
