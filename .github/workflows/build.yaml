@@ -2,6 +2,7 @@ name: Build
 
 on:
   push:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -26,7 +27,7 @@ jobs:
       run: nix flake check
 
     - name: Run codecov
-      run: nix --extra-experimental-features "nix-command flakes" build .#mnn-llvm-cov
+      run: nix build .#mnn-llvm-cov
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
