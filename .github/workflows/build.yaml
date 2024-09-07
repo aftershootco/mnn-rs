@@ -27,10 +27,10 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   checks-build:
-    needs: nix-matrix
+    needs: checks-matrix
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix: ${{fromJSON(needs.nix-matrix.outputs.matrix)}}
+      matrix: ${{fromJSON(needs.checks-matrix.outputs.matrix)}}
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v27
