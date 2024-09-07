@@ -159,6 +159,6 @@
   in
     out
     // {
-      githubActions = nix-github-actions.lib.mkGithubMatrix {checks = out.x86_64-linux.packages;};
+      githubActions = nix-github-actions.lib.mkGithubMatrix {checks = out.checks.x86_64-linux;};
     };
 }
