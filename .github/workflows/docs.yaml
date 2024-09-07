@@ -1,0 +1,37 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  docs:
+    needs: checks-build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: "write"
+      contents: "read"
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/magic-nix-cache-action@main
+    - uses: DeterminateSystems/flake-checker-action@main
+
+    - name: Generate docs
+      run: nix build .#checks.x86_64-linux.mnn-docs
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: result/share/doc/mnn
+
+    - name: Deploy to gh-pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
