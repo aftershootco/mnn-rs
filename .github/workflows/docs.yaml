@@ -30,7 +30,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: result/share/doc/mnn
+        path: result/share/doc
 
     - name: Deploy to gh-pages
       id: deployment
