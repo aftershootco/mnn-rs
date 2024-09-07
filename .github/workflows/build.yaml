@@ -10,8 +10,53 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  checks-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
+      - id: set-matrix
+        name: Generate Nix Matrix
+        run: |
+          set -Eeu
+          matrix="$(nix eval --json '.#githubActions.matrix')"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
+  checks-build:
+    needs: nix-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: ${{fromJSON(needs.nix-matrix.outputs.matrix)}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+      - run: nix build -L '.#${{ matrix.attr }}'
+
+  docs:
+    - name: Exit if not on master branch
+      if: github.ref == 'refs/heads/master'
+      run: exit 0
+
+    - name: Generate docs
+      run: nix build .#checks.x86_64-linux.mnn-docs
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: result/share/doc/mnn
+
+    - name: Deploy to gh-pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+  codecov:
     runs-on: ubuntu-latest
     permissions:
       id-token: "write"
@@ -22,9 +67,6 @@ jobs:
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/magic-nix-cache-action@main
     - uses: DeterminateSystems/flake-checker-action@main
-
-    - name: Run `nix flake check`
-      run: nix flake check
 
     - name: Run codecov
       run: nix build .#mnn-llvm-cov
@@ -39,17 +81,3 @@ jobs:
         files: ./result
         verbose: true
 
-    - name: Generate docs
-      run: nix build .#x86_64-linux.mnn-docs
-
-    - name: Setup Pages
-      uses: actions/configure-pages@v5
-
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: result/share/doc/mnn
-
-    - name: Deploy to gh-pages
-      id: deployment
-      uses: actions/deploy-pages@v4

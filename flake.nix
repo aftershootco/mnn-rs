@@ -5,6 +5,10 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     crane.url = "github:ipetkov/crane";
+    nix-github-actions = {
+      url = "github:nix-community/nix-github-actions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,9 +30,10 @@
     rust-overlay,
     mnn-overlay,
     advisory-db,
+    nix-github-actions,
     ...
-  }:
-    flake-utils.lib.eachDefaultSystem (
+  }: let
+    out = flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
           inherit system;
@@ -151,4 +156,9 @@
         };
       }
     );
+  in
+    out
+    // {
+      githubActions = nix-github-actions.lib.mkGithubMatrix {checks = out.x86_64-linux.packages;};
+    };
 }
