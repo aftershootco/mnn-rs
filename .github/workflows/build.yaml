@@ -37,3 +37,18 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./result
         verbose: true
+
+    - name: Generate docs
+      run: nix build .#x86_64-linux.mnn-docs
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: result/share/doc/mnn
+
+    - name: Deploy to gh-pages
+      id: deployment
+      uses: actions/deploy-pages@v4
