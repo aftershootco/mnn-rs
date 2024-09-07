@@ -43,6 +43,8 @@ pub enum ErrorKind {
     SyncError,
     #[error("Tensor Error")]
     TensorError,
+    #[error("Dynamic Tensor Error: Tensor needs to be resized before using")]
+    DynamicTensorError,
 }
 
 impl MNNError {

@@ -77,7 +77,7 @@ impl Interpreter {
         let size = bytes.len();
         let interpreter =
             unsafe { mnn_sys::Interpreter_createFromBuffer(bytes.as_ptr().cast(), size) };
-        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError);
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError; "Failed to create interpreter", "Interpreter_createFromBuffer returned null");
         Ok(Self {
             inner: interpreter,
             __marker: PhantomData,
@@ -166,6 +166,8 @@ impl Interpreter {
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(input) };
+        let shape = tensor.shape();
+        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
@@ -188,6 +190,8 @@ impl Interpreter {
         };
         ensure!(!output.is_null(), ErrorKind::IOError);
         let tensor = unsafe { Tensor::from_ptr(output) };
+        let shape = tensor.shape();
+        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
@@ -242,6 +246,8 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
+        let shape = tensor.shape();
+        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
