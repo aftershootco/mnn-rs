@@ -5,6 +5,10 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     crane.url = "github:ipetkov/crane";
+    nix-github-actions = {
+      url = "github:nix-community/nix-github-actions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -20,12 +24,14 @@
   };
 
   outputs = {
+    self,
     crane,
     flake-utils,
     nixpkgs,
     rust-overlay,
     mnn-overlay,
     advisory-db,
+    nix-github-actions,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (
@@ -54,7 +60,7 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
 
-        mnnFilters = path: type: (craneLib.filterCargoSources path type) || (lib.hasSuffix ".patch" path || lib.hasSuffix ".mnn" path || lib.hasSuffix ".h" path || lib.hasSuffix ".cpp" path);
+        mnnFilters = path: type: (craneLib.filterCargoSources path type) || (lib.hasSuffix ".patch" path || lib.hasSuffix ".mnn" path || lib.hasSuffix ".h" path || lib.hasSuffix ".cpp" path || lib.hasSuffix ".svg" path);
         src = lib.cleanSourceWith {
           filter = mnnFilters;
           src = ./.;
@@ -150,5 +156,10 @@
           };
         };
       }
-    );
+    )
+    // {
+      githubActions = nix-github-actions.lib.mkGithubMatrix {
+        checks = nixpkgs.lib.getAttrs ["x86_64-linux"] self.checks;
+      };
+    };
 }

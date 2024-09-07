@@ -1,7 +1,7 @@
 //! Synchronous API for MNN
 //! This api allows use of mnn in a thread-safe manner  
 //! # Example
-//! ```
+//! ```rust,no_run
 //! use mnn::sync::*;
 //! use mnn::*;
 //! let interpreter = Interpreter::from_bytes([0; 100]).expect("Failed to create interpreter");
