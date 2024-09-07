@@ -24,6 +24,7 @@
   };
 
   outputs = {
+    self,
     crane,
     flake-utils,
     nixpkgs,
@@ -32,8 +33,8 @@
     advisory-db,
     nix-github-actions,
     ...
-  }: let
-    out = flake-utils.lib.eachDefaultSystem (
+  }:
+    flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
           inherit system;
@@ -155,12 +156,10 @@
           };
         };
       }
-    );
-  in
-    out
+    )
     // {
       githubActions = nix-github-actions.lib.mkGithubMatrix {
-        checks = nixpkgs.lib.getAttrs ["x86_64-linux"] out.checks;
+        checks = nixpkgs.lib.getAttrs ["x86_64-linux"] self.checks;
       };
     };
 }
