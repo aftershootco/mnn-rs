@@ -1,6 +1,8 @@
-use std::path::Path;
+use std::{ffi::CStr, path::Path};
 
-use crate::{prelude::*, AsTensorShape, Device, Ref, RefMut, ScheduleConfig, Tensor, TensorType};
+use crate::{
+    prelude::*, AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType,
+};
 use mnn_sys::HalideType;
 
 #[derive(Debug, Copy, Clone)]
@@ -220,7 +222,7 @@ impl Interpreter {
         Ok(tensor)
     }
 
-    pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
+    pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
             let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
             ensure!(
@@ -229,6 +231,34 @@ impl Interpreter {
             );
             Ok(())
         })
+    }
+
+    pub fn run_session_with_callback<H: HalideType>(
+        &mut self,
+        session: &crate::session::Session,
+        before: for<'a> fn(&'a [RawTensor], &'a core::ffi::CStr) -> i32,
+        sync: bool,
+    ) -> Result<()> {
+        let sync = sync as libc::c_int;
+        let bbfore = 
+            move |
+                tensors: *const *const mnn_sys::Tensor,
+                tensor_count: usize,
+                op_name: *const libc::c_char
+            | {
+            let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
+            unsafe { before(tensors, CStr::from_ptr(op_name)) };
+        };
+        let ret = unsafe {
+            mnn_sys::Interpreter_runSessionWithCallBack(
+                self.inner,
+                session.inner,
+                Some(bbfore),
+                None,
+                sync,
+            )
+        };
+        Ok(())
     }
 
     pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
@@ -366,3 +396,6 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
         self.tensor_list.get(idx)
     }
 }
+
+// typedef std::function<bool(const std::vector<Tensor*>&, const std::string& /*opName*/)> TensorCallBack;
+// typedef int (*TensorCallBack)(const Tensor **tensors, size_t tensorCount, const char *opName);

@@ -680,4 +680,47 @@ impl<T: super::TensorType> super::TensorType for Dyn<T> {
     }
 }
 
-// impl<T: super::TensorType> super::Tensor<Dyn<T>> {}
+#[repr(transparent)]
+pub struct RawTensor {
+    pub(crate) inner: *mut mnn_sys::Tensor,
+}
+
+impl core::ops::Drop for RawTensor {
+    fn drop(&mut self) {
+        unsafe {
+            mnn_sys::Tensor_destroy(self.inner);
+        }
+    }
+}
+
+impl RawTensor {
+    pub fn shape(&self) -> TensorShape {
+        unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
+    }
+
+    pub fn dimensions(&self) -> usize {
+        unsafe { mnn_sys::Tensor_dimensions(self.inner) as usize }
+    }
+
+    pub fn width(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_width(self.inner) as u32 }
+    }
+
+    pub fn height(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_height(self.inner) as u32 }
+    }
+
+    pub fn channel(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_channel(self.inner) as u32 }
+    }
+
+    /// # Safety
+    /// This is very unsafe do not use this unless you know what you are doing
+    pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
+    where
+        T::H: HalideType,
+    {
+        let this = core::mem::ManuallyDrop::new(self);
+        super::Tensor::from_ptr(this.inner)
+    }
+}

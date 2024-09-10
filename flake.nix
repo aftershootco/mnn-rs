@@ -21,6 +21,10 @@
       url = "github:rustsec/advisory-db";
       flake = false;
     };
+    mnn-src = {
+      url = "github:alibaba/MNN";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -32,6 +36,7 @@
     mnn-overlay,
     advisory-db,
     nix-github-actions,
+    mnn-src,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (
@@ -65,12 +70,13 @@
           filter = mnnFilters;
           src = ./.;
         };
-        MNN_SRC = pkgs.fetchFromGitHub {
-          owner = "alibaba";
-          repo = "MNN";
-          rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
-          hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
-        };
+        MNN_SRC = mnn-src;
+        # pkgs.fetchFromGitHub {
+        #   owner = "alibaba";
+        #   repo = "MNN";
+        #   rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
+        #   hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
+        # };
         commonArgs =
           {
             inherit src MNN_SRC;
