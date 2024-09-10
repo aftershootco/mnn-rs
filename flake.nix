@@ -121,10 +121,26 @@
               partitions = 1;
               partitionType = "count";
             });
+          mnn-sys-clippy = craneLib.cargoClippy (commonArgs
+            // {
+              inherit cargoArtifacts;
+              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+            });
+          mnn-sys-nextest = craneLib.cargoNextest (commonArgs
+            // {
+              src = ./mnn-sys;
+              inherit cargoArtifacts;
+              partitions = 1;
+              partitionType = "count";
+            });
         };
         packages =
           rec {
-            mnn = craneLib.buildPackage (commonArgs // {inherit cargoArtifacts;});
+            mnn = craneLib.buildPackage (commonArgs
+              // {
+                inherit cargoArtifacts;
+                # src = lib.sources.trace mnn-rs-src;
+              });
             inspect = craneLib.buildPackage (commonArgs
               // {
                 inherit cargoArtifacts;
