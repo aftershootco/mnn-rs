@@ -124,14 +124,14 @@
           mnn-sys-clippy = craneLib.cargoClippy (commonArgs
             // {
               inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+              cargoClippyExtraArgs = "-p mnn-sys --all-targets -- --deny warnings";
             });
           mnn-sys-nextest = craneLib.cargoNextest (commonArgs
             // {
-              src = ./mnn-sys;
               inherit cargoArtifacts;
               partitions = 1;
               partitionType = "count";
+              cargoExtraArgs = "-p mnn-sys";
             });
         };
         packages =
