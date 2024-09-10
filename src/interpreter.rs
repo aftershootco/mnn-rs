@@ -1,4 +1,6 @@
-use crate::{prelude::*, AsTensorShape, Device, Ref, RefMut, Tensor, TensorType};
+use std::path::Path;
+
+use crate::{prelude::*, AsTensorShape, Device, Ref, RefMut, ScheduleConfig, Tensor, TensorType};
 use mnn_sys::HalideType;
 
 #[derive(Debug, Copy, Clone)]
@@ -59,7 +61,7 @@ pub struct Interpreter {
 unsafe impl Send for Interpreter {}
 
 impl Interpreter {
-    pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string());
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -134,13 +136,30 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
-                __schedule_config: schedule,
+                __session_internals: crate::SessionInternals::Single(schedule),
                 __marker: PhantomData,
             })
         })
     }
 
-    pub fn model_print_io(path: impl AsRef<std::path::Path>) -> Result<()> {
+    pub fn create_multipath_session(
+        &mut self,
+        schedule: impl IntoIterator<Item = ScheduleConfig>,
+    ) -> Result<crate::session::Session> {
+        profile!("Creating multipath session"; {
+            let schedules: crate::ScheduleConfigs = schedule.into_iter().collect();
+            let sc: &[_] = schedules.inner.as_ref();
+            let session = unsafe { mnn_sys::Interpreter_createMultiPathSession(self.inner, sc.as_ptr(), sc.len()) };
+            assert!(!session.is_null());
+            Ok(crate::session::Session {
+                inner: session,
+                __session_internals: crate::SessionInternals::MultiSession(schedules),
+                __marker: PhantomData,
+            })
+        })
+    }
+
+    pub fn model_print_io(path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
         crate::ensure!(path.exists(), ErrorKind::IOError);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -166,8 +185,8 @@ impl Interpreter {
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(input) };
-        let shape = tensor.shape();
-        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
+        // let shape = tensor.shape();
+        // ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
@@ -203,12 +222,12 @@ impl Interpreter {
 
     pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
-        let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
-        ensure!(
-            ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
-            ErrorKind::InternalError(ret)
-        );
-        Ok(())
+            let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
+            ensure!(
+                ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
+                ErrorKind::InternalError(ret)
+            );
+            Ok(())
         })
     }
 
@@ -216,6 +235,20 @@ impl Interpreter {
         let outputs =
             unsafe { mnn_sys::Interpreter_getSessionOutputAll(self.inner, session.inner) };
         TensorList::from_ptr(outputs)
+    }
+
+    pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
+        let path = path.as_ref();
+        let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
+        let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
+        unsafe { mnn_sys::Interpreter_setCacheFile(self.inner, c_path.as_ptr(), key_size) }
+        Ok(())
+    }
+    pub fn update_cache_file(&mut self, session: &mut crate::session::Session) -> Result<()> {
+        MNNError::from_error_code(unsafe {
+            mnn_sys::Interpreter_updateCacheFile(self.inner, session.inner)
+        });
+        Ok(())
     }
 }
 

@@ -1,5 +1,5 @@
 use mnn_sys::*;
-use std::ffi::CString;
+use std::{ffi::CString, mem::ManuallyDrop};
 
 use crate::{prelude::*, BackendConfig};
 
@@ -177,3 +177,59 @@ impl ScheduleConfig {
         }
     }
 }
+
+pub struct ScheduleConfigs {
+    pub(crate) inner: Vec<*const MNNScheduleConfig>,
+    pub(crate) backend_configs: Vec<Option<BackendConfig>>,
+}
+
+impl Drop for ScheduleConfigs {
+    fn drop(&mut self) {
+        unsafe {
+            for i in self.inner.iter() {
+                mnnsc_destroy(*i.cast());
+            }
+        }
+    }
+}
+
+impl ScheduleConfigs {
+    pub fn push(&mut self, config: ScheduleConfig) {
+        let mut config = ManuallyDrop::new(config);
+        self.inner.push(config.inner);
+        self.backend_configs.push(config.backend_config.take());
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            inner: Vec::with_capacity(capacity),
+            backend_configs: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub const fn new() -> Self {
+        Self {
+            inner: Vec::new(),
+            backend_configs: Vec::new(),
+        }
+    }
+}
+
+impl Default for ScheduleConfigs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FromIterator<ScheduleConfig> for ScheduleConfigs {
+    fn from_iter<T: IntoIterator<Item = ScheduleConfig>>(iter: T) -> Self {
+        let iter = iter.into_iter();
+        let mut ret = Self::with_capacity(iter.size_hint().1.unwrap_or_default());
+        iter.for_each(|item| {
+            ret.push(item);
+        });
+        ret
+    }
+}
+
+unsafe impl Send for ScheduleConfigs {}

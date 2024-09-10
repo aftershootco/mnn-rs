@@ -2,8 +2,13 @@ use crate::prelude::*;
 
 pub struct Session {
     pub(crate) inner: *mut mnn_sys::Session,
-    pub(crate) __schedule_config: crate::ScheduleConfig,
+    pub(crate) __session_internals: crate::SessionInternals,
     pub(crate) __marker: PhantomData<()>,
+}
+
+pub enum SessionInternals {
+    Single(crate::ScheduleConfig),
+    MultiSession(crate::ScheduleConfigs),
 }
 
 impl Session {

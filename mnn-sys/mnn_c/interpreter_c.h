@@ -1,8 +1,8 @@
 #ifndef INTERPRETER_C_H
 #define INTERPRETER_C_H
 #include "backend_c.h"
-#include "schedule_c.h"
 #include "error_code_c.h"
+#include "schedule_c.h"
 #include "tensor_c.h"
 #include "utils.h"
 #include <MNN/HalideRuntime.h>
@@ -144,7 +144,7 @@ void Interpreter_setCacheFile(Interpreter *interpreter, const char *cacheFile,
 void Interpreter_setExternalFile(Interpreter *interpreter, const char *file,
                                  size_t flag);
 ErrorCode Interpreter_updateCacheFile(Interpreter *interpreter,
-                                      Session *session, int flag);
+                                      Session *session);
 void Interpreter_setSessionHint(Interpreter *interpreter, int mode, int value);
 // RuntimeInfo *Interpreter_createRuntime(const ScheduleConfig *configs,
 //                                        size_t configSize);
@@ -153,9 +153,10 @@ Session *Interpreter_createSession(Interpreter *interpreter,
 // Session *Interpreter_createSessionWithRuntime(Interpreter *interpreter,
 //                                               const ScheduleConfig *config,
 //                                               const RuntimeInfo *runtime);
-Session *Interpreter_createMultiPathSession(Interpreter *interpreter,
-                                            const MNNScheduleConfig *configs,
-                                            size_t configSize);
+Session *
+Interpreter_createMultiPathSession(Interpreter *interpreter,
+                                   const MNNScheduleConfig *const *configs,
+                                   size_t configSize);
 // Session *Interpreter_createMultiPathSessionWithRuntime(
 //     Interpreter *interpreter, const ScheduleConfig *configs, size_t
 //     configSize, const RuntimeInfo *runtime);
@@ -186,11 +187,13 @@ Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,
                                      const Session *session, const char *name);
 int Interpreter_getSessionInfo(Interpreter *interpreter, const Session *session,
                                int code, void *ptr);
-TensorInfoArray const * Interpreter_getSessionOutputAll(const Interpreter *interpreter,
-                                                const Session *session);
+TensorInfoArray const *
+Interpreter_getSessionOutputAll(const Interpreter *interpreter,
+                                const Session *session);
 
-TensorInfoArray const * Interpreter_getSessionInputAll(const Interpreter *interpreter,
-                                               const Session *session);
+TensorInfoArray const *
+Interpreter_getSessionInputAll(const Interpreter *interpreter,
+                               const Session *session);
 void Interpreter_resizeTensor(Interpreter *interpreter, Tensor *tensor,
                               const int *dims, size_t dimsSize);
 void Interpreter_resizeTensorByNCHW(Interpreter *interpreter, Tensor *tensor,

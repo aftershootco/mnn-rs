@@ -53,11 +53,10 @@ void Interpreter_setExternalFile(Interpreter *interpreter, const char *file,
   mnn_interpreter->setExternalFile(file, flag);
 }
 ErrorCode Interpreter_updateCacheFile(Interpreter *interpreter,
-                                      Session *session, int flag) {
+                                      Session *session) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
   auto mnn_session = reinterpret_cast<MNN::Session *>(session);
-  return static_cast<ErrorCode>(
-      mnn_interpreter->updateCacheFile(mnn_session, flag));
+  return static_cast<ErrorCode>(mnn_interpreter->updateCacheFile(mnn_session));
 }
 void Interpreter_setSessionHint(Interpreter *interpreter, int mode, int value) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
@@ -111,17 +110,36 @@ Session *Interpreter_createSession(Interpreter *interpreter,
 //     cppConfig.backendConfig = config->backendConfig;
 //     return interpreter->createSession(cppConfig, *runtime);
 // }
-Session *Interpreter_createMultiPathSession(Interpreter *interpreter,
-                                            const MNNScheduleConfig *configs,
-                                            size_t configSize) {
-
-  auto mnn_configs = reinterpret_cast<const MNN::ScheduleConfig *>(configs);
-  // @todo: check if this is correct
-  std::vector<MNN::ScheduleConfig> cppConfigs(mnn_configs,
-                                              mnn_configs + configSize);
+// Session *Interpreter_createMultiPathSession(Interpreter *interpreter,
+//                                             const MNNScheduleConfig *configs,
+//                                             size_t configSize) {
+//
+//   auto mnn_configs = reinterpret_cast<const MNN::ScheduleConfig *>(configs);
+//   std::vector<MNN::ScheduleConfig> cppConfigs(mnn_configs,
+//                                               mnn_configs + configSize);
+//   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
+//   return reinterpret_cast<Session *>(
+//       mnn_interpreter->createMultiPathSession(cppConfigs));
+// }
+Session *
+Interpreter_createMultiPathSession(Interpreter *interpreter,
+                                   const MNNScheduleConfig *const *configs,
+                                   size_t configSize) {
+  auto mnn_configs =
+      reinterpret_cast<const MNN::ScheduleConfig *const *>(configs);
+  std::vector<MNN::ScheduleConfig> s_configs;
+  for (size_t i = 0; i < configSize; ++i) {
+    s_configs.push_back(*mnn_configs[i]);
+  }
+  // std::vector<MNN::ScheduleConfig *> cppConfigs(mnn_configs,
+  //                                               mnn_configs + configSize);
+  // Create a std::vector<MMN::ScheduleConfig> from
+  // std::vector<MNN::ScheduleConfig *>
+  // auto s_configs =
+  //     std::vector<MNN::ScheduleConfig>(cppConfigs.begin(), cppConfigs.end());
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
-  return reinterpret_cast<Session *>(
-      mnn_interpreter->createMultiPathSession(cppConfigs));
+  MNN::Session *session = mnn_interpreter->createMultiPathSession(s_configs);
+  return reinterpret_cast<Session *>(session);
 }
 
 // Session* Interpreter_createMultiPathSessionWithRuntime(Interpreter*
@@ -299,6 +317,6 @@ const char *Interpreter_uuid(const Interpreter *interpreter) {
 }
 void Session_destroy(Session *session) {
   auto mnn_session = reinterpret_cast<MNN::Session *>(session);
-  delete mnn_session;
+  // delete mnn_session;
 }
 } // extern "C"

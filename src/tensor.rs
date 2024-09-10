@@ -250,6 +250,10 @@ where
         }
     }
 
+    pub fn is_dynamic(&self) -> bool {
+        self.shape().iter().any(|&x| x == -1)
+    }
+
     /// DO not use this function directly
     /// # Safety
     /// This is just provided as a 1:1 compat mostly for possible later use
@@ -654,3 +658,26 @@ pub fn test_tensor_borrow_mut() {
     tensor.host_mut().fill(1);
     assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
 }
+
+pub struct Dyn<T> {
+    __marker: PhantomData<T>,
+}
+impl<T> seal::Sealed for Dyn<T> {}
+
+impl<T: super::TensorType> super::TensorType for Dyn<T> {
+    type H = T::H;
+    fn host() -> bool {
+        T::host()
+    }
+    fn device() -> bool {
+        T::device()
+    }
+    fn owned() -> bool {
+        T::owned()
+    }
+    fn borrowed() -> bool {
+        T::borrowed()
+    }
+}
+
+// impl<T: super::TensorType> super::Tensor<Dyn<T>> {}
