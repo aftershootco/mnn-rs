@@ -344,6 +344,7 @@ dependencies = [
  "libc",
  "mnn-sys",
  "oneshot",
+ "semver",
  "thiserror",
  "tracing",
 ]
@@ -369,6 +370,7 @@ dependencies = [
  "dunce",
  "fs_extra",
  "libc",
+ "semver",
  "tap",
 ]
 

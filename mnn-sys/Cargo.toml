@@ -30,3 +30,4 @@ crt_static = []
 
 [dependencies]
 libc = "0.2.155"
+semver = "1.0.23"
