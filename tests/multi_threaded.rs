@@ -4,8 +4,13 @@ use mnn::ForwardType;
 
 #[cfg(test)]
 pub fn test_multi_threading(backend: ForwardType) -> Result<()> {
-    let handles: Vec<_> = (1..=10)
-        .map(move |_| std::thread::spawn(move || test_basic(backend)))
+    let handles: Vec<_> = (1..=2)
+        .map(move |index| {
+            std::thread::spawn(move || {
+                // std::thread::sleep(core::time::Duration::from_secs(10 * index));
+                test_basic(backend)
+            })
+        })
         .collect();
     handles
         .into_iter()

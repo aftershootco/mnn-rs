@@ -34,7 +34,7 @@ sync = []
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 
-default = ["mnn-threadpool", "sync"]
+default = ["mnn-threadpool", "opencl"]
 
 
 [dev-dependencies]
