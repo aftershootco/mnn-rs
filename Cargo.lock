@@ -344,6 +344,7 @@ dependencies = [
  "libc",
  "mnn-sys",
  "oneshot",
+ "semver",
  "thiserror",
  "tracing",
 ]
@@ -358,6 +359,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mnn-sync"
+version = "0.1.0"
+dependencies = [
+ "error-stack",
+ "mnn",
+ "oneshot",
+]
+
+[[package]]
 name = "mnn-sys"
 version = "0.1.0"
 dependencies = [
@@ -369,6 +379,7 @@ dependencies = [
  "dunce",
  "fs_extra",
  "libc",
+ "semver",
  "tap",
 ]
 

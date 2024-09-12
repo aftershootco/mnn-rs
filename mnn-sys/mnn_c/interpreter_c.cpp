@@ -26,7 +26,7 @@ void modelPrintIO(const char *model) {
   }
 }
 
-const char *getVersion() { return MNN::getVersion(); }
+// const char *getVersion() { return MNN::getVersion(); }
 Interpreter *Interpreter_createFromFile(const char *file) {
   return reinterpret_cast<Interpreter *>(
       MNN::Interpreter::createFromFile(file));

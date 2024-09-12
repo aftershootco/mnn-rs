@@ -2,7 +2,7 @@
 //! This api allows use of mnn in a thread-safe manner  
 //! # Example
 //! ```rust,no_run
-//! use mnn::sync::*;
+//! use mnn_sync::*;
 //! use mnn::*;
 //! let interpreter = Interpreter::from_bytes([0; 100]).expect("Failed to create interpreter");
 //! let config = ScheduleConfig::new();
@@ -30,13 +30,13 @@
 //!
 //! The following is a diagram of the architecture of the sync api  
 #![doc = "<div align=''>\n"]
-#![doc = include_str!("../docs/assets/mnn-architecture.svg")]
+#![doc = include_str!("../../docs/assets/mnn-architecture.svg")]
 #![doc = "</div>\n"]
 //! When you run a closure it is sent to the thread and executed in that session and the result is  
 //! sent back to the main thread via a [oneshot::Sender]
 
-use crate::prelude::*;
-use crate::*;
+use mnn::*;
+use error_stack::{ResultExt, Report};
 
 type Callback = Box<dyn FnOnce(&mut SessionRunner) -> Result<()> + Send + 'static>;
 pub enum CallbackEnum {

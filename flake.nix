@@ -179,6 +179,7 @@
                 cargo-hakari
                 cargo-deny
                 rust-cbindgen
+                cargo-semver-checks
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                 darwin.apple_sdk.frameworks.OpenCL
