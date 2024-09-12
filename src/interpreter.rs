@@ -45,10 +45,6 @@ pub enum SessionMode {
     ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix,
 }
 
-pub const fn version() -> semver::Version {
-    mnn_sys::version()
-}
-
 impl SessionMode {
     #[cfg(windows)]
     fn to_mnn_sys(&self) -> i32 {

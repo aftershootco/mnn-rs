@@ -134,7 +134,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         "tensor_c.h",
         "backend_c.h",
         "schedule_c.h",
-        "mnndefine.h",
     ];
 
     let bindings = bindgen::Builder::default()
