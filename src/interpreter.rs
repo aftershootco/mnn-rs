@@ -5,6 +5,8 @@ use crate::{
 };
 use mnn_sys::HalideType;
 
+pub type TensorCallback = Box<dyn Fn(&[RawTensor], &CStr) -> i32>;
+
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]
 #[cfg_attr(unix, repr(u32))]
@@ -233,31 +235,31 @@ impl Interpreter {
         })
     }
 
-    pub fn run_session_with_callback<H: HalideType>(
+    pub fn run_session_with_callback(
         &mut self,
         session: &crate::session::Session,
-        before: for<'a> fn(&'a [RawTensor], &'a core::ffi::CStr) -> i32,
+        before: impl Fn(&[RawTensor], &core::ffi::CStr) -> i32 + 'static,
+        end: impl Fn(&[RawTensor], &core::ffi::CStr) -> i32 + 'static,
         sync: bool,
     ) -> Result<()> {
         let sync = sync as libc::c_int;
-        let bbfore = 
-            move |
-                tensors: *const *const mnn_sys::Tensor,
-                tensor_count: usize,
-                op_name: *const libc::c_char
-            | {
-            let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
-            unsafe { before(tensors, CStr::from_ptr(op_name)) };
-        };
+        let before: Box<TensorCallback> = Box::new(Box::new(before));
+        let before = Box::into_raw(before).cast();
+        let end: Box<TensorCallback> = Box::new(Box::new(end));
+        let end = Box::into_raw(end).cast();
         let ret = unsafe {
             mnn_sys::Interpreter_runSessionWithCallBack(
                 self.inner,
                 session.inner,
-                Some(bbfore),
-                None,
+                before,
+                end,
                 sync,
             )
         };
+        ensure!(
+            ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
+            ErrorKind::InternalError(ret)
+        );
         Ok(())
     }
 
@@ -397,5 +399,17 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
     }
 }
 
-// typedef std::function<bool(const std::vector<Tensor*>&, const std::string& /*opName*/)> TensorCallBack;
-// typedef int (*TensorCallBack)(const Tensor **tensors, size_t tensorCount, const char *opName);
+#[no_mangle]
+pub extern "C" fn rust_closure_callback_runner(
+    f: *mut libc::c_void,
+    tensors: *const *mut mnn_sys::Tensor,
+    tensor_count: usize,
+    name: *const libc::c_char,
+) -> libc::c_int {
+    let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
+    let name = unsafe { std::ffi::CStr::from_ptr(name) };
+    let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
+    let ret = f(tensors, name);
+    core::mem::forget(f);
+    ret
+}

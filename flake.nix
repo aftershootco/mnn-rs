@@ -56,6 +56,9 @@
         inherit (pkgs) lib;
 
         stableToolchain = pkgs.rust-bin.stable.latest.default;
+        nightlyToolchain = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = ["rust-src"];
+        };
         stableToolchainWithLLvmTools = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src" "llvm-tools"];
         };
@@ -139,6 +142,13 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
+          mnn-asan = (craneLib.overrideToolchain nightlyToolchain).cargoNextest (commonArgs
+            // {
+              inherit cargoArtifacts;
+              partitions = 1;
+              partitionType = "count";
+              RUSTFLAGS = "-Zsanitizer=address -Zbuild-std";
+            });
         };
         packages =
           rec {
@@ -168,6 +178,7 @@
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
+                rust-cbindgen
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                 darwin.apple_sdk.frameworks.OpenCL

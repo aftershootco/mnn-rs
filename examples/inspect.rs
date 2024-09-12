@@ -8,7 +8,7 @@ pub struct Cli {
     forward: ForwardType,
     #[clap(short, long, default_value = "high")]
     power: PowerMode,
-    #[clap(short, long, default_value = "high")]
+    #[clap(short = 'P', long, default_value = "high")]
     precision: PrecisionMode,
     #[clap(short, long, default_value = "high")]
     memory: MemoryMode,
@@ -39,37 +39,29 @@ pub fn main() -> anyhow::Result<()> {
 
     let mut config = ScheduleConfig::new();
     config.set_type(cli.forward);
-    // let mut backend_config = BackendConfig::new();
-    // backend_config.set_precision_mode(PrecisionMode::High);
-    // backend_config.set_power_mode(PowerMode::High);
-    // config.set_backend_config(backend_config);
-    // let handle = mnn::sync::SessionHandle::new(interpreter, config)?;
     let mut session = time!(interpreter.create_session(config)?; "create session");
     interpreter.update_cache_file(&mut session)?;
-    let mut input = interpreter.input::<f32>(&session, "image")?;
-    let mut shape = input.shape();
-    shape[0] = 512;
-    shape[1] = 512;
-    shape[2] = 3;
-    interpreter.resize_tensor(&mut input, shape);
-    drop(input);
-    interpreter.resize_session(&mut session);
-    // let session = time!(interpreter.create_session(config)?; "create session");
-    // handle.run(|sr| {
-    //     let interpreter = sr.interpreter();
-    //     let session = sr.session();
+
     let mut current = 0;
     time!(loop {
-        let inputs = interpreter.inputs(&session);
-        inputs.iter().for_each(|x| {
-            let mut tensor = x.tensor::<f32>().expect("No tensor");
-            println!("{}: {:?}", x.name(), tensor.shape());
-            tensor.fill(1.0f32);
-        });
-        time!(interpreter.run_session(&session)?;"run session");
+        {
+            let inputs = interpreter.inputs(&session);
+            inputs.iter().for_each(|x| {
+                let mut tensor = x.tensor::<f32>().expect("No tensor");
+                println!("{}: {:?}", x.name(), tensor.shape());
+                tensor.fill(1.0f32);
+            });
+        }
+        time!(interpreter.run_session_with_callback(&session, |tensors, name| {
+            println!("Before Callback: {:?}", name);
+            1
+        },|_ , name| {
+            println!("After Callback: {:?}", name);
+            1
+        } , true)?;"run session");
         let outputs = interpreter.outputs(&session);
         outputs.iter().for_each(|x| {
-            let tensor = x.tensor::<u8>().expect("No tensor");
+            let tensor = x.tensor::<f32>().expect("No tensor");
             time!(tensor.wait(ffi::MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
             println!("{}: {:?}", x.name(), tensor.shape());
             let _ = tensor.create_host_tensor_from_device(true);
@@ -80,7 +72,5 @@ pub fn main() -> anyhow::Result<()> {
             break;
         }
     }; "run loop");
-    // Ok(())
-    // })?;
     Ok(())
 }
