@@ -74,12 +74,6 @@
           src = ./.;
         };
         MNN_SRC = mnn-src;
-        # pkgs.fetchFromGitHub {
-        #   owner = "alibaba";
-        #   repo = "MNN";
-        #   rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
-        #   hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
-        # };
         commonArgs =
           {
             inherit src MNN_SRC;
@@ -155,7 +149,6 @@
             mnn = craneLib.buildPackage (commonArgs
               // {
                 inherit cargoArtifacts;
-                # src = lib.sources.trace mnn-rs-src;
               });
             inspect = craneLib.buildPackage (commonArgs
               // {
