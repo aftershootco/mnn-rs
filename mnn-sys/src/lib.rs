@@ -1,12 +1,12 @@
 use std::ffi::CStr;
 
-mod ffi {
+mod sys {
     #![allow(non_upper_case_globals)]
     #![allow(non_camel_case_types)]
     #![allow(non_snake_case)]
     include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
 }
-pub use ffi::*;
+pub use sys::*;
 impl DimensionType {
     pub const NHWC: Self = Self::TENSORFLOW;
     pub const NCHW: Self = Self::CAFFE;
@@ -96,8 +96,8 @@ impl halide_type_code_t {
 
 pub const fn version() -> semver::Version {
     semver::Version::new(
-        mnn_sys::MNN_VERSION_MAJOR as u64,
-        mnn_sys::MNN_VERSION_MINOR as u64,
-        mnn_sys::MNN_VERSION_PATCH as u64,
+        sys::MNN_VERSION_MAJOR as u64,
+        sys::MNN_VERSION_MINOR as u64,
+        sys::MNN_VERSION_PATCH as u64,
     )
 }

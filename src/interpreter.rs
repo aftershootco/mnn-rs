@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::{prelude::*, AsTensorShape, Device, Ref, RefMut, ScheduleConfig, Tensor, TensorType};
-use mnn_sys::HalideType;
+use mnn_sys::{HalideType, Interpreter_runSessionWithCallBack};
 
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]

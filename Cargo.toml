@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "mnn-bridge", "mnn-sys"]
+members = [".", "mnn-bridge", "mnn-sync", "mnn-sys"]
 [workspace.package]
 license = "Apache-2.0"
 
@@ -30,11 +30,10 @@ crt_static = ["mnn-sys/crt_static"]
 # Disable mnn-threadpool to enable this
 openmp = ["mnn-sys/openmp"]
 mnn-threadpool = ["mnn-sys/mnn-threadpool"]
-sync = []
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 
-default = ["mnn-threadpool", "sync"]
+default = ["mnn-threadpool"]
 
 
 [dev-dependencies]

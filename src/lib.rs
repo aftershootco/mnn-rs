@@ -45,7 +45,7 @@
 //! If not using nix you'll need to clone the git submodule to get the MNN source code in mnn-sys/vendor first  
 //! Or you can export the MNN_SRC environment variable to point to the MNN source code.  
 //!
-//! ## Compatibility Chart
+//! ## Compatibility Chart for current crate
 //! | MNN Backend | Compiles | Works |
 //! | ----------- | -------- | ----- |
 //! | CPU         | ✅       | ✅    |
@@ -79,9 +79,6 @@ pub use session::*;
 pub use tensor::*;
 
 pub use ffi::HalideType;
-
-#[cfg(feature = "sync")]
-pub mod sync;
 
 pub mod prelude {
     pub use crate::error::*;

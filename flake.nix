@@ -162,6 +162,7 @@
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
+                cargo-semver-checks
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                 darwin.apple_sdk.frameworks.OpenCL
