@@ -93,4 +93,3 @@ impl halide_type_code_t {
         unsafe { std::mem::transmute(code) }
     }
 }
-

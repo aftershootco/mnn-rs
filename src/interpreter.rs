@@ -400,7 +400,7 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
 }
 
 #[no_mangle]
-pub extern "C" fn rust_closure_callback_runner(
+extern "C" fn rust_closure_callback_runner(
     f: *mut libc::c_void,
     tensors: *const *mut mnn_sys::Tensor,
     tensor_count: usize,

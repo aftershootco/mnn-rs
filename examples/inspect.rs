@@ -52,7 +52,7 @@ pub fn main() -> anyhow::Result<()> {
                 tensor.fill(1.0f32);
             });
         }
-        time!(interpreter.run_session_with_callback(&session, |tensors, name| {
+        time!(interpreter.run_session_with_callback(&session, |_, name| {
             println!("Before Callback: {:?}", name);
             1
         },|_ , name| {
