@@ -189,8 +189,8 @@ impl Interpreter {
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(input) };
-        // let shape = tensor.shape();
-        // ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
+        let shape = tensor.shape();
+        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
@@ -199,6 +199,20 @@ impl Interpreter {
             format!("Input tensor \"{name}\" is not of type {}", std::any::type_name::<H>())
         );
         Ok(tensor)
+    }
+
+    pub fn raw_input<'s>(
+        &self,
+        session: &'s crate::Session,
+        name: impl AsRef<str>,
+    ) -> Result<RawTensor<'s>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
+        let input = unsafe {
+            mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
+        };
+        ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
+        Ok(RawTensor::from_ptr(input))
     }
 
     pub fn output<'s, H: HalideType>(
@@ -211,7 +225,7 @@ impl Interpreter {
         let output = unsafe {
             mnn_sys::Interpreter_getSessionOutput(self.inner, session.inner, c_name.as_ptr())
         };
-        ensure!(!output.is_null(), ErrorKind::IOError);
+        ensure!(!output.is_null(), ErrorKind::IOError;format!("Output tensor \"{name}\" not found"));
         let tensor = unsafe { Tensor::from_ptr(output) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
@@ -222,6 +236,20 @@ impl Interpreter {
             }
         );
         Ok(tensor)
+    }
+
+    pub fn raw_output<'s>(
+        &self,
+        session: &'s crate::Session,
+        name: impl AsRef<str>,
+    ) -> Result<RawTensor<'s>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
+        let output = unsafe {
+            mnn_sys::Interpreter_getSessionOutput(self.inner, session.inner, c_name.as_ptr())
+        };
+        ensure!(!output.is_null(), ErrorKind::IOError;format!("Output tensor \"{name}\" not found"));
+        Ok(RawTensor::from_ptr(output))
     }
 
     pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
@@ -386,6 +414,18 @@ impl<'t> TensorList<'t> {
     }
 }
 
+impl<'t, 'tl: 't> IntoIterator for &'tl TensorList<'t> {
+    type Item = TensorInfo<'t, 'tl>;
+    type IntoIter = TensorListIter<'t, 'tl>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TensorListIter {
+            tensor_list: self,
+            idx: 0,
+        }
+    }
+}
+
 pub struct TensorListIter<'t, 'tl> {
     tensor_list: &'tl TensorList<'t>,
     idx: usize,
@@ -412,4 +452,18 @@ extern "C" fn rust_closure_callback_runner(
     let ret = f(tensors, name);
     core::mem::forget(f);
     ret
+}
+
+#[test]
+fn test_extern_c_rust_closure_callback_runner() {
+    let f = |_tensors: &[RawTensor], name: &CStr| -> i32 {
+        println!("Callback: {:?}", name);
+        0
+    };
+    let f: Box<TensorCallback> = Box::new(Box::new(f));
+    let f = Box::into_raw(f).cast();
+    let tensors = [std::ptr::null_mut()];
+    let name = std::ffi::CString::new("Test").unwrap();
+    let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr());
+    assert_eq!(ret, 0);
 }

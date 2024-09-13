@@ -250,8 +250,9 @@ where
         }
     }
 
-    pub fn is_dynamic(&self) -> bool {
-        self.shape().iter().any(|&x| x == -1)
+    /// Check if the tensor is dynamic and needs resizing
+    pub fn is_dynamic_unsized(&self) -> bool {
+        self.shape().as_ref().contains(&-1)
     }
 
     /// DO not use this function directly
@@ -681,11 +682,12 @@ impl<T: super::TensorType> super::TensorType for Dyn<T> {
 }
 
 #[repr(transparent)]
-pub struct RawTensor {
+pub struct RawTensor<'r> {
     pub(crate) inner: *mut mnn_sys::Tensor,
+    pub(crate) __marker: PhantomData<&'r ()>,
 }
 
-impl core::ops::Drop for RawTensor {
+impl<'r> core::ops::Drop for RawTensor<'r> {
     fn drop(&mut self) {
         unsafe {
             mnn_sys::Tensor_destroy(self.inner);
@@ -693,7 +695,7 @@ impl core::ops::Drop for RawTensor {
     }
 }
 
-impl RawTensor {
+impl<'r> RawTensor<'r> {
     pub fn shape(&self) -> TensorShape {
         unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
     }
@@ -714,6 +716,10 @@ impl RawTensor {
         unsafe { mnn_sys::Tensor_channel(self.inner) as u32 }
     }
 
+    pub fn is_dynamic_unsized(&self) -> bool {
+        self.shape().as_ref().contains(&-1)
+    }
+
     /// # Safety
     /// This is very unsafe do not use this unless you know what you are doing
     pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
@@ -722,5 +728,12 @@ impl RawTensor {
     {
         let this = core::mem::ManuallyDrop::new(self);
         super::Tensor::from_ptr(this.inner)
+    }
+
+    pub(crate) fn from_ptr(inner: *mut mnn_sys::Tensor) -> Self {
+        Self {
+            inner,
+            __marker: PhantomData,
+        }
     }
 }

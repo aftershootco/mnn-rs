@@ -44,14 +44,11 @@ pub fn main() -> anyhow::Result<()> {
 
     let mut current = 0;
     time!(loop {
-        {
-            let inputs = interpreter.inputs(&session);
-            inputs.iter().for_each(|x| {
-                let mut tensor = x.tensor::<f32>().expect("No tensor");
-                println!("{}: {:?}", x.name(), tensor.shape());
-                tensor.fill(1.0f32);
-            });
-        }
+        interpreter.inputs(&session).iter().for_each(|x| {
+            let mut tensor = x.tensor::<f32>().expect("No tensor");
+            println!("{}: {:?}", x.name(), tensor.shape());
+            tensor.fill(1.0f32);
+        });
         time!(interpreter.run_session_with_callback(&session, |_, name| {
             println!("Before Callback: {:?}", name);
             1

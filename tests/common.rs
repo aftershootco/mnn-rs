@@ -38,12 +38,9 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
     bc.set_power_mode(mnn::PowerMode::High);
     config.set_backend_config(bc);
     let session = net.create_session(config)?;
-    {
-        let inputs = net.inputs(&session);
-        for input in inputs.iter() {
-            println!("input: {:?}", input);
-            input.tensor::<f32>()?.fill(0.0);
-        }
+    for input in &net.inputs(&session) {
+        println!("input: {:?}", input);
+        input.tensor::<f32>()?.fill(0.0);
     }
     net.run_session(&session)?;
     let outputs = net.outputs(&session);
