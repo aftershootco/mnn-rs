@@ -105,6 +105,22 @@
         "type": "github"
       }
     },
+    "mnn-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1725344646,
+        "narHash": "sha256-cF2CtVMF0va13cgREokyfl5K6e4YKwMITAWn+9EsKOc=",
+        "owner": "alibaba",
+        "repo": "MNN",
+        "rev": "a8b7997eb71a341782f4cbe7d1ed9c042517a018",
+        "type": "github"
+      },
+      "original": {
+        "owner": "alibaba",
+        "repo": "MNN",
+        "type": "github"
+      }
+    },
     "nix-github-actions": {
       "inputs": {
         "nixpkgs": [
@@ -147,6 +163,7 @@
         "crane": "crane",
         "flake-utils": "flake-utils",
         "mnn-overlay": "mnn-overlay",
+        "mnn-src": "mnn-src",
         "nix-github-actions": "nix-github-actions",
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay"

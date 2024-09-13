@@ -4,6 +4,12 @@
 
 Rust wrapper over [alibaba/MNN](https://github.com/alibaba/MNN) c++ library with handwritten C wrapper over mnn
 
+If you have nix you can just build the inspect binary with
+
+```
+nix build .#inspect
+```
+
 NOTES:
 On windows it will only compile with --release mode
 There's a few issues with rustc linking to msvcrt by default and anything compiled with /MTd will not link properly

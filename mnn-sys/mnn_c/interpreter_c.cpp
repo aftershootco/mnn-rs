@@ -5,6 +5,8 @@
 #include <cstring>
 #include <iostream>
 extern "C" {
+int rust_closure_callback_runner(void *closure, Tensor *const *tensors,
+                                 size_t tensorCount, const char *opName);
 
 void modelPrintIO(const char *model) {
   auto net = MNN::Interpreter::createFromFile(model);
@@ -93,7 +95,6 @@ Session *Interpreter_createSession(Interpreter *interpreter,
 
   return reinterpret_cast<Session *>(
       mnn_interpreter->createSession(*mnn_schedule_config));
-  ;
 }
 // Session* Interpreter_createSessionWithRuntime(Interpreter* interpreter, const
 // ScheduleConfig* config, const RuntimeInfo* runtime) {
@@ -190,42 +191,30 @@ ErrorCode Interpreter_runSession(const Interpreter *interpreter,
   auto mnn_session = reinterpret_cast<MNN::Session *>(session);
   return static_cast<ErrorCode>(mnn_interpreter->runSession(mnn_session));
 }
-// ErrorCode Interpreter_runSessionWithCallBack(const Interpreter* interpreter,
-// const Session* session, TensorCallBack before, TensorCallBack end, int sync)
-// {
-//     auto beforeCpp = [before](const std::vector<MNN::Tensor*>& tensors, const
-//     std::string& opName) {
-//         std::vector<const Tensor*> cTensors(tensors.begin(), tensors.end());
-//         return before(cTensors.data(), cTensors.size(), opName.c_str());
-//     };
-//     auto endCpp = [end](const std::vector<MNN::Tensor*>& tensors, const
-//     std::string& opName) {
-//         std::vector<const Tensor*> cTensors(tensors.begin(), tensors.end());
-//         return end(cTensors.data(), cTensors.size(), opName.c_str());
-//     };
-//     return interpreter->runSessionWithCallBack(session, beforeCpp, endCpp,
-//     sync);
-// }
-// ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter*
-// interpreter, const Session* session, TensorCallBackWithInfo before,
-// TensorCallBackWithInfo end, int sync) {
-//     auto beforeCpp = [before](const std::vector<MNN::Tensor*>& tensors, const
-//     MNN::OperatorInfo* opInfo) {
-//         std::vector<const Tensor*> cTensors(tensors.begin(), tensors.end());
-//         OperatorInfo cOpInfo{opInfo->name().c_str(), opInfo->type().c_str(),
-//         opInfo->flops()}; return before(cTensors.data(), cTensors.size(),
-//         &cOpInfo);
-//     };
-//     auto endCpp = [end](const std::vector<MNN::Tensor*>& tensors, const
-//     MNN::OperatorInfo* opInfo) {
-//         std::vector<const Tensor*> cTensors(tensors.begin(), tensors.end());
-//         OperatorInfo cOpInfo{opInfo->name().c_str(), opInfo->type().c_str(),
-//         opInfo->flops()}; return end(cTensors.data(), cTensors.size(),
-//         &cOpInfo);
-//     };
-//     return interpreter->runSessionWithCallBackInfo(session, beforeCpp,
-//     endCpp, sync);
-// }
+ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
+                                             const Session *session,
+                                             void *before, void *end,
+                                             int sync) {
+  MNN::TensorCallBack beforeCpp =
+      [before](const std::vector<MNN::Tensor *> &tensors,
+               const std::string &opName) {
+        return rust_closure_callback_runner(
+            before, reinterpret_cast<Tensor *const *>(tensors.data()),
+            tensors.size(), opName.c_str());
+      };
+
+  MNN::TensorCallBack endCpp = [end](const std::vector<MNN::Tensor *> &tensors,
+                                     const std::string &opName) {
+    return rust_closure_callback_runner(
+        end, reinterpret_cast<Tensor *const *>(tensors.data()), tensors.size(),
+        opName.c_str());
+  };
+  auto net = reinterpret_cast<MNN::Interpreter const *>(interpreter);
+  auto sess = reinterpret_cast<MNN::Session const *>(session);
+  auto ret = net->runSessionWithCallBack(sess, beforeCpp, endCpp, sync);
+  return static_cast<ErrorCode>(ret);
+}
+
 Tensor *Interpreter_getSessionInput(Interpreter *interpreter,
                                     const Session *session, const char *name) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
@@ -233,6 +222,7 @@ Tensor *Interpreter_getSessionInput(Interpreter *interpreter,
   return reinterpret_cast<Tensor *>(
       mnn_interpreter->getSessionInput(mnn_session, name));
 }
+
 Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,
                                      const Session *session, const char *name) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);

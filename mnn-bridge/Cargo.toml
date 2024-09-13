@@ -6,11 +6,11 @@ license = { workspace = true }
 
 [dependencies]
 mnn = { version = "0.1.0", path = "..", default-features = false }
-ndarray = { version = "0.16.1", optional = true }
-opencv = { version = "0.92.3", default-features = false, optional = true }
+ndarray = { version = "0.16", optional = true }
+# opencv = { version = "0.92.3", default-features = false, optional = true }
 
 [features]
 ndarray = ["dep:ndarray"]
-opencv = ["dep:opencv"]
+# opencv = ["dep:opencv"]
 
 default = []

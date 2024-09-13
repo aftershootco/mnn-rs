@@ -38,8 +38,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
     bc.set_power_mode(mnn::PowerMode::High);
     config.set_backend_config(bc);
     let session = net.create_session(config)?;
-    let inputs = net.inputs(&session);
-    for input in inputs.iter() {
+    for input in &net.inputs(&session) {
         println!("input: {:?}", input);
         input.tensor::<f32>()?.fill(0.0);
     }
@@ -75,10 +74,12 @@ pub fn test_multipath_session(backend: ForwardType, backend2: ForwardType) -> Re
     config2.set_backend_config(bc);
 
     let session = net.create_multipath_session([config, config2])?;
-    let inputs = net.inputs(&session);
-    for input in inputs.iter() {
-        println!("input: {:?}", input);
-        input.tensor::<f32>()?.fill(0.0);
+    {
+        let inputs = net.inputs(&session);
+        for input in inputs.iter() {
+            println!("input: {:?}", input);
+            input.tensor::<f32>()?.fill(0.0);
+        }
     }
     net.run_session(&session)?;
     let outputs = net.outputs(&session);

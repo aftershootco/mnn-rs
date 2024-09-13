@@ -1,6 +1,10 @@
 pub trait MnnToNdarray {
     type H: mnn::HalideType;
-    fn as_ndarray(&self) -> ndarray::ArrayViewD<Self::H>;
+    fn as_ndarray(&self) -> ndarray::ArrayViewD<Self::H> {
+        self.try_as_ndarray()
+            .expect("Failed to create ndarray::ArrayViewD from mnn::Tensor")
+    }
+    fn try_as_ndarray(&self) -> Option<ndarray::ArrayViewD<Self::H>>;
 }
 
 impl<T> MnnToNdarray for mnn::Tensor<T>
@@ -9,7 +13,7 @@ where
     T::H: mnn::HalideType,
 {
     type H = T::H;
-    fn as_ndarray(&self) -> ndarray::ArrayViewD<Self::H> {
+    fn try_as_ndarray(&self) -> Option<ndarray::ArrayViewD<Self::H>> {
         let shape = self
             .shape()
             .as_ref()
@@ -18,8 +22,7 @@ where
             .map(|i| i as usize)
             .collect::<Vec<_>>();
         let data = self.host();
-        ndarray::ArrayViewD::from_shape(shape, data)
-            .expect("Failed to create ndarray::ArrayViewD from mnn::Tensor")
+        ndarray::ArrayViewD::from_shape(shape, data).ok()
     }
 }
 
@@ -37,7 +40,11 @@ pub fn test_tensor_to_ndarray_ref() {
 
 pub trait MnnToNdarrayMut {
     type H: mnn::HalideType;
-    fn as_ndarray_mut(&mut self) -> ndarray::ArrayViewMutD<Self::H>;
+    fn as_ndarray_mut(&mut self) -> ndarray::ArrayViewMutD<Self::H> {
+        self.try_as_ndarray_mut()
+            .expect("Failed to create ndarray::ArrayViewMutD from mnn::Tensor")
+    }
+    fn try_as_ndarray_mut(&mut self) -> Option<ndarray::ArrayViewMutD<Self::H>>;
 }
 
 impl<T> MnnToNdarrayMut for mnn::Tensor<T>
@@ -46,7 +53,7 @@ where
     T::H: mnn::HalideType,
 {
     type H = T::H;
-    fn as_ndarray_mut(&mut self) -> ndarray::ArrayViewMutD<Self::H> {
+    fn try_as_ndarray_mut(&mut self) -> Option<ndarray::ArrayViewMutD<Self::H>> {
         let shape = self
             .shape()
             .as_ref()
@@ -55,8 +62,7 @@ where
             .map(|i| i as usize)
             .collect::<Vec<_>>();
         let data = self.host_mut();
-        ndarray::ArrayViewMutD::from_shape(shape, data)
-            .expect("Failed to create ndarray::ArrayViewMutD from mnn::Tensor")
+        ndarray::ArrayViewMutD::from_shape(shape, data).ok()
     }
 }
 

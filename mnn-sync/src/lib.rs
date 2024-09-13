@@ -35,8 +35,8 @@
 //! When you run a closure it is sent to the thread and executed in that session and the result is  
 //! sent back to the main thread via a [oneshot::Sender]
 
+use error_stack::{Report, ResultExt};
 use mnn::*;
-use error_stack::{ResultExt, Report};
 
 type Callback = Box<dyn FnOnce(&mut SessionRunner) -> Result<()> + Send + 'static>;
 pub enum CallbackEnum {

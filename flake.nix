@@ -21,6 +21,10 @@
       url = "github:rustsec/advisory-db";
       flake = false;
     };
+    mnn-src = {
+      url = "github:alibaba/MNN";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -32,6 +36,7 @@
     mnn-overlay,
     advisory-db,
     nix-github-actions,
+    mnn-src,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (
@@ -51,6 +56,9 @@
         inherit (pkgs) lib;
 
         stableToolchain = pkgs.rust-bin.stable.latest.default;
+        nightlyToolchain = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = ["rust-src"];
+        };
         stableToolchainWithLLvmTools = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src" "llvm-tools"];
         };
@@ -65,12 +73,7 @@
           filter = mnnFilters;
           src = ./.;
         };
-        MNN_SRC = pkgs.fetchFromGitHub {
-          owner = "alibaba";
-          repo = "MNN";
-          rev = "e6042e5e00ba4f6398a5cd5a3615b9f62501438e";
-          hash = "sha256-esHU+ociPi7qxficXU0dL+R5MXsblMocrNRgp79hWkk=";
-        };
+        MNN_SRC = mnn-src;
         commonArgs =
           {
             inherit src MNN_SRC;
@@ -133,13 +136,19 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
+          mnn-asan = (craneLib.overrideToolchain nightlyToolchain).cargoNextest (commonArgs
+            // {
+              inherit cargoArtifacts;
+              partitions = 1;
+              partitionType = "count";
+              RUSTFLAGS = "-Zsanitizer=address -Zbuild-std";
+            });
         };
         packages =
           rec {
             mnn = craneLib.buildPackage (commonArgs
               // {
                 inherit cargoArtifacts;
-                # src = lib.sources.trace mnn-rs-src;
               });
             inspect = craneLib.buildPackage (commonArgs
               // {
@@ -162,11 +171,11 @@
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
+                rust-cbindgen
                 cargo-semver-checks
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                 darwin.apple_sdk.frameworks.OpenCL
-                darwin.apple_sdk.frameworks.OpenGL
                 darwin.apple_sdk.frameworks.CoreML
                 darwin.apple_sdk.frameworks.Metal
               ]);

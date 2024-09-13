@@ -93,11 +93,3 @@ impl halide_type_code_t {
         unsafe { std::mem::transmute(code) }
     }
 }
-
-pub const fn version() -> semver::Version {
-    semver::Version::new(
-        sys::MNN_VERSION_MAJOR as u64,
-        sys::MNN_VERSION_MINOR as u64,
-        sys::MNN_VERSION_PATCH as u64,
-    )
-}

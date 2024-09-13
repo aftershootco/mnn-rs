@@ -250,8 +250,9 @@ where
         }
     }
 
-    pub fn is_dynamic(&self) -> bool {
-        self.shape().iter().any(|&x| x == -1)
+    /// Check if the tensor is dynamic and needs resizing
+    pub fn is_dynamic_unsized(&self) -> bool {
+        self.shape().as_ref().contains(&-1)
     }
 
     /// DO not use this function directly
@@ -680,4 +681,59 @@ impl<T: super::TensorType> super::TensorType for Dyn<T> {
     }
 }
 
-// impl<T: super::TensorType> super::Tensor<Dyn<T>> {}
+#[repr(transparent)]
+pub struct RawTensor<'r> {
+    pub(crate) inner: *mut mnn_sys::Tensor,
+    pub(crate) __marker: PhantomData<&'r ()>,
+}
+
+impl<'r> core::ops::Drop for RawTensor<'r> {
+    fn drop(&mut self) {
+        unsafe {
+            mnn_sys::Tensor_destroy(self.inner);
+        }
+    }
+}
+
+impl<'r> RawTensor<'r> {
+    pub fn shape(&self) -> TensorShape {
+        unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
+    }
+
+    pub fn dimensions(&self) -> usize {
+        unsafe { mnn_sys::Tensor_dimensions(self.inner) as usize }
+    }
+
+    pub fn width(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_width(self.inner) as u32 }
+    }
+
+    pub fn height(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_height(self.inner) as u32 }
+    }
+
+    pub fn channel(&self) -> u32 {
+        unsafe { mnn_sys::Tensor_channel(self.inner) as u32 }
+    }
+
+    pub fn is_dynamic_unsized(&self) -> bool {
+        self.shape().as_ref().contains(&-1)
+    }
+
+    /// # Safety
+    /// This is very unsafe do not use this unless you know what you are doing
+    pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
+    where
+        T::H: HalideType,
+    {
+        let this = core::mem::ManuallyDrop::new(self);
+        super::Tensor::from_ptr(this.inner)
+    }
+
+    pub(crate) fn from_ptr(inner: *mut mnn_sys::Tensor) -> Self {
+        Self {
+            inner,
+            __marker: PhantomData,
+        }
+    }
+}

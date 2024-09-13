@@ -174,13 +174,12 @@ ErrorCode Interpreter_runSession(const Interpreter *interpreter,
                                  Session *session);
 ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
                                              const Session *session,
-                                             TensorCallBack before,
-                                             TensorCallBack end, int sync);
-ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
-                                                 const Session *session,
-                                                 TensorCallBackWithInfo before,
-                                                 TensorCallBackWithInfo end,
-                                                 int sync);
+                                             void *before, void *end, int sync);
+// ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
+//                                                  const Session *session,
+//                                                  TensorCallBackWithInfo before,
+//                                                  TensorCallBackWithInfo end,
+//                                                  int sync);
 Tensor *Interpreter_getSessionInput(Interpreter *interpreter,
                                     const Session *session, const char *name);
 Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,

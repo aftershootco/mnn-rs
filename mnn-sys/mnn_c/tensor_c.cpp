@@ -2,8 +2,8 @@
 #include "MNN/Tensor.hpp"
 #include "utils.h"
 #include <cstdio>
-#include <iostream>
 #ifdef __DEBUG
+#include <iostream>
 void code_bits_lanes(const char *name, halide_type_t *type) {
   printf("====================================\n");
   printf("sizes: \n");
