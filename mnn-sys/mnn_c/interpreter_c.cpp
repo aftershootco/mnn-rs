@@ -95,7 +95,6 @@ Session *Interpreter_createSession(Interpreter *interpreter,
 
   return reinterpret_cast<Session *>(
       mnn_interpreter->createSession(*mnn_schedule_config));
-  ;
 }
 // Session* Interpreter_createSessionWithRuntime(Interpreter* interpreter, const
 // ScheduleConfig* config, const RuntimeInfo* runtime) {
