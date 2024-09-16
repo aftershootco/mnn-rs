@@ -19,9 +19,9 @@ impl Session {
     //     }
     // }
 
-    // pub fn as_ptr_mut(&self) -> *mut mnn_sys::Session {
-    //     self.session
-    // }
+    pub fn has_async_work(&self) -> bool {
+        unsafe { mnn_sys::Session_hasAsyncWork(self.inner) != 0 }
+    }
 }
 
 impl Drop for Session {

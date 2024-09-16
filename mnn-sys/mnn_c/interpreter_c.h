@@ -3,6 +3,7 @@
 #include "backend_c.h"
 #include "error_code_c.h"
 #include "schedule_c.h"
+#include "session_c.h"
 #include "tensor_c.h"
 #include "utils.h"
 #include <MNN/HalideRuntime.h>
@@ -11,7 +12,6 @@
 extern "C" {
 #endif
 typedef struct Interpreter Interpreter;
-typedef struct Session Session;
 typedef struct Backend Backend;
 
 /** acquire runtime status by Runtime::getCurrentStatus with following keys,
@@ -55,16 +55,6 @@ enum RuntimeStatus {
 //   MNNBackendConfig *backendConfig;
 // } ScheduleConfig;
 
-typedef struct {
-  const char *name;
-  const char *type;
-  float flops;
-} OperatorInfo;
-typedef int (*TensorCallBack)(const Tensor **tensors, size_t tensorCount,
-                              const char *opName);
-typedef int (*TensorCallBackWithInfo)(const Tensor **tensors,
-                                      size_t tensorCount,
-                                      const OperatorInfo *opInfo);
 #if 0
 typedef struct {
   std::map<MNNForwardType, std::shared_ptr<Runtime>> *runtimeMap;
@@ -175,11 +165,10 @@ ErrorCode Interpreter_runSession(const Interpreter *interpreter,
 ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
                                              const Session *session,
                                              void *before, void *end, int sync);
-// ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
-//                                                  const Session *session,
-//                                                  TensorCallBackWithInfo before,
-//                                                  TensorCallBackWithInfo end,
-//                                                  int sync);
+ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
+                                                 const Session *session,
+                                                 void *before, void *end,
+                                                 int sync);
 Tensor *Interpreter_getSessionInput(Interpreter *interpreter,
                                     const Session *session, const char *name);
 Tensor *Interpreter_getSessionOutput(Interpreter *interpreter,
@@ -203,7 +192,11 @@ const Backend *Interpreter_getBackend(const Interpreter *interpreter,
                                       const Tensor *tensor);
 const char *Interpreter_bizCode(const Interpreter *interpreter);
 const char *Interpreter_uuid(const Interpreter *interpreter);
-void Session_destroy(Session *session);
+
+const char *OperatorInfo_name(const void *op);
+const char *OperatorInfo_type(const void *op);
+const float OperatorInfo_flops(const void *op);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,4 +1,8 @@
-use std::{ffi::CStr, path::Path};
+use std::{
+    ffi::CStr,
+    path::Path,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use crate::{
     prelude::*, AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType,
@@ -6,6 +10,7 @@ use crate::{
 use mnn_sys::HalideType;
 
 pub type TensorCallback = Box<dyn Fn(&[RawTensor], &CStr) -> i32>;
+pub type TensorCallbackWithInfo = Box<dyn Fn(&[RawTensor], OperatorInfo<'_>) -> i32>;
 
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]
@@ -67,7 +72,7 @@ unsafe impl Send for Interpreter {}
 impl Interpreter {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string());
+        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string(), "File not found");
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
@@ -290,6 +295,33 @@ impl Interpreter {
         );
         Ok(())
     }
+    pub fn run_session_with_callback_info(
+        &mut self,
+        session: &crate::session::Session,
+        before: impl Fn(&[RawTensor], OperatorInfo<'_>) -> i32 + 'static,
+        end: impl Fn(&[RawTensor], OperatorInfo<'_>) -> i32 + 'static,
+        sync: bool,
+    ) -> Result<()> {
+        let sync = sync as libc::c_int;
+        let before: Box<TensorCallbackWithInfo> = Box::new(Box::new(before));
+        let before = Box::into_raw(before).cast();
+        let end: Box<TensorCallbackWithInfo> = Box::new(Box::new(end));
+        let end = Box::into_raw(end).cast();
+        let ret = unsafe {
+            mnn_sys::Interpreter_runSessionWithCallBackInfo(
+                self.inner,
+                session.inner,
+                before,
+                end,
+                sync,
+            )
+        };
+        ensure!(
+            ret == mnn_sys::ErrorCode::ERROR_CODE_NO_ERROR,
+            ErrorKind::InternalError(ret)
+        );
+        Ok(())
+    }
 
     pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
         let outputs =
@@ -348,6 +380,12 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             }
         );
         Ok(tensor)
+    }
+
+    pub fn raw_tensor(&self) -> RawTensor<'t> {
+        debug_assert!(!self.tensor_info.is_null());
+        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
+        RawTensor::from_ptr(unsafe { (*self.tensor_info).tensor.cast() })
     }
 }
 
@@ -466,4 +504,76 @@ fn test_extern_c_rust_closure_callback_runner() {
     let name = std::ffi::CString::new("Test").unwrap();
     let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr());
     assert_eq!(ret, 0);
+}
+
+#[no_mangle]
+extern "C" fn rust_closure_callback_runner_op(
+    f: *mut libc::c_void,
+    tensors: *const *mut mnn_sys::Tensor,
+    tensor_count: usize,
+    op: *mut libc::c_void,
+) -> libc::c_int {
+    let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
+    let f: TensorCallbackWithInfo = unsafe { Box::from_raw(f.cast::<TensorCallbackWithInfo>()) };
+    let op = OperatorInfo {
+        inner: op.cast(),
+        __marker: PhantomData,
+    };
+    let ret = f(tensors, op);
+    core::mem::forget(f);
+    ret
+}
+
+#[repr(transparent)]
+pub struct OperatorInfo<'op> {
+    pub(crate) inner: *mut libc::c_void,
+    pub(crate) __marker: PhantomData<&'op ()>,
+}
+
+impl core::fmt::Debug for OperatorInfo<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("OperatorInfo")
+            .field("name", &self.name())
+            .field("type", &self.type_name())
+            .field("flops", &self.flops())
+            .finish()
+    }
+}
+
+impl OperatorInfo<'_> {
+    pub fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_name(self.inner)) }
+    }
+
+    pub fn type_name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_type(self.inner)) }
+    }
+
+    pub fn flops(&self) -> f32 {
+        unsafe { mnn_sys::OperatorInfo_flops(self.inner) }
+    }
+}
+
+#[test]
+fn test_run_session_with_callback_info_api() {
+    let mut interpreter = Interpreter::from_file("/Users/fs0c131y/Projects/aftershoot/mnn-rs/tests/assets/realesr.mnn").unwrap();
+    interpreter
+        .set_cache_file("/Users/fs0c131y/Projects/aftershoot/mnn-rs/tests/assets/realesr.cache", 128)
+        .unwrap();
+    let mut session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+    interpreter.update_cache_file(&mut session).unwrap();
+    interpreter
+        .run_session_with_callback_info(
+            &session,
+            |tensors, op| {
+                println!("Before: {:?}", op);
+                1
+            },
+            |tensors, op| {
+                println!("End: {:?}", op);
+                1
+            },
+            false,
+        )
+        .unwrap();
 }

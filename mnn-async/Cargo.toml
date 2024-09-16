@@ -1,0 +1,13 @@
+[package]
+name = "mnn-async"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+futures = "0.3.30"
+mnn = { version = "0.1.0", path = "..", features = ["opencl"] }
+tap = "1.0.1"
+
+[dev-dependencies]
+smol = "2.0.2"

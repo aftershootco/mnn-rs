@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "mnn-bridge", "mnn-sync", "mnn-sys"]
+members = [".", "mnn-async", "mnn-bridge", "mnn-sync", "mnn-sys"]
 [workspace.package]
 license = "Apache-2.0"
 

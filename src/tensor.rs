@@ -720,6 +720,10 @@ impl<'r> RawTensor<'r> {
         self.shape().as_ref().contains(&-1)
     }
 
+    pub fn wait(&self, map_type: MapType, finish: bool) -> bool {
+        unsafe { mnn_sys::Tensor_wait(self.inner, map_type, finish as i32) != 0 }
+    }
+
     /// # Safety
     /// This is very unsafe do not use this unless you know what you are doing
     pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
