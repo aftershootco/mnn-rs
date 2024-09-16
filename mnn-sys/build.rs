@@ -1,9 +1,8 @@
 use ::tap::*;
 use anyhow::*;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use std::{
-    fs::Permissions,
     path::{Path, PathBuf},
     sync::LazyLock,
 };

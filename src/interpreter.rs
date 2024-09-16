@@ -331,6 +331,7 @@ impl Interpreter {
 
     pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
+        let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         unsafe { mnn_sys::Interpreter_setCacheFile(self.inner, c_path.as_ptr(), key_size) }
@@ -556,24 +557,21 @@ impl OperatorInfo<'_> {
 
 #[test]
 fn test_run_session_with_callback_info_api() {
-    let mut interpreter = Interpreter::from_file("/Users/fs0c131y/Projects/aftershoot/mnn-rs/tests/assets/realesr.mnn").unwrap();
-    interpreter
-        .set_cache_file("/Users/fs0c131y/Projects/aftershoot/mnn-rs/tests/assets/realesr.cache", 128)
-        .unwrap();
-    let mut session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-    interpreter.update_cache_file(&mut session).unwrap();
+    let file = Path::new("tests/assets/realesr.mnn").canonicalize().unwrap();
+    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
         .run_session_with_callback_info(
             &session,
-            |tensors, op| {
+            |__tensors, op| {
                 println!("Before: {:?}", op);
                 1
             },
-            |tensors, op| {
+            |__tensors, op| {
                 println!("End: {:?}", op);
                 1
             },
-            false,
+            true,
         )
         .unwrap();
 }
