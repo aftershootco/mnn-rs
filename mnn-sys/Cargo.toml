@@ -29,4 +29,5 @@ default = ["mnn-threadpool"]
 crt_static = []
 
 [dependencies]
+half = "2.4.1"
 libc = "0.2.155"

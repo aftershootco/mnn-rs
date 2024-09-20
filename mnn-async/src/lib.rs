@@ -54,12 +54,12 @@ impl<'r, 's> core::future::Future for RunSession<'r, 's> {
             let now = std::time::Instant::now();
             let waker = cx.waker().clone();
             net.run_session_with_callback(
-                session,
-                |_, _| 1,
-                move |_, _| {
-                    waker.wake_by_ref();
-                    1
-                },
+                session, None, None,
+                // move |_, _| true,
+                // move |_, _| {
+                //     waker.wake_by_ref();
+                //     true
+                // },
                 false,
             )?;
             println!("timing: {:?}", now.elapsed());
@@ -67,33 +67,38 @@ impl<'r, 's> core::future::Future for RunSession<'r, 's> {
         }
     }
 }
-
-#[test]
-fn test_async_run_session() {
-    let mut schedule_config = ScheduleConfig::new();
-    schedule_config.set_type(ForwardType::OpenCL);
-    let mut interpreter = Interpreter::from_file("../tests/assets/realesr.mnn").unwrap();
-    interpreter
-        .set_cache_file("../tests/assets/realesr.cache", 128)
-        .unwrap();
-    let mut session = interpreter.create_session(schedule_config).unwrap();
-    interpreter.update_cache_file(&mut session).unwrap();
-    interpreter
-        .input::<f32>(&session, "data")
-        .unwrap()
-        .fill(1.0f32);
-    let now = std::time::Instant::now();
-    interpreter
-        .run_session_with_callback_info(
-            &session,
-            |_, _| 1,
-            |_, op| {
-                std::thread::sleep(core::time::Duration::from_secs(5));
-                dbg!(op);
-                1
-            },
-            false,
-        )
-        .unwrap();
-    println!("time: {:?}", now.elapsed());
-}
+//
+// #[test]
+// fn test_async_run_session() {
+//     let mut schedule_config = ScheduleConfig::new();
+//     schedule_config.set_type(ForwardType::OpenCL);
+//     let mut interpreter = Interpreter::from_file("../tests/assets/realesr.mnn").unwrap();
+//     interpreter
+//         .set_cache_file("../tests/assets/realesr.cache", 128)
+//         .unwrap();
+//     let mut session = interpreter.create_session(schedule_config).unwrap();
+//     interpreter.update_cache_file(&mut session).unwrap();
+//     interpreter
+//         .input::<f32>(&session, "data")
+//         .unwrap()
+//         .fill(1.0f32);
+//     let now = std::time::Instant::now();
+//     dbg!("start");
+//     interpreter
+//         .run_session_with_callback_info(
+//             &session,
+//             move |_, _| true,
+//             |_, op| {
+//                 true
+//             },
+//             true,
+//         )
+//         .unwrap();
+//     interpreter.outputs(&session).iter().for_each(|output| {
+//         dbg!(output
+//             .raw_tensor()
+//             .wait(mnn::ffi::MapType::MAP_TENSOR_READ, false));
+//     });
+//     dbg!("end");
+//     println!("time: {:?}", now.elapsed());
+// }

@@ -55,7 +55,8 @@ halide_types! {
     i8 =>   halide_type_t::new(halide_type_code_t::halide_type_int, 8,1),
     i16 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 16,1),
     i32 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 32,1),
-    i64 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 64,1)
+    i64 =>  halide_type_t::new(halide_type_code_t::halide_type_int, 64,1),
+    half::f16 => halide_type_t::new(halide_type_code_t::halide_type_float, 16,1)
 }
 
 impl Drop for CString {

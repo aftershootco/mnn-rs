@@ -2,8 +2,8 @@
 #include "MNN/Tensor.hpp"
 #include "utils.h"
 #include <cstdio>
-#ifdef __DEBUG
 #include <iostream>
+#ifdef __DEBUG
 void code_bits_lanes(const char *name, halide_type_t *type) {
   printf("====================================\n");
   printf("sizes: \n");
@@ -143,8 +143,9 @@ void Tensor_unmap(Tensor *tensor, MapType mtype, DimensionType dtype,
       static_cast<MNN::Tensor::DimensionType>(dtype), mapPtr);
 }
 int Tensor_wait(Tensor *tensor, MapType mtype, int finish) {
-  return reinterpret_cast<MNN::Tensor *>(tensor)->wait(
+  auto ret = reinterpret_cast<MNN::Tensor *>(tensor)->wait(
       static_cast<MNN::Tensor::MapType>(mtype), finish);
+  return ret;
 }
 int Tensor_setDevicePtr(Tensor *tensor, const void *devicePtr, int memoryType) {
   return reinterpret_cast<MNN::Tensor *>(tensor)->setDevicePtr(devicePtr,

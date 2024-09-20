@@ -720,6 +720,7 @@ impl<'r> RawTensor<'r> {
         self.shape().as_ref().contains(&-1)
     }
 
+    /// # Wait the tensor to be ready to read
     pub fn wait(&self, map_type: MapType, finish: bool) -> bool {
         unsafe { mnn_sys::Tensor_wait(self.inner, map_type, finish as i32) != 0 }
     }

@@ -18,10 +18,6 @@ impl Session {
     //         __marker: PhantomData,
     //     }
     // }
-
-    pub fn has_async_work(&self) -> bool {
-        unsafe { mnn_sys::Session_hasAsyncWork(self.inner) != 0 }
-    }
 }
 
 impl Drop for Session {

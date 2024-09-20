@@ -6,6 +6,12 @@ pub struct MNNError {
     kind: error_stack::Report<ErrorKind>,
 }
 
+impl MNNError {
+    pub fn into_report(self) -> error_stack::Report<ErrorKind> {
+        self.kind
+    }
+}
+
 impl core::fmt::Display for MNNError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self.kind)

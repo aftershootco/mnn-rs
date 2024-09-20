@@ -195,6 +195,7 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     let vendor = vendor.as_ref();
     cc::Build::new()
         .include(vendor.join("include"))
+        .include(vendor.join("source"))
         // .includes(vulkan_includes(vendor))
         .pipe(|config| {
             #[cfg(feature = "vulkan")]
