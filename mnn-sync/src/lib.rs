@@ -16,7 +16,7 @@
 //!         Ok(())
 //!     }).expect("Failed to run");
 //!     session_handle.run(|sr| {
-//!         sr.interpreter().run_session(sr.session())?;
+//!         sr.run_session()?;
 //!         Ok(())
 //!     }).expect("Failed to run");
 //! });
@@ -155,6 +155,9 @@ impl SessionHandle {
 }
 
 impl SessionRunner {
+    pub fn run_session(&mut self) -> Result<()> {
+        self.interpreter.run_session(&self.session)
+    }
     pub fn interpreter(&self) -> &Interpreter {
         &self.interpreter
     }
@@ -193,7 +196,7 @@ pub fn test_sync_api() {
 
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(sr.session())?;
+            sr.run_session()?;
             Ok(())
         })
         .expect("Failed to run");
@@ -235,7 +238,7 @@ pub fn test_sync_api_race() {
 
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(sr.session())?;
+            sr.run_session()?;
             Ok(())
         })
         .expect("Failed to run");
@@ -275,7 +278,7 @@ pub fn test_sync_api_race() {
         .expect("Failed to run");
     session_handle
         .run(|sr| {
-            sr.interpreter().run_session(sr.session())?;
+            sr.run_session()?;
             Ok(())
         })
         .expect("Failed to run");
