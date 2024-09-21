@@ -53,7 +53,7 @@ impl<'r, 's> core::future::Future for RunSession<'r, 's> {
             let (net, session) = &mut self.inner;
             let now = std::time::Instant::now();
             let waker = cx.waker().clone();
-            net.run_session_with_callback(
+            net.run_session_with_callback_info(
                 session, None, None,
                 // move |_, _| true,
                 // move |_, _| {

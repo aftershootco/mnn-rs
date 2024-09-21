@@ -12,6 +12,14 @@ pub struct TensorCallback {
     inner: Arc<TensorCallbackT>,
 }
 
+impl Default for TensorCallback {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Box::new(|_, _| true)),
+        }
+    }
+}
+
 impl TensorCallback {
     pub fn from_ptr(f: *mut libc::c_void) -> Self {
         debug_assert!(!f.is_null());
@@ -47,9 +55,7 @@ where
             Some(f) => Self {
                 inner: Arc::new(Box::new(f)),
             },
-            None => Self {
-                inner: Arc::new(Box::new(|_, _| true)),
-            },
+            None => Self::default(),
         }
     }
 }
@@ -590,6 +596,11 @@ fn test_run_session_with_callback_info_api() {
     let mut interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
-        .run_session_with_callback_info(&session, move |_: &_, _| true, move |_: &_, _| true, true)
+        .run_session_with_callback_info(
+            &session,
+            TensorCallback::default(),
+            TensorCallback::default(),
+            true,
+        )
         .unwrap();
 }
