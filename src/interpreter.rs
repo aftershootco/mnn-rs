@@ -129,6 +129,12 @@ pub struct Interpreter {
 
 unsafe impl Send for Interpreter {}
 
+impl Drop for Interpreter {
+    fn drop(&mut self) {
+        unsafe { mnn_sys::Interpreter_destroy(self.inner) }
+    }
+}
+
 impl Interpreter {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
@@ -636,3 +642,4 @@ fn try_to_drop_interpreter_before_session() {
     drop(interpreter);
     drop(session);
 }
+
