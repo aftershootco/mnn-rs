@@ -33,6 +33,10 @@ impl TensorCallback {
     pub fn into_ptr(self) -> *mut libc::c_void {
         Arc::into_raw(self.inner) as *mut libc::c_void
     }
+
+    pub fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
+        |_, _| true
+    }
 }
 
 impl<F> From<F> for TensorCallback
@@ -324,16 +328,18 @@ impl Interpreter {
         })
     }
 
-    pub fn run_session_with_callback_info<B, E>(
+    pub fn run_session_with_callback_info(
         &mut self,
         session: &crate::session::Session,
-        before: B,
-        end: E,
+        before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+        end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         sync: bool,
     ) -> Result<()>
-    where
-        TensorCallback: From<B> + 'static,
-        TensorCallback: From<E> + 'static,
+// where
+        // B: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+        // E: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+        // TensorCallback: From<B> + 'static,
+        // TensorCallback: From<E> + 'static,
     {
         let sync = sync as libc::c_int;
         let before = TensorCallback::from(before).into_ptr();
@@ -446,15 +452,6 @@ impl<'t> TensorList<'t> {
             __marker: PhantomData,
         }
     }
-
-    // pub fn to_map(
-    //     &'t self,
-    // ) -> std::collections::HashMap<String, crate::Tensor<crate::Ref<'_, Device< H>>> {
-    //     self.iter()
-    //         .map(|t| (t.name().to_string(), t.tensor()))
-    //         .collect()
-    // }
-    //
 
     pub fn size(&self) -> usize {
         unsafe { (*self.inner).size }
@@ -598,8 +595,8 @@ fn test_run_session_with_callback_info_api() {
     interpreter
         .run_session_with_callback_info(
             &session,
-            TensorCallback::default(),
-            TensorCallback::default(),
+            TensorCallback::identity(),
+            TensorCallback::identity(),
             true,
         )
         .unwrap();

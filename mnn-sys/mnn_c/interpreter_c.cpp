@@ -250,8 +250,7 @@ ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
       };
   auto net = reinterpret_cast<MNN::Interpreter const *>(interpreter);
   auto sess = reinterpret_cast<MNN::Session const *>(session);
-  auto ret = net->runSessionWithCallBackInfo(sess, beforeCpp, endCpp,
-                                             static_cast<bool>(sync));
+  auto ret = net->runSessionWithCallBackInfo(sess, beforeCpp, endCpp, false);
   return static_cast<ErrorCode>(ret);
 }
 
