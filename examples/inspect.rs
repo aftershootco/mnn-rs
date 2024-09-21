@@ -51,10 +51,10 @@ pub fn main() -> anyhow::Result<()> {
         });
         time!(interpreter.run_session_with_callback(&session, |_, name| {
             println!("Before Callback: {:?}", name);
-            1
+            true
         },|_ , name| {
             println!("After Callback: {:?}", name);
-            1
+            true
         } , true)?;"run session");
         let outputs = interpreter.outputs(&session);
         outputs.iter().for_each(|x| {

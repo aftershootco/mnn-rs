@@ -330,6 +330,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "clap",
+ "dunce",
  "error-stack",
  "libc",
  "mnn-sys",

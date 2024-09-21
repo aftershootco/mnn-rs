@@ -1,11 +1,76 @@
-use std::{ffi::CStr, path::Path};
+use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
     prelude::*, AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType,
 };
 use mnn_sys::HalideType;
 
-pub type TensorCallback = Box<dyn Fn(&[RawTensor], &CStr) -> i32>;
+pub type TensorCallbackT = Box<dyn Fn(&[RawTensor], OperatorInfo) -> bool>;
+
+#[repr(transparent)]
+pub struct TensorCallback {
+    inner: Arc<TensorCallbackT>,
+}
+
+impl Default for TensorCallback {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Box::new(|_, _| true)),
+        }
+    }
+}
+
+impl TensorCallback {
+    pub fn from_ptr(f: *mut libc::c_void) -> Self {
+        debug_assert!(!f.is_null());
+        unsafe {
+            Self {
+                inner: Arc::from_raw(f.cast()),
+            }
+        }
+    }
+
+    pub fn into_ptr(self) -> *mut libc::c_void {
+        Arc::into_raw(self.inner) as *mut libc::c_void
+    }
+
+    pub fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
+        |_, _| true
+    }
+}
+
+impl<F> From<F> for TensorCallback
+where
+    F: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+{
+    fn from(f: F) -> Self {
+        Self {
+            inner: Arc::new(Box::new(f)),
+        }
+    }
+}
+
+impl<T> From<Option<T>> for TensorCallback
+where
+    T: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+{
+    fn from(f: Option<T>) -> Self {
+        match f {
+            Some(f) => Self {
+                inner: Arc::new(Box::new(f)),
+            },
+            None => Self::default(),
+        }
+    }
+}
+
+impl core::ops::Deref for TensorCallback {
+    type Target = TensorCallbackT;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]
@@ -15,7 +80,7 @@ pub enum SessionMode {
     Debug = mnn_sys::SessionMode::Session_Debug,
     #[doc = "runSessionWithCallBack is not valid and can't get any info of op in\nsession"]
     Release = mnn_sys::SessionMode::Session_Release,
-    #[doc = "About input tenosr, Default Session_Input_Inside*/\n/** The input tensor is alloced by session, input data after session resized"]
+    #[doc = "About input tensor, Default Session_Input_Inside*/\n/** The input tensor is alloced by session, input data after session resized"]
     InputInside = mnn_sys::SessionMode::Session_Input_Inside,
     #[doc = "The input tensor is alloced by user, set input data before session\nresize"]
     InputUser = mnn_sys::SessionMode::Session_Input_User,
@@ -45,14 +110,14 @@ pub enum SessionMode {
     ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix,
 }
 
+#[cfg(windows)]
+type SessionModeType = i32;
+#[cfg(unix)]
+type SessionModeType = u32;
+
 impl SessionMode {
-    #[cfg(windows)]
-    fn to_mnn_sys(&self) -> i32 {
-        *self as i32
-    }
-    #[cfg(unix)]
-    fn to_mnn_sys(self) -> u32 {
-        self as u32
+    fn to_mnn_sys(self) -> SessionModeType {
+        self as SessionModeType
     }
 }
 
@@ -67,7 +132,7 @@ unsafe impl Send for Interpreter {}
 impl Interpreter {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string());
+        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string(), "File not found");
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
@@ -205,7 +270,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor<'s>> {
+    ) -> Result<RawTensor> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -242,7 +307,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor<'s>> {
+    ) -> Result<RawTensor> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
@@ -266,17 +331,15 @@ impl Interpreter {
     pub fn run_session_with_callback(
         &mut self,
         session: &crate::session::Session,
-        before: impl Fn(&[RawTensor], &core::ffi::CStr) -> i32 + 'static,
-        end: impl Fn(&[RawTensor], &core::ffi::CStr) -> i32 + 'static,
+        before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+        end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         sync: bool,
     ) -> Result<()> {
         let sync = sync as libc::c_int;
-        let before: Box<TensorCallback> = Box::new(Box::new(before));
-        let before = Box::into_raw(before).cast();
-        let end: Box<TensorCallback> = Box::new(Box::new(end));
-        let end = Box::into_raw(end).cast();
+        let before = TensorCallback::from(before).into_ptr();
+        let end = TensorCallback::from(end).into_ptr();
         let ret = unsafe {
-            mnn_sys::Interpreter_runSessionWithCallBack(
+            mnn_sys::Interpreter_runSessionWithCallBackInfo(
                 self.inner,
                 session.inner,
                 before,
@@ -299,6 +362,7 @@ impl Interpreter {
 
     pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
+        let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
         let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         unsafe { mnn_sys::Interpreter_setCacheFile(self.inner, c_path.as_ptr(), key_size) }
@@ -322,7 +386,7 @@ impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
-            // .field("tensor", &self.tensor().shape())
+            .field("tensor", &self.raw_tensor().shape())
             .finish()
     }
 }
@@ -348,6 +412,12 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             }
         );
         Ok(tensor)
+    }
+
+    pub fn raw_tensor(&self) -> RawTensor<'t> {
+        debug_assert!(!self.tensor_info.is_null());
+        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
+        RawTensor::from_ptr(unsafe { (*self.tensor_info).tensor.cast() })
     }
 }
 
@@ -376,15 +446,6 @@ impl<'t> TensorList<'t> {
             __marker: PhantomData,
         }
     }
-
-    // pub fn to_map(
-    //     &'t self,
-    // ) -> std::collections::HashMap<String, crate::Tensor<crate::Ref<'_, Device< H>>> {
-    //     self.iter()
-    //         .map(|t| (t.name().to_string(), t.tensor()))
-    //         .collect()
-    // }
-    //
 
     pub fn size(&self) -> usize {
         unsafe { (*self.inner).size }
@@ -439,31 +500,128 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
     }
 }
 
+// #[no_mangle]
+// extern "C" fn rust_closure_callback_runner(
+//     f: *mut libc::c_void,
+//     tensors: *const *mut mnn_sys::Tensor,
+//     tensor_count: usize,
+//     name: *const libc::c_char,
+// ) -> libc::c_int {
+//     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
+//     let name = unsafe { std::ffi::CStr::from_ptr(name) };
+//     let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
+//     let ret = f(tensors, name) as libc::c_int;
+//     core::mem::forget(f);
+//     ret
+// }
+
+// #[test]
+// fn test_extern_c_rust_closure_callback_runner() {
+//     let f = |_tensors: &[RawTensor], name: &CStr| -> bool {
+//         println!("Callback: {:?}", name);
+//         true
+//     };
+//     let f: Box<TensorCallback> = Box::new(Box::new(f));
+//     let f = Box::into_raw(f).cast();
+//     let tensors = [std::ptr::null_mut()];
+//     let name = std::ffi::CString::new("Test").unwrap();
+//     let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr())
+//         as libc::c_int;
+//     assert_eq!(ret, 0);
+// }
+
 #[no_mangle]
-extern "C" fn rust_closure_callback_runner(
+extern "C" fn rust_closure_callback_runner_op(
     f: *mut libc::c_void,
     tensors: *const *mut mnn_sys::Tensor,
     tensor_count: usize,
-    name: *const libc::c_char,
+    op: *mut libc::c_void,
 ) -> libc::c_int {
     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
-    let name = unsafe { std::ffi::CStr::from_ptr(name) };
-    let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
-    let ret = f(tensors, name);
+    let f: TensorCallback = TensorCallback::from_ptr(f);
+    let op = OperatorInfo {
+        inner: op.cast(),
+        __marker: PhantomData,
+    };
+    let ret = f(tensors, op) as libc::c_int;
+
     core::mem::forget(f);
     ret
 }
 
+#[repr(transparent)]
+pub struct OperatorInfo<'op> {
+    pub(crate) inner: *mut libc::c_void,
+    pub(crate) __marker: PhantomData<&'op ()>,
+}
+
+impl core::fmt::Debug for OperatorInfo<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("OperatorInfo")
+            .field("name", &self.name())
+            .field("type", &self.type_name())
+            .field("flops", &self.flops())
+            .finish()
+    }
+}
+
+impl OperatorInfo<'_> {
+    pub fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_name(self.inner)) }
+    }
+
+    pub fn type_name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_type(self.inner)) }
+    }
+
+    pub fn flops(&self) -> f32 {
+        unsafe { mnn_sys::OperatorInfo_flops(self.inner) }
+    }
+}
+
 #[test]
-fn test_extern_c_rust_closure_callback_runner() {
-    let f = |_tensors: &[RawTensor], name: &CStr| -> i32 {
-        println!("Callback: {:?}", name);
-        0
-    };
-    let f: Box<TensorCallback> = Box::new(Box::new(f));
-    let f = Box::into_raw(f).cast();
-    let tensors = [std::ptr::null_mut()];
-    let name = std::ffi::CString::new("Test").unwrap();
-    let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr());
-    assert_eq!(ret, 0);
+fn test_run_session_with_callback_info_api() {
+    let file = Path::new("tests/assets/realesr.mnn")
+        .canonicalize()
+        .unwrap();
+    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+    interpreter
+        .run_session_with_callback(
+            &session,
+            TensorCallback::identity(),
+            TensorCallback::identity(),
+            true,
+        )
+        .unwrap();
+}
+
+#[test]
+fn check_whether_sync_actually_works() {
+    let file = Path::new("tests/assets/realesr.mnn")
+        .canonicalize()
+        .unwrap();
+    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+    let time = std::time::Instant::now();
+    interpreter
+        .run_session_with_callback(
+            &session,
+            TensorCallback::identity(),
+            TensorCallback::identity(),
+            false,
+        )
+        .unwrap();
+    let time = time.elapsed();
+    let time2 = std::time::Instant::now();
+    interpreter
+        .run_session_with_callback(
+            &session,
+            TensorCallback::identity(),
+            TensorCallback::identity(),
+            true,
+        )
+        .unwrap();
+    let time2 = time2.elapsed();
+    assert!((time - time2) > std::time::Duration::from_millis(50));
 }

@@ -18,6 +18,7 @@ thiserror = "1.0"
 error-stack = { version = "0.5" }
 oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
+dunce = "1.0.5"
 
 [features]
 metal = ["mnn-sys/metal"]
