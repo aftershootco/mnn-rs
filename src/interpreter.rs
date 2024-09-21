@@ -270,7 +270,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor> {
+    ) -> Result<RawTensor<'s>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -307,7 +307,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor> {
+    ) -> Result<RawTensor<'s>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
@@ -624,4 +624,15 @@ fn check_whether_sync_actually_works() {
         .unwrap();
     let time2 = time2.elapsed();
     assert!((time - time2) > std::time::Duration::from_millis(50));
+}
+
+#[test]
+fn try_to_drop_interpreter_before_session() {
+    let file = Path::new("tests/assets/realesr.mnn")
+        .canonicalize()
+        .unwrap();
+    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+    drop(interpreter);
+    drop(session);
 }
