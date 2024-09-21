@@ -642,4 +642,3 @@ fn try_to_drop_interpreter_before_session() {
     drop(interpreter);
     drop(session);
 }
-
