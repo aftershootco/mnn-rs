@@ -35,6 +35,8 @@
 //! When you run a closure it is sent to the thread and executed in that session and the result is  
 //! sent back to the main thread via a [oneshot::Sender]
 
+use flume::{Receiver, Sender};
+
 use error_stack::{Report, ResultExt};
 use mnn::*;
 
@@ -49,8 +51,8 @@ type CallbackSender = CallbackEnum;
 pub struct SessionHandle {
     #[allow(dead_code)]
     pub(crate) handle: std::thread::JoinHandle<Result<()>>,
-    pub(crate) sender: std::sync::mpsc::Sender<CallbackSender>,
-    pub(crate) loop_handle: std::sync::mpsc::Receiver<Result<()>>,
+    pub(crate) sender: Sender<CallbackSender>,
+    pub(crate) loop_handle: Receiver<Result<()>>,
 }
 
 impl Drop for SessionHandle {
@@ -69,10 +71,10 @@ pub struct SessionRunner {
 
 impl SessionHandle {
     pub fn new(mut interpreter: Interpreter, config: ScheduleConfig) -> Result<Self> {
-        let (sender, receiver) = std::sync::mpsc::channel::<CallbackSender>();
+        let (sender, receiver) = flume::unbounded::<CallbackSender>();
 
         let builder = std::thread::Builder::new().name("mnn-session-thread".to_string());
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = flume::unbounded();
         let handle = builder
             .spawn(move || -> Result<()> {
                 let session = interpreter.create_session(config)?;
@@ -290,4 +292,10 @@ pub fn test_sync_api_race() {
             Ok(cpu_output.host().to_vec())
         })
         .expect("Sed");
+}
+
+#[test]
+pub fn test_sync_api_is_send_sync() {
+    fn is_send_sync<T: Send + Sync>() {}
+    is_send_sync::<SessionHandle>();
 }
