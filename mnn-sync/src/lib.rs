@@ -77,7 +77,8 @@ impl SessionHandle {
         let (tx, rx) = flume::unbounded();
         let handle = builder
             .spawn(move || -> Result<()> {
-                let session = interpreter.create_session(config)?;
+                let mut session = interpreter.create_session(config)?;
+                interpreter.update_cache_file(&mut session);
                 let mut session_runner = SessionRunner {
                     interpreter,
                     session,
@@ -103,7 +104,10 @@ impl SessionHandle {
                         if let Some(backtrace) = e.downcast_ref::<std::backtrace::Backtrace>() {
                             err = err.attach_printable(format!("{:?}", backtrace));
                         };
-                        Err(MNNError::from(err))
+                        let ret = Err(MNNError::from(err));
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Panic in session thread: {:?}", ret);
+                        ret
                     });
                     tx.send(result)
                         .change_context(ErrorKind::SyncError)

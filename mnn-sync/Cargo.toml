@@ -12,3 +12,7 @@ flume = { version = "0.11.0", default-features = false, features = [
 ] }
 mnn = { version = "0.1.0", path = ".." }
 oneshot = "0.1.8"
+tracing = { version = "0.1", optional = true }
+
+[features]
+tracing = ["dep:tracing", "mnn/tracing"]
