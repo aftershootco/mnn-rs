@@ -5,7 +5,7 @@ edition = "2021"
 license = { workspace = true }
 
 [dependencies]
-mnn = { workspace = true, default-features = false }
+mnn = { workspace = true }
 ndarray = { version = "0.16", optional = true }
 # opencv = { version = "0.92.3", default-features = false, optional = true }
 
