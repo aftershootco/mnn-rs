@@ -5,12 +5,12 @@ edition = "2021"
 license.workspace = true
 
 [dependencies]
-error-stack = "0.5.0"
+error-stack.workspace = true
 flume = { version = "0.11.0", default-features = false, features = [
   "eventual-fairness",
   "nanorand",
 ] }
-mnn = { version = "0.1.0", path = ".." }
+mnn.workspace = true
 oneshot = "0.1.8"
 tracing = { version = "0.1", optional = true }
 

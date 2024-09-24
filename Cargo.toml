@@ -9,13 +9,15 @@ version = "0.2.0"
 edition = "2021"
 license = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace.dependencies]
+mnn = { version = "0.2.0", path = "." }
+error-stack = { version = "0.5" }
 
 [dependencies]
 libc = "0.2"
 mnn-sys = { version = "0.1", path = "mnn-sys", features = [] }
 thiserror = "1.0"
-error-stack = { version = "0.5" }
+error-stack.workspace = true
 oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
 dunce = "1.0.5"
