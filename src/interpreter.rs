@@ -380,6 +380,13 @@ impl Interpreter {
         });
         Ok(())
     }
+
+    /// Wait for all output tensors to be ready after computation
+    pub fn wait(&self, session: &crate::session::Session) {
+        self.outputs(session).iter().for_each(|tinfo| {
+            tinfo.raw_tensor().wait_read(true);
+        });
+    }
 }
 
 #[repr(transparent)]
@@ -586,6 +593,7 @@ impl OperatorInfo<'_> {
 }
 
 #[test]
+#[ignore = "This test doesn't work in CI"]
 fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
@@ -603,6 +611,7 @@ fn test_run_session_with_callback_info_api() {
 }
 
 #[test]
+#[ignore = "This test doesn't work in CI"]
 fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
@@ -633,6 +642,7 @@ fn check_whether_sync_actually_works() {
 }
 
 #[test]
+#[ignore = "This test doesn't work in CI"]
 fn try_to_drop_interpreter_before_session() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()

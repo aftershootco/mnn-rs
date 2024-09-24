@@ -720,6 +720,18 @@ impl<'r> RawTensor<'r> {
         self.shape().as_ref().contains(&-1)
     }
 
+    pub fn wait_read(&self, finish: bool) {
+        unsafe {
+            Tensor_wait(self.inner, MapType::MAP_TENSOR_READ, finish as i32);
+        }
+    }
+
+    pub fn wait_write(&self, finish: bool) {
+        unsafe {
+            Tensor_wait(self.inner, MapType::MAP_TENSOR_WRITE, finish as i32);
+        }
+    }
+
     /// # Safety
     /// This is very unsafe do not use this unless you know what you are doing
     pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
