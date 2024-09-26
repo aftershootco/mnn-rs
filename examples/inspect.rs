@@ -49,13 +49,14 @@ pub fn main() -> anyhow::Result<()> {
             println!("{}: {:?}", x.name(), tensor.shape());
             tensor.fill(1.0f32);
         });
-        time!(interpreter.run_session_with_callback(&session, |_, name| {
-            println!("Before Callback: {:?}", name);
-            true
-        },|_ , name| {
-            println!("After Callback: {:?}", name);
-            true
-        } , true)?;"run session");
+        // time!(interpreter.run_session_with_callback(&session, |_, name| {
+        //     println!("Before Callback: {:?}", name);
+        //     true
+        // },|_ , name| {
+        //     println!("After Callback: {:?}", name);
+        //     true
+        // } , true)?;"run session");
+        interpreter.run_session(&session)?;
         let outputs = interpreter.outputs(&session);
         outputs.iter().for_each(|x| {
             let tensor = x.tensor::<f32>().expect("No tensor");

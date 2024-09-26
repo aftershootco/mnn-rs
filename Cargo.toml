@@ -35,7 +35,7 @@ mnn-threadpool = ["mnn-sys/mnn-threadpool"]
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 
-default = ["mnn-threadpool"]
+default = ["mnn-threadpool", "opencl"]
 
 
 [dev-dependencies]

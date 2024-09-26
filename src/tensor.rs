@@ -270,6 +270,7 @@ where
     }
 
     pub fn get_dimension_type(&self) -> DimensionType {
+        debug_assert!(!self.tensor.is_null());
         From::from(unsafe { Tensor_getDimensionType(self.tensor) })
     }
 
@@ -720,15 +721,9 @@ impl<'r> RawTensor<'r> {
         self.shape().as_ref().contains(&-1)
     }
 
-    pub fn wait_read(&self, finish: bool) {
+    pub fn wait(&self, map_type: MapType, finish: bool) {
         unsafe {
-            Tensor_wait(self.inner, MapType::MAP_TENSOR_READ, finish as i32);
-        }
-    }
-
-    pub fn wait_write(&self, finish: bool) {
-        unsafe {
-            Tensor_wait(self.inner, MapType::MAP_TENSOR_WRITE, finish as i32);
+            Tensor_wait(self.inner, map_type, finish as i32);
         }
     }
 

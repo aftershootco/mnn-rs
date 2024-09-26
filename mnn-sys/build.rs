@@ -43,6 +43,7 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=MNN_SRC");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let source = PathBuf::from(
         std::env::var("MNN_SRC")

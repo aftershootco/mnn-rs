@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN";
+      url = "github:alibaba/MNN/2.9.5";
       flake = false;
     };
   };

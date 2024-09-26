@@ -28,20 +28,15 @@ impl AsRef<[u8]> for Model {
 pub fn test_basic(backend: ForwardType) -> Result<()> {
     use mnn::BackendConfig;
 
-    let mut net = mnn::Interpreter::from_bytes(Model::new())?;
+    let mut net = mnn::Interpreter::from_file("tests/assets/realesr.mnn")?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
-    config.set_backup_type(backend);
-    let mut bc = BackendConfig::new();
-    bc.set_memory_mode(mnn::MemoryMode::High);
-    bc.set_precision_mode(mnn::PrecisionMode::High);
-    bc.set_power_mode(mnn::PowerMode::High);
-    config.set_backend_config(bc);
     let session = net.create_session(config)?;
-    for input in &net.inputs(&session) {
-        println!("input: {:?}", input);
-        input.tensor::<f32>()?.fill(0.0);
-    }
+    net.inputs(&session).iter().for_each(|x| {
+        let mut tensor = x.tensor::<f32>().expect("No tensor");
+        println!("{}: {:?}", x.name(), tensor.shape());
+        tensor.fill(1.0f32);
+    });
     net.run_session(&session)?;
     let outputs = net.outputs(&session);
     for output in outputs.iter() {

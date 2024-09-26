@@ -381,12 +381,12 @@ impl Interpreter {
         Ok(())
     }
 
-    /// Wait for all output tensors to be ready after computation
-    pub fn wait(&self, session: &crate::session::Session) {
-        self.outputs(session).iter().for_each(|tinfo| {
-            tinfo.raw_tensor().wait_read(true);
-        });
-    }
+    // /// Wait for all output tensors to be ready after computation
+    // pub fn wait(&self, session: &crate::session::Session) {
+    //     self.outputs(session).iter().for_each(|tinfo| {
+    //         tinfo.raw_tensor().wait_read(true);
+    //     });
+    // }
 }
 
 #[repr(transparent)]
@@ -397,9 +397,11 @@ pub struct TensorInfo<'t, 'tl> {
 
 impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // let tensor = self.raw_tensor();
+        // let shape = tensor.shape().clone();
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
-            .field("tensor", &self.raw_tensor().shape())
+            // .field("tensor", &shape)
             .finish()
     }
 }
