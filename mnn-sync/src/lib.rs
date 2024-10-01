@@ -82,7 +82,7 @@ impl SessionHandle {
                 let mut session = interpreter.create_session(config)?;
                 #[cfg(feature = "tracing")]
                 tracing::info!("Updating mnn cache file");
-                interpreter.update_cache_file(&mut session);
+                interpreter.update_cache_file(&mut session)?;
                 let mut session_runner = SessionRunner {
                     interpreter,
                     session,
@@ -143,7 +143,7 @@ impl SessionHandle {
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
-            let result = f(sr)?;
+            let result = f(sr);
             tx.send(result)
                 .change_context(ErrorKind::SyncError)
                 .attach_printable("Internal Error: Failed to send result via oneshot channel")?;
@@ -155,7 +155,7 @@ impl SessionHandle {
         Ok(rx
             .recv()
             .change_context(ErrorKind::SyncError)
-            .attach_printable("Internal Error: Unable to recv message")?)
+            .attach_printable("Internal Error: Unable to recv message")??)
     }
 
     pub async fn run_async<R: Send + Sync + 'static>(
