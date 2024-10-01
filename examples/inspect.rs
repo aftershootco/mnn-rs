@@ -52,7 +52,7 @@ pub fn main() -> anyhow::Result<()> {
         interpreter.run_session(&session)?;
         let outputs = interpreter.outputs(&session);
         outputs.iter().for_each(|x| {
-            let tensor = x.tensor::<u8>().expect("No tensor");
+            let tensor = x.tensor::<f32>().expect("No tensor");
             time!(tensor.wait(ffi::MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
             println!("{}: {:?}", x.name(), tensor.shape());
             let _ = tensor.create_host_tensor_from_device(true);
