@@ -17,3 +17,6 @@ int Session_hasAsyncWork(Session *session) {
   return mnn_session->hasAsyncWork();
   // return true;
 }
+
+
+

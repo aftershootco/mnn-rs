@@ -63,11 +63,6 @@ fn main() -> Result<()> {
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
-        let intptr = vendor.join("include").join("MNN").join("Interpreter.hpp");
-        #[cfg(unix)]
-        std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
-        try_patch_file("patches/typedef_template.patch", &intptr)
-            .context("Failed to patch vendor")?;
         let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
         std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
