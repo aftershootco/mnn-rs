@@ -204,6 +204,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             config.define("MNN_COREML", "1");
             #[cfg(feature = "opencl")]
             config.define("MNN_OPENCL", "ON");
+            #[cfg(feature = "onednn")]
+            config.define("MNN_ONEDNN", "ON");
             if is_emscripten() {
                 config.compiler("emcc");
                 // We can't compile wasm32-unknown-unknown with emscripten
@@ -258,6 +260,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_COREML", CxxOption::COREML.cmake_value());
             config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
             config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
+            config.define("MNN_ONEDNN", CxxOption::ONEDNN.cmake_value());
             // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
@@ -382,6 +385,7 @@ impl CxxOption {
     }
     pub const VULKAN: CxxOption = cxx_option_from_feature!("vulkan", "MNN_VULKAN");
     pub const METAL: CxxOption = cxx_option_from_feature!("metal", "MNN_METAL");
+    pub const ONEDNN: CxxOption = cxx_option_from_feature!("onednn", "MNN_ONEDNN");
     pub const COREML: CxxOption = cxx_option_from_feature!("coreml", "MNN_COREML");
     pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
     pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");

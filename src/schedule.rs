@@ -13,6 +13,8 @@ pub enum ForwardType {
     Metal,
     #[cfg(feature = "opencl")]
     OpenCL,
+    #[cfg(feature = "onednn")]
+    OneDNN,
     #[cfg(feature = "opengl")]
     OpenGL,
     #[cfg(feature = "vulkan")]
@@ -31,6 +33,8 @@ impl ForwardType {
             ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => MNNForwardType::MNN_FORWARD_OPENCL,
+            #[cfg(feature = "onednn")]
+            ForwardType::OneDNN => MNNForwardType::MNN_FORWARD_ONEDNN,
             #[cfg(feature = "opengl")]
             ForwardType::OpenGL => MNNForwardType::MNN_FORWARD_OPENGL,
             #[cfg(feature = "vulkan")]
