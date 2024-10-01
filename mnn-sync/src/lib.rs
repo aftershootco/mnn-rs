@@ -78,17 +78,17 @@ impl SessionHandle {
         let handle = builder
             .spawn(move || -> Result<()> {
                 #[cfg(feature = "tracing")]
-                tracing::info!("Initializing mnn session thread");
+                tracing::trace!("Initializing mnn session thread");
                 let mut session = interpreter.create_session(config)?;
                 #[cfg(feature = "tracing")]
-                tracing::info!("Updating mnn cache file");
+                tracing::trace!("Updating mnn cache file");
                 interpreter.update_cache_file(&mut session)?;
                 let mut session_runner = SessionRunner {
                     interpreter,
                     session,
                 };
                 #[cfg(feature = "tracing")]
-                tracing::info!("Initializing mnn session loop");
+                tracing::trace!("Initializing mnn session loop");
                 loop {
                     let f = receiver
                         .recv()

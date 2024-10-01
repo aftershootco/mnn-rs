@@ -9,7 +9,7 @@ macro_rules! profile {
         };
         let elapsed = now.elapsed();
         #[cfg(feature = "tracing")]
-        tracing::info!("{}: Elapsed time: {:?}", $message, elapsed);
+        tracing::info!("{}: elapsed time: {:?}", $message, elapsed);
         result
     }}
 }
