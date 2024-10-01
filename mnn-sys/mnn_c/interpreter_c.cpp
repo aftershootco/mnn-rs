@@ -5,8 +5,8 @@
 #include <cstring>
 #include <iostream>
 extern "C" {
-int rust_closure_callback_runner(void *closure, Tensor *const *tensors,
-                                 size_t tensorCount, const char *opName);
+// int rust_closure_callback_runner(void *closure, Tensor *const *tensors,
+//                                  size_t tensorCount, const char *opName);
 int rust_closure_callback_runner_op(void *closure, Tensor *const *tensors,
                                     size_t tensorCount, const void *op);
 
@@ -193,36 +193,37 @@ ErrorCode Interpreter_runSession(const Interpreter *interpreter,
   auto mnn_session = reinterpret_cast<MNN::Session *>(session);
   return static_cast<ErrorCode>(mnn_interpreter->runSession(mnn_session));
 }
-ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
-                                             const Session *session,
-                                             void *before, void *end,
-                                             int sync) {
-  MNN::TensorCallBack beforeCpp =
-      [before](const std::vector<MNN::Tensor *> &tensors,
-               const std::string &opName) {
-        if (before == nullptr) {
-          return true;
-        }
-        return static_cast<bool>(rust_closure_callback_runner(
-            before, reinterpret_cast<Tensor *const *>(tensors.data()),
-            tensors.size(), opName.c_str()));
-      };
-
-  MNN::TensorCallBack endCpp = [end](const std::vector<MNN::Tensor *> &tensors,
-                                     const std::string &opName) {
-    if (end == nullptr) {
-      return true;
-    }
-    return static_cast<bool>(rust_closure_callback_runner(
-        end, reinterpret_cast<Tensor *const *>(tensors.data()), tensors.size(),
-        opName.c_str()));
-  };
-  auto net = reinterpret_cast<MNN::Interpreter const *>(interpreter);
-  auto sess = reinterpret_cast<MNN::Session const *>(session);
-  auto ret = net->runSessionWithCallBack(sess, beforeCpp, endCpp,
-                                         static_cast<bool>(sync));
-  return static_cast<ErrorCode>(ret);
-}
+// ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
+//                                              const Session *session,
+//                                              void *before, void *end,
+//                                              int sync) {
+//   MNN::TensorCallBack beforeCpp =
+//       [before](const std::vector<MNN::Tensor *> &tensors,
+//                const std::string &opName) {
+//         if (before == nullptr) {
+//           return true;
+//         }
+//         return static_cast<bool>(rust_closure_callback_runner(
+//             before, reinterpret_cast<Tensor *const *>(tensors.data()),
+//             tensors.size(), opName.c_str()));
+//       };
+//
+//   MNN::TensorCallBack endCpp = [end](const std::vector<MNN::Tensor *>
+//   &tensors,
+//                                      const std::string &opName) {
+//     if (end == nullptr) {
+//       return true;
+//     }
+//     return static_cast<bool>(rust_closure_callback_runner(
+//         end, reinterpret_cast<Tensor *const *>(tensors.data()),
+//         tensors.size(), opName.c_str()));
+//   };
+//   auto net = reinterpret_cast<MNN::Interpreter const *>(interpreter);
+//   auto sess = reinterpret_cast<MNN::Session const *>(session);
+//   auto ret = net->runSessionWithCallBack(sess, beforeCpp, endCpp,
+//                                          static_cast<bool>(sync));
+//   return static_cast<ErrorCode>(ret);
+// }
 
 ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
                                                  const Session *session,

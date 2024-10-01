@@ -162,9 +162,10 @@ ErrorCode Interpreter_updateSessionToModel(Interpreter *interpreter,
                                            Session *session);
 ErrorCode Interpreter_runSession(const Interpreter *interpreter,
                                  Session *session);
-ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
-                                             const Session *session,
-                                             void *before, void *end, int sync);
+// ErrorCode Interpreter_runSessionWithCallBack(const Interpreter *interpreter,
+//                                              const Session *session,
+//                                              void *before, void *end, int
+//                                              sync);
 ErrorCode Interpreter_runSessionWithCallBackInfo(const Interpreter *interpreter,
                                                  const Session *session,
                                                  void *before, void *end,
