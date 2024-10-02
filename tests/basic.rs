@@ -18,7 +18,6 @@ fn test_basic_metal() {
 fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
-    use mnn::BackendConfig;
 
     let mut net = mnn::Interpreter::from_file(realesr)?;
     net.set_cache_file(realesr.with_extension("cache"), 128)?;
