@@ -14,6 +14,7 @@ fn test_basic_metal() {
 }
 #[cfg(feature = "opencl")]
 #[test]
+#[ignore = "Doesn't work on ci"]
 fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
@@ -24,7 +25,7 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
     let mut session = net.create_session(config)?;
-    net.update_cache_file(&mut session);
+    net.update_cache_file(&mut session)?;
 
     net.inputs(&session).iter().for_each(|x| {
         let mut tensor = x.tensor::<f32>().expect("No tensor");
@@ -46,14 +47,6 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     // drop(net);
     Ok(())
 }
-    // net.run_session(&session)?;
-    // let outputs = net.outputs(&session);
-    // for output in outputs.iter() {
-    //     println!("output: {:?}", output);
-    //     let tensor = output.tensor::<f32>()?;
-    //     let shape = tensor.shape();
-    //     assert_eq!(shape.as_ref(), [1, 3, 2048, 2048]);
-    // }
 #[cfg(feature = "coreml")]
 #[test]
 fn test_basic_coreml() {
