@@ -64,9 +64,10 @@ impl Drop for SessionHandle {
     }
 }
 
+#[non_exhaustive]
 pub struct SessionRunner {
-    pub(crate) interpreter: Interpreter,
-    pub(crate) session: Session,
+    pub interpreter: Interpreter,
+    pub session: Session,
 }
 
 impl SessionHandle {
@@ -191,6 +192,11 @@ impl SessionHandle {
 impl SessionRunner {
     pub fn run_session(&mut self) -> Result<()> {
         self.interpreter.run_session(&self.session)
+    }
+
+    pub fn resize_session(&mut self) -> Result<()> {
+        self.interpreter.resize_session(&mut self.session);
+        Ok(())
     }
 
     pub fn interpreter(&self) -> &Interpreter {
