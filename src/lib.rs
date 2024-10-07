@@ -79,6 +79,7 @@ pub use session::*;
 pub use tensor::*;
 
 pub use ffi::HalideType;
+pub use ffi::MapType;
 
 pub mod prelude {
     pub use crate::error::*;
