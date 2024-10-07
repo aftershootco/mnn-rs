@@ -41,7 +41,18 @@ pub fn main() -> anyhow::Result<()> {
     config.set_type(cli.forward);
     let mut session = time!(interpreter.create_session(config)?; "create session");
     interpreter.update_cache_file(&mut session)?;
-
+    let inputs = interpreter.inputs(&session);
+    let mut first = inputs
+        .iter()
+        .next()
+        .expect("No input")
+        .tensor::<f32>()
+        .unwrap();
+    let shape = first.shape();
+    interpreter.resize_tensor(&mut first, shape);
+    interpreter.resize_session(&mut session);
+    drop(first);
+    drop(inputs);
     let mut current = 0;
     time!(loop {
         interpreter.inputs(&session).iter().for_each(|x| {

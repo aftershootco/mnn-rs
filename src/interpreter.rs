@@ -286,6 +286,45 @@ impl Interpreter {
         Ok(RawTensor::from_ptr(input))
     }
 
+    /// * Safety
+    /// We Still don't know the safety guarantees of this function so it's marked unsafe
+    pub unsafe fn input_unresized<'s, H: HalideType>(
+        &self,
+        session: &'s crate::Session,
+        name: impl AsRef<str>,
+    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
+        let input = unsafe {
+            mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
+        };
+        ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
+        let tensor = unsafe { Tensor::from_ptr(input) };
+        ensure!(
+            tensor.is_type_of::<H>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<H>(),
+            }
+        );
+        Ok(tensor)
+    }
+
+    /// * Safety
+    /// Very unsafe since it doesn't check the type of the tensor
+    /// as well as the shape of the tensor
+    pub unsafe fn input_unchecked<'s, H: HalideType>(
+        &self,
+        session: &'s crate::Session,
+        name: impl AsRef<str>,
+    ) -> Tensor<RefMut<'s, Device<H>>> {
+        let name = name.as_ref();
+        let c_name = std::ffi::CString::new(name).unwrap();
+        let input =
+            mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
+        Tensor::from_ptr(input)
+    }
+
+    /// Get the output tensor of a session by name
     pub fn output<'s, H: HalideType>(
         &self,
         session: &'s crate::Session,
@@ -420,6 +459,25 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
+        ensure!(
+            tensor.is_type_of::<H>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<H>(),
+            }
+        );
+        Ok(tensor)
+    }
+
+    /// * Safety
+    /// The shape is not checked so it's marked unsafe since futher calls to interpreter might be
+    /// unsafe with this
+    pub unsafe fn tensor_unresized<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>>
+    where
+        H: HalideType,
+    {
+        debug_assert!(!self.tensor_info.is_null());
+        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
+        let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {

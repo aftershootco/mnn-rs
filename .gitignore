@@ -5,3 +5,4 @@ target
 *.ppm
 lama
 *.json
+*.cache

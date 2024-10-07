@@ -316,6 +316,7 @@ impl<T: HostTensorType> Tensor<T>
 where
     T::H: HalideType,
 {
+    /// Try to map the device tensor to the host memory and get the slice
     pub fn try_host(&self) -> Result<&[T::H]> {
         let size = self.element_size();
         ensure!(
@@ -331,6 +332,7 @@ where
         Ok(result)
     }
 
+    /// Try to map the device tensor to the host memory and get the mutable slice
     pub fn try_host_mut(&mut self) -> Result<&mut [T::H]> {
         let size = self.element_size();
         ensure!(

@@ -29,8 +29,3 @@ impl Drop for Session {
         unsafe { mnn_sys::Session_destroy(self.inner) }
     }
 }
-
-// pub struct SessionInterpreter {
-//     session: Session<'static>,
-//     interpreter: Interpreter,
-// }
