@@ -12,8 +12,19 @@ pub struct Cli {
     precision: PrecisionMode,
     #[clap(short, long, default_value = "high")]
     memory: MemoryMode,
+    #[clap(short, long, default_value = "f32")]
+    output_data_type: DataType,
+    #[clap(short, long, default_value = "f32")]
+    input_data_type: DataType,
     #[clap(short, long, default_value = "1")]
     loops: usize,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum DataType {
+    F32,
+    U8,
+    I8,
 }
 
 macro_rules! time {
@@ -41,33 +52,52 @@ pub fn main() -> anyhow::Result<()> {
     config.set_type(cli.forward);
     let mut session = time!(interpreter.create_session(config)?; "create session");
     interpreter.update_cache_file(&mut session)?;
-    let inputs = interpreter.inputs(&session);
-    let mut first = inputs
-        .iter()
-        .next()
-        .expect("No input")
-        .tensor::<f32>()
-        .unwrap();
-    let shape = first.shape();
-    interpreter.resize_tensor(&mut first, shape);
-    interpreter.resize_session(&mut session);
-    drop(first);
-    drop(inputs);
+
     let mut current = 0;
     time!(loop {
+        println!("--------------------------------Inputs--------------------------------");
         interpreter.inputs(&session).iter().for_each(|x| {
-            let mut tensor = x.tensor::<f32>().expect("No tensor");
-            println!("{}: {:?}", x.name(), tensor.shape());
-            tensor.fill(1.0f32);
+            match cli.input_data_type {
+                DataType::F32 => {
+                    let mut tensor = x.tensor::<f32>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    tensor.fill(1.0f32);
+                },
+                DataType::U8 => {
+                    let mut tensor = x.tensor::<u8>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    tensor.fill(1u8);
+                },
+                DataType::I8 => {
+                    let mut tensor = x.tensor::<i8>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    tensor.fill(1i8);
+                },
+            };
         });
+        println!("Running session");
         interpreter.run_session(&session)?;
+        println!("--------------------------------Outputs--------------------------------");
         let outputs = interpreter.outputs(&session);
         outputs.iter().for_each(|x| {
-            let tensor = x.tensor::<f32>().expect("No tensor");
-            time!(tensor.wait(ffi::MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
-            println!("{}: {:?}", x.name(), tensor.shape());
-            let _ = tensor.create_host_tensor_from_device(true);
-            // std::fs::write(format!("{}.bin", x.name()), bytemuck::cast_slice(cpu_tensor.host())).expect("Unable to write");
+            match cli.output_data_type {
+                DataType::F32 => {
+                    let tensor = x.tensor::<f32>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    time!(tensor.wait(MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
+                },
+                DataType::U8 => {
+                    let tensor = x.tensor::<u8>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    time!(tensor.wait(MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
+                },
+                DataType::I8 => {
+                    let tensor = x.tensor::<i8>().expect("No tensor");
+                    println!("{}: {:?}", x.name(), tensor.shape());
+                    time!(tensor.wait(MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
+                },
+            };
+    
         });
         current += 1;
         if current >= cli.loops {

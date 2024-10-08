@@ -286,7 +286,7 @@ impl Interpreter {
         Ok(RawTensor::from_ptr(input))
     }
 
-    /// * Safety
+    /// # Safety
     /// We Still don't know the safety guarantees of this function so it's marked unsafe
     pub unsafe fn input_unresized<'s, H: HalideType>(
         &self,
@@ -309,7 +309,7 @@ impl Interpreter {
         Ok(tensor)
     }
 
-    /// * Safety
+    /// # Safety
     /// Very unsafe since it doesn't check the type of the tensor
     /// as well as the shape of the tensor
     pub unsafe fn input_unchecked<'s, H: HalideType>(
@@ -468,13 +468,9 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         Ok(tensor)
     }
 
-    /// * Safety
-    /// The shape is not checked so it's marked unsafe since futher calls to interpreter might be
-    /// unsafe with this
-    pub unsafe fn tensor_unresized<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>>
-    where
-        H: HalideType,
-    {
+    /// # Safety
+    /// The shape is not checked so it's marked unsafe since futher calls to interpreter might be unsafe with this
+    pub unsafe fn tensor_unresized<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
