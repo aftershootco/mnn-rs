@@ -1,9 +1,8 @@
-use mnn::*;
-
 /// This segfault on OpenCL backend if we print the tensorinfo
 #[cfg(feature = "opencl")]
 #[test]
 fn test_segfault_case_1_() -> Result<(), Box<dyn std::error::Error>> {
+    use mnn::*;
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
 
