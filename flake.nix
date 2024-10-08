@@ -104,7 +104,11 @@
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
             });
-          mnn-docs = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
+          mnn-docs = craneLib.cargoDoc (commonArgs
+            // {
+              inherit cargoArtifacts;
+              cargoDocExtraArgs = "-p mnn -p mnn-sys";
+            });
           mnn-fmt = craneLib.cargoFmt {inherit src;};
           mnn-toml-fmt = craneLib.taploFmt {
             src = pkgs.lib.sources.sourceFilesBySuffices src [".toml"];
