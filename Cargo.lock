@@ -532,8 +532,10 @@ dependencies = [
 name = "mnn-bridge"
 version = "0.1.0"
 dependencies = [
+ "error-stack",
  "mnn",
- "ndarray",
+ "ndarray 0.15.6",
+ "ndarray 0.16.1",
 ]
 
 [[package]]
@@ -569,6 +571,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "ndarray"
+version = "0.15.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+dependencies = [
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
 ]
 
 [[package]]

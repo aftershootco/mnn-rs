@@ -5,12 +5,15 @@ edition = "2021"
 license = { workspace = true }
 
 [dependencies]
+error-stack = "0.5.0"
 mnn = { workspace = true }
 ndarray = { version = "0.16", optional = true }
+ndarray_0_15 = { package = "ndarray", version = "0.15", optional = true }
 # opencv = { version = "0.92.3", default-features = false, optional = true }
 
 [features]
 ndarray = ["dep:ndarray"]
+ndarray_0_15 = ["dep:ndarray_0_15"]
 # opencv = ["dep:opencv"]
 
 default = []
