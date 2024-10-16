@@ -26,12 +26,8 @@ static EMSCRIPTEN_CACHE: LazyLock<String> = LazyLock::new(|| {
     emscripten_cache
 });
 
-const HALIDE_PATCH_1: &str = r#"#if __cplusplus >= 201103L"#;
-const HALIDE_PATCH_2: &str = r#"
-#else
-    HALIDE_ATTRIBUTE_ALIGN(1) uint8_t code; // halide_type_code_t
-#endif
-"#;
+const HALIDE_SEARCH: &str =
+    r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
@@ -75,11 +71,26 @@ fn main() -> Result<()> {
         // try_patch_file("patches/halide_type_t_64.patch", intptr)
         //     .context("Failed to patch vendor")?;
 
+        use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr)?;
-        let patched = intptr_contents
-            .replace(HALIDE_PATCH_1, "")
-            .replace(HALIDE_PATCH_2, "");
-        std::fs::write(intptr, patched)?;
+        let patched = intptr_contents.lines().collect::<Vec<_>>();
+        if let Some((idx, _)) = patched
+            .iter()
+            .find_position(|line| line.contains(HALIDE_SEARCH))
+        {
+            // remove the last line and the next 3 lines
+            // patched.remove(idx - 1);
+            // patched.remove(idx);
+            // patched.remove(idx);
+            // patched.remove(idx);
+            let patched = patched
+                .into_iter()
+                .enumerate()
+                .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
+                .map(|(_, c)| c)
+                .collect::<Vec<_>>();
+            std::fs::write(intptr, patched.join("\n"))?;
+        }
     }
 
     let install_dir = out_dir.join("mnn-install");
@@ -457,12 +468,3 @@ impl CxxOption {
         }
     }
 }
-
-// mod cc_build {
-//     use super::*;
-//     pub fn build(source: impl AsRef<Path>) -> Result<PathBuf> {
-//         let mut builder = cc::Build::new();
-//         builder.std("c++11").cpp(true);
-//         todo!()
-//     }
-// }

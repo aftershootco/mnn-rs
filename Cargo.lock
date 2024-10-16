@@ -560,6 +560,7 @@ dependencies = [
  "diffy",
  "dunce",
  "fs_extra",
+ "itertools",
  "libc",
  "tap",
 ]
