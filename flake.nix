@@ -68,11 +68,7 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
 
-        mnnFilters = path: type: (craneLib.filterCargoSources path type) || (lib.hasSuffix ".patch" path || lib.hasSuffix ".mnn" path || lib.hasSuffix ".h" path || lib.hasSuffix ".cpp" path || lib.hasSuffix ".svg" path);
-        src = lib.cleanSourceWith {
-          filter = mnnFilters;
-          src = ./.;
-        };
+        src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
         MNN_SRC = mnn-src;
         commonArgs =
           {

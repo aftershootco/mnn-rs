@@ -169,6 +169,10 @@ impl Interpreter {
         unsafe { mnn_sys::Interpreter_resizeSession(self.inner, session.inner) }
     }
 
+    pub fn resize_session_reallocate(&self, session: &mut crate::Session) {
+        unsafe { mnn_sys::Interpreter_resizeSessionWithFlag(self.inner, session.inner, 1i32) }
+    }
+
     pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
@@ -420,12 +424,74 @@ impl Interpreter {
         Ok(())
     }
 
-    // /// Wait for all output tensors to be ready after computation
-    // pub fn wait(&self, session: &crate::session::Session) {
-    //     self.outputs(session).iter().for_each(|tinfo| {
-    //         tinfo.raw_tensor().wait_read(true);
-    //     });
-    // }
+    /// Wait for all output tensors to be ready after computation
+    pub fn wait(&self, session: &crate::session::Session) {
+        self.outputs(session).iter().for_each(|tinfo| {
+            tinfo
+                .raw_tensor()
+                .wait(mnn_sys::MapType::MAP_TENSOR_READ, true);
+        });
+    }
+
+    pub fn memory(&self, session: &crate::session::Session) -> Result<f32> {
+        let mut memory = 0f32;
+        let memory_ptr = &mut memory as *mut f32;
+        let ret = unsafe {
+            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 0, memory_ptr.cast())
+        };
+        ensure!(
+            ret == 1,
+            ErrorKind::InterpreterError;
+            "Failed to get memory usage"
+        );
+        Ok(memory)
+    }
+
+    pub fn flops(&self, session: &crate::Session) -> Result<f32> {
+        let mut flop = 0.0f32;
+        let flop_ptr = &mut flop as *mut f32;
+        let ret = unsafe {
+            mnn_sys::Interpreter_getSessionInfo(
+                self.inner,
+                session.inner,
+                1,
+                flop_ptr.cast::<libc::c_void>(),
+            )
+        };
+        ensure!(
+            ret == 1,
+            ErrorKind::InterpreterError;
+            "Failed to get flops"
+        );
+        Ok(flop)
+    }
+
+    pub fn resize_status(&self, session: &crate::Session) -> Result<ResizeStatus> {
+        let mut resize_status = 0i32;
+        let ptr = &mut resize_status as *mut i32;
+        let ret = unsafe {
+            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 2, ptr.cast())
+        };
+        ensure!(
+        ret == 1,
+            ErrorKind::InterpreterError;
+            "Failed to get resize status"
+        );
+        match resize_status {
+            0 => Ok(ResizeStatus::None),
+            1 => Ok(ResizeStatus::NeedMalloc),
+            2 => Ok(ResizeStatus::NeedResize),
+            _ => Err(error!(ErrorKind::InterpreterError)),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(C)]
+pub enum ResizeStatus {
+    None = 0,
+    NeedMalloc = 1,
+    NeedResize = 2,
 }
 
 #[repr(transparent)]
@@ -436,11 +502,11 @@ pub struct TensorInfo<'t, 'tl> {
 
 impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // let tensor = self.raw_tensor();
-        // let shape = tensor.shape().clone();
+        let tensor = self.raw_tensor();
+        let shape = tensor.shape().clone();
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
-            // .field("tensor", &shape)
+            .field("tensor", &shape)
             .finish()
     }
 }

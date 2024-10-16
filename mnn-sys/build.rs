@@ -3,7 +3,6 @@ use anyhow::*;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    fs::Permissions,
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -26,6 +25,13 @@ static EMSCRIPTEN_CACHE: LazyLock<String> = LazyLock::new(|| {
         .to_string();
     emscripten_cache
 });
+
+const HALIDE_PATCH_1: &str = r#"#if __cplusplus >= 201103L"#;
+const HALIDE_PATCH_2: &str = r#"
+#else
+    HALIDE_ATTRIBUTE_ALIGN(1) uint8_t code; // halide_type_code_t
+#endif
+"#;
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
@@ -65,9 +71,15 @@ fn main() -> Result<()> {
         .context("Failed to copy vendor")?;
         let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
-        std::fs::set_permissions(&intptr, Permissions::from_mode(0o644))?;
-        try_patch_file("patches/halide_type_t_64.patch", intptr)
-            .context("Failed to patch vendor")?;
+        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
+        // try_patch_file("patches/halide_type_t_64.patch", intptr)
+        //     .context("Failed to patch vendor")?;
+
+        let intptr_contents = std::fs::read_to_string(&intptr)?;
+        let patched = intptr_contents
+            .replace(HALIDE_PATCH_1, "")
+            .replace(HALIDE_PATCH_2, "");
+        std::fs::write(intptr, patched)?;
     }
 
     let install_dir = out_dir.join("mnn-install");
@@ -258,6 +270,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_COREML", CxxOption::COREML.cmake_value());
             config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
             config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
+            config.define("CMAKE_CXX_FLAGS", "-O0");
             // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
@@ -444,3 +457,12 @@ impl CxxOption {
         }
     }
 }
+
+// mod cc_build {
+//     use super::*;
+//     pub fn build(source: impl AsRef<Path>) -> Result<PathBuf> {
+//         let mut builder = cc::Build::new();
+//         builder.std("c++11").cpp(true);
+//         todo!()
+//     }
+// }

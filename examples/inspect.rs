@@ -54,6 +54,13 @@ pub fn main() -> anyhow::Result<()> {
     interpreter.update_cache_file(&mut session)?;
 
     let mut current = 0;
+    println!("--------------------------------Info--------------------------------");
+    let mem = interpreter.memory(&session)?;
+    let flops = interpreter.flops(&session)?;
+    println!("Memory: {:?}MiB", mem);
+    println!("Flops : {:?}M", flops);
+    println!("ResizeStatus : {:?}", interpreter.resize_status(&session)?);
+
     time!(loop {
         println!("--------------------------------Inputs--------------------------------");
         interpreter.inputs(&session).iter().for_each(|x| {
@@ -75,6 +82,7 @@ pub fn main() -> anyhow::Result<()> {
                 },
             };
         });
+
         println!("Running session");
         interpreter.run_session(&session)?;
         println!("--------------------------------Outputs--------------------------------");

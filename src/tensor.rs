@@ -537,25 +537,10 @@ pub trait AsTensorShape {
 impl<T: AsRef<[i32]>> AsTensorShape for T {
     fn as_tensor_shape(&self) -> TensorShape {
         let this = self.as_ref();
-        let len = this.len();
-        if len > 4 {
-            TensorShape {
-                shape: this[..4].try_into().expect("Impossible"),
-                size: 4,
-            }
-        } else {
-            TensorShape {
-                shape: this
-                    .iter()
-                    .chain(std::iter::repeat(&1))
-                    .take(4)
-                    .copied()
-                    .collect::<Vec<i32>>()
-                    .try_into()
-                    .expect("Impossible"),
-                size: len,
-            }
-        }
+        let size = std::cmp::min(this.len(), 4);
+        let mut shape = [1; 4];
+        shape[..size].copy_from_slice(&this[..size]);
+        TensorShape { shape, size }
     }
 }
 
@@ -684,23 +669,31 @@ impl<T: super::TensorType> super::TensorType for Dyn<T> {
     }
 }
 
+/// A raw tensor type that doesn't have any guarantees
+/// and will be unconditionally dropped
 #[repr(transparent)]
 pub struct RawTensor<'r> {
     pub(crate) inner: *mut mnn_sys::Tensor,
     pub(crate) __marker: PhantomData<&'r ()>,
 }
 
-impl<'r> core::ops::Drop for RawTensor<'r> {
-    fn drop(&mut self) {
-        unsafe {
-            mnn_sys::Tensor_destroy(self.inner);
-        }
-    }
-}
+// impl<'r> core::ops::Drop for RawTensor<'r> {
+//     fn drop(&mut self) {
+//         unsafe {
+//             mnn_sys::Tensor_destroy(self.inner);
+//         }
+//     }
+// }
 
 impl<'r> RawTensor<'r> {
     pub fn shape(&self) -> TensorShape {
         unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
+    }
+
+    pub fn destroy(self) {
+        unsafe {
+            mnn_sys::Tensor_destroy(self.inner);
+        }
     }
 
     pub fn dimensions(&self) -> usize {
@@ -735,8 +728,7 @@ impl<'r> RawTensor<'r> {
     where
         T::H: HalideType,
     {
-        let this = core::mem::ManuallyDrop::new(self);
-        super::Tensor::from_ptr(this.inner)
+        super::Tensor::from_ptr(self.inner)
     }
 
     pub(crate) fn from_ptr(inner: *mut mnn_sys::Tensor) -> Self {

@@ -42,3 +42,9 @@ default = ["mnn-threadpool"]
 anyhow = "1.0"
 bytemuck = "1.17"
 clap = { version = "4.5", features = ["derive"] }
+divan = "0.1.14"
+miette = { version = "7.2.0", features = ["fancy"] }
+
+[[bench]]
+name = "mnn-bench"
+harness = false

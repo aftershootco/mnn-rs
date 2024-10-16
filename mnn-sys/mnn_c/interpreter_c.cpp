@@ -275,8 +275,9 @@ int Interpreter_getSessionInfo(Interpreter *interpreter, const Session *session,
                                int code, void *ptr) {
   auto mnn_interpreter = reinterpret_cast<MNN::Interpreter *>(interpreter);
   auto mnn_session = reinterpret_cast<const MNN::Session *>(session);
-  return mnn_interpreter->getSessionInfo(
+  auto ret = mnn_interpreter->getSessionInfo(
       mnn_session, static_cast<MNN::Interpreter::SessionInfoCode>(code), ptr);
+  return static_cast<int>(ret);
 }
 TensorInfoArray const *
 Interpreter_getSessionOutputAll(const Interpreter *interpreter,

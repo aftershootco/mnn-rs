@@ -1,0 +1,33 @@
+use divan::*;
+#[divan::bench_group(sample_size = 5, sample_count = 5)]
+mod mnn_realesr_bench_with_ones {
+    use divan::*;
+    use mnn::*;
+    #[divan::bench]
+    pub fn mnn_benchmark_cpu(bencher: Bencher) {
+        let mut net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
+        let mut config = ScheduleConfig::new();
+        config.set_type(ForwardType::CPU);
+        let session = net.create_session(config).unwrap();
+        bencher.bench_local(|| {
+            let mut input = net.input(&session, "data").unwrap();
+            input.fill(1f32);
+            net.run_session(&session).unwrap();
+        });
+    }
+
+    #[cfg(feature = "opencl")]
+    #[divan::bench]
+    pub fn mnn_benchmark_opencl(bencher: Bencher) {
+        let mut net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
+        let mut config = ScheduleConfig::new();
+        config.set_type(ForwardType::OpenCL);
+        let session = net.create_session(config).unwrap();
+        bencher.bench_local(|| {
+            let mut input = net.input(&session, "data").unwrap();
+            input.fill(1f32);
+            net.run_session(&session).unwrap();
+            net.wait(&session);
+        });
+    }
+}
