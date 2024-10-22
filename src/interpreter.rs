@@ -470,7 +470,7 @@ impl Interpreter {
         let mut resize_status = 0i32;
         let ptr = &mut resize_status as *mut i32;
         let ret = unsafe {
-            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 2, ptr.cast())
+            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 3, ptr.cast())
         };
         ensure!(
         ret == 1,
