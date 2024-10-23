@@ -256,7 +256,10 @@ impl Interpreter {
     }
 
     /// Release the model file buffer
-    pub fn release_model(&mut self) {
+    /// # Safety
+    /// This function is marked unsafe since it's not clear what the safety guarantees are right
+    /// now. With a simple test it caused a segfault so it's marked unsafe
+    pub unsafe fn release_model(&mut self) {
         unsafe { mnn_sys::Interpreter_releaseModel(self.inner) }
     }
 
