@@ -3,6 +3,7 @@ use crate::prelude::*;
 /// A session is a context in which a computation graph is executed.
 ///
 /// Inference unit. multiple sessions could share one net/interpreter.
+#[derive(Debug)]
 pub struct Session {
     /// Pointer to the underlying MNN session.
     pub(crate) inner: *mut mnn_sys::Session,
@@ -13,6 +14,7 @@ pub struct Session {
 }
 
 /// Enum representing the internal configurations of a session.
+#[derive(Debug)]
 pub enum SessionInternals {
     /// Single session configuration.
     Single(crate::ScheduleConfig),

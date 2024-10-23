@@ -123,6 +123,7 @@ impl SessionMode {
 
 /// net data holder. multiple sessions could share same net.
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct Interpreter {
     pub(crate) inner: *mut mnn_sys::Interpreter,
     pub(crate) __marker: PhantomData<()>,
@@ -252,6 +253,11 @@ impl Interpreter {
                 __marker: PhantomData,
             })
         })
+    }
+
+    /// Release the model file buffer
+    pub fn release_model(&mut self) {
+        unsafe { mnn_sys::Interpreter_releaseModel(self.inner) }
     }
 
     /// Create multi-path session with schedule configs and user-specified runtime. created session will be managed in net/interpreter.

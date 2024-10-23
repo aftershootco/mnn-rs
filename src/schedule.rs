@@ -161,7 +161,7 @@ impl core::str::FromStr for ForwardType {
 ///
 /// **Warning:** The `Drop` implementation for `ScheduleConfig` ensures that the underlying `MNNScheduleConfig`
 /// is properly destroyed when the struct goes out of scope. Users should not manually free the `inner` pointer.
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct ScheduleConfig {
     pub(crate) inner: *mut MNNScheduleConfig,
     pub(crate) backend_config: Option<BackendConfig>,
@@ -286,6 +286,7 @@ impl ScheduleConfig {
     }
 }
 
+#[derive(Debug)]
 pub struct ScheduleConfigs {
     pub(crate) inner: Vec<*const MNNScheduleConfig>,
     pub(crate) backend_configs: Vec<Option<BackendConfig>>,

@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/2.9.5";
+      url = "github:alibaba/MNN/2.9.6";
       flake = false;
     };
   };
@@ -47,8 +47,12 @@
             rust-overlay.overlays.default
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
+                version = "2.9.6";
+                src = mnn-src;
                 buildConverter = true;
                 enableVulkan = false;
+                enableMetal = true;
+                enableOpencl = true;
               };
             })
           ];
@@ -57,7 +61,7 @@
 
         stableToolchain = pkgs.rust-bin.stable.latest.default;
         nightlyToolchain = pkgs.rust-bin.nightly.latest.default.override {
-          extensions = ["rust-src"];
+          extensions = ["rust-src" "rust-analyzer"];
         };
         stableToolchainWithLLvmTools = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src" "llvm-tools"];
@@ -136,13 +140,33 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
-          mnn-asan = (craneLib.overrideToolchain nightlyToolchain).cargoNextest (commonArgs
-            // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
-              RUSTFLAGS = "-Zsanitizer=address -Zbuild-std";
-            });
+          mnn-asan = let
+            rustPlatform = pkgs.makeRustPlatform {
+              cargo = nightlyToolchain;
+              rustc = nightlyToolchain;
+            };
+          in
+            rustPlatform.buildRustPackage (
+              commonArgs
+              // {
+                inherit src;
+                name = "mnn-leaks";
+                cargoLock = {
+                  lockFile = ./Cargo.lock;
+                  outputHashes = {
+                    "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
+                  };
+                };
+
+                buildPhase = ''
+                  cargo test --target aarch64-apple-darwin
+                '';
+                RUSTFLAGS = "-Zsanitizer=address";
+                ASAN_OPTIONS = "detect_leaks=1";
+                # MNN_COMPILE = "NO";
+                # MNN_LIB_DIR = "${pkgs.mnn}/lib";
+              }
+            );
         };
         packages =
           rec {
@@ -167,18 +191,22 @@
             packages = with pkgs;
               [
                 mnn
-                stableToolchainWithRustAnalyzer
+                nightlyToolchain
+                zstd
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
                 cargo-semver-checks
                 rust-bindgen
+                llvm
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                 darwin.apple_sdk.frameworks.OpenCL
                 darwin.apple_sdk.frameworks.CoreML
                 darwin.apple_sdk.frameworks.Metal
               ]);
+            # RUSTFLAGS = "-Zsanitizer=address";
+            # ASAN_OPTIONS = "detect_leaks=1";
           };
         };
       }

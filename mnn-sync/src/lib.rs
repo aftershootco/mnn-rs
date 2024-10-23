@@ -48,6 +48,7 @@ pub enum CallbackEnum {
 // type CallbackSender = (CallbackEnum, oneshot::Sender<Result<()>>);
 type CallbackSender = CallbackEnum;
 
+#[derive(Debug)]
 pub struct SessionHandle {
     #[allow(dead_code)]
     pub(crate) handle: std::thread::JoinHandle<Result<()>>,
@@ -65,6 +66,7 @@ impl Drop for SessionHandle {
 }
 
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct SessionRunner {
     pub interpreter: Interpreter,
     pub session: Session,

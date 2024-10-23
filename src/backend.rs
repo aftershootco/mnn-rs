@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use mnn_sys::*;
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct BackendConfig {
     pub(crate) inner: *mut MNNBackendConfig,

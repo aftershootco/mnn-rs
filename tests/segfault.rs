@@ -34,9 +34,9 @@ pub fn test_resizing() {
     let mut net = Interpreter::from_bytes(&model).unwrap();
     let config = ScheduleConfig::default();
     let mut session = net.create_session(config).unwrap();
-    let inputs = net.inputs(&session);
 
     loop {
+        let inputs = net.inputs(&session);
         for tensor_info in inputs.iter() {
             let mut tensor = unsafe { tensor_info.tensor_unresized::<f32>() }.unwrap();
             let mut shape = tensor.shape().as_ref().to_vec();

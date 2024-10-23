@@ -26,6 +26,17 @@ static EMSCRIPTEN_CACHE: LazyLock<String> = LazyLock::new(|| {
     emscripten_cache
 });
 
+static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
+    std::env::var("MNN_COMPILE")
+        .ok()
+        .and_then(|v| match v.as_str() {
+            "1" | "true" | "yes" => Some(true),
+            "0" | "false" | "no" => Some(false),
+            _ => None,
+        })
+        .unwrap_or(true)
+});
+
 const HALIDE_SEARCH: &str =
     r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
 
@@ -93,8 +104,20 @@ fn main() -> Result<()> {
         }
     }
 
-    let install_dir = out_dir.join("mnn-install");
-    build_cmake(&vendor, &install_dir)?;
+    if *MNN_COMPILE {
+        let install_dir = out_dir.join("mnn-install");
+        build_cmake(&vendor, &install_dir)?;
+        println!(
+            "cargo:rustc-link-search=native={}",
+            install_dir.join("lib").display()
+        );
+    } else {
+        if let Some(lib_dir) = std::env::var("MNN_LIB_DIR").ok() {
+            println!("cargo:rustc-link-search=native={}", lib_dir);
+        } else {
+            panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
+        }
+    }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
@@ -133,10 +156,6 @@ fn main() -> Result<()> {
             wasm32_emscripten_libs.display()
         );
     }
-    println!(
-        "cargo:rustc-link-search=native={}",
-        install_dir.join("lib").display()
-    );
     println!("cargo:rustc-link-lib=static=MNN");
     Ok(())
 }
