@@ -122,6 +122,7 @@ fn main() -> Result<()> {
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
     mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
+    mnn_cpp_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_cpp bindings")?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
     if *TARGET_OS == "macos" {
         #[cfg(feature = "metal")]
@@ -222,6 +223,36 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         // })
         .generate()?;
     bindings.write_to_file(out.as_ref().join("mnn_c.rs"))?;
+    Ok(())
+}
+
+pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
+    let vendor = vendor.as_ref();
+    let bindings = bindgen::Builder::default()
+        .clang_args(["-x", "c++"])
+        .clang_args(["-std=c++11"])
+        .clang_arg(CxxOption::VULKAN.cxx())
+        .clang_arg(CxxOption::METAL.cxx())
+        .clang_arg(CxxOption::COREML.cxx())
+        .clang_arg(CxxOption::OPENCL.cxx())
+        .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
+        .generate_cstr(true)
+        .generate_inline_functions(true)
+        .size_t_is_usize(true)
+        .emit_diagnostics()
+        .ctypes_prefix("core::ffi")
+        .header(
+            vendor
+                .join("include")
+                .join("MNN")
+                .join("Interpreter.hpp")
+                .to_string_lossy(),
+        )
+        .allowlist_item(".*SessionInfoCode.*");
+    // let cmd = bindings.command_line_flags().join(" ");
+    // println!("cargo:warn=bindgen: {}", cmd);
+    let bindings = bindings.generate()?;
+    bindings.write_to_file(out.as_ref().join("mnn_cpp.rs"))?;
     Ok(())
 }
 

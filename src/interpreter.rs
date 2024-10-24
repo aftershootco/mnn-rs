@@ -526,7 +526,12 @@ impl Interpreter {
         let mut memory = 0f32;
         let memory_ptr = &mut memory as *mut f32;
         let ret = unsafe {
-            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 0, memory_ptr.cast())
+            mnn_sys::Interpreter_getSessionInfo(
+                self.inner,
+                session.inner,
+                mnn_sys::cpp::MNN_Interpreter_SessionInfoCode_MEMORY as _,
+                memory_ptr.cast(),
+            )
         };
         ensure!(
             ret == 1,
@@ -544,7 +549,7 @@ impl Interpreter {
             mnn_sys::Interpreter_getSessionInfo(
                 self.inner,
                 session.inner,
-                1,
+                mnn_sys::cpp::MNN_Interpreter_SessionInfoCode_FLOPS as _,
                 flop_ptr.cast::<libc::c_void>(),
             )
         };
@@ -560,7 +565,12 @@ impl Interpreter {
         let mut resize_status = 0i32;
         let ptr = &mut resize_status as *mut i32;
         let ret = unsafe {
-            mnn_sys::Interpreter_getSessionInfo(self.inner, session.inner, 3, ptr.cast())
+            mnn_sys::Interpreter_getSessionInfo(
+                self.inner,
+                session.inner,
+                mnn_sys::cpp::MNN_Interpreter_SessionInfoCode_RESIZE_STATUS as _,
+                ptr.cast(),
+            )
         };
         ensure!(
         ret == 1,

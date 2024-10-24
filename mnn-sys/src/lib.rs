@@ -1,5 +1,11 @@
 use std::ffi::CStr;
 
+pub mod cpp {
+    #![allow(non_upper_case_globals)]
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+    include!(concat!(env!("OUT_DIR"), "/mnn_cpp.rs"));
+}
 mod sys {
     #![allow(non_upper_case_globals)]
     #![allow(non_camel_case_types)]
