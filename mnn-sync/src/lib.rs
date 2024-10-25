@@ -375,6 +375,7 @@ impl SessionHandle {
         &self,
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
+        self.ensure_running()?;
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
@@ -414,6 +415,7 @@ impl SessionHandle {
     }
 
     pub fn load(&self) -> Result<()> {
+        self.ensure_running()?;
         let (tx, rx) = oneshot::channel();
         self.sender
             .send(CallbackEnum::Load(tx))
@@ -424,6 +426,7 @@ impl SessionHandle {
     }
 
     pub async fn load_async(&self) -> Result<()> {
+        self.ensure_running()?;
         let (tx, rx) = oneshot::channel();
         self.sender
             .send(CallbackEnum::Load(tx))

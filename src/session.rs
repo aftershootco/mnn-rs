@@ -8,6 +8,11 @@ pub struct Session {
     /// Pointer to the underlying MNN session.
     pub(crate) inner: *mut mnn_sys::Session,
     /// Pointer to the underlying MNN interpreter
+    /// # Safety Note
+    /// Since the interpreter is actually not owned by session but it is a shared resource we can
+    /// reasonably assume that the interpreter will outlive the session. (This is not a compile
+    /// time gurantee yet)
+    /// TODO: Add a proper lifetime bound to ensure the interpreter outlives the session.
     pub(crate) net: *mut mnn_sys::Interpreter,
     /// Internal session configurations.
     pub(crate) __session_internals: crate::SessionInternals,
