@@ -605,7 +605,7 @@ pub struct TensorInfo<'t, 'tl> {
 impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let tensor = self.raw_tensor();
-        let shape = tensor.shape().clone();
+        let shape = tensor.shape();
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
             .field("tensor", &shape)

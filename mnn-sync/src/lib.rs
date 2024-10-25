@@ -139,7 +139,7 @@ impl SessionRunnerState {
         }
     }
 
-    pub fn load(&mut self) -> Result<()> {
+    pub fn load(&mut self, config: &ScheduleConfig) -> Result<()> {
         #[cfg(feature = "tracing")]
         tracing::info!("Loading session");
         match core::mem::take(self) {
@@ -148,7 +148,7 @@ impl SessionRunnerState {
                 Ok(())
             }
             Self::Unloaded(net) => {
-                let mut sr = SessionRunner::create(net, ScheduleConfig::new())?;
+                let sr = SessionRunner::create(net, config.clone())?;
                 *self = Self::Loaded(sr);
                 Ok(())
             }
@@ -156,11 +156,11 @@ impl SessionRunnerState {
         }
     }
 
-    pub fn sr(&mut self) -> Result<&mut SessionRunner> {
+    pub fn sr(&mut self, config: &ScheduleConfig) -> Result<&mut SessionRunner> {
         match self {
             Self::Loaded(sr) => Ok(sr),
-            Self::Unloaded(net) => {
-                self.load()?;
+            Self::Unloaded(_) => {
+                self.load(config)?;
                 Ok(self.loaded_mut().ok_or_else(|| {
                     Report::new(ErrorKind::SyncError).attach_printable("Failed to load session")
                 })?)
@@ -179,11 +179,11 @@ impl SessionRunnerState {
 
 impl SessionState {
     pub fn sr(&mut self) -> Result<&mut SessionRunner> {
-        self.sr.sr()
+        self.sr.sr(&self.config)
     }
 
     pub fn load(&mut self) -> Result<()> {
-        self.sr.load()
+        self.sr.load(&self.config)
     }
 
     pub fn unload(&mut self) -> Result<()> {
@@ -284,7 +284,7 @@ impl SessionRunner {
 }
 
 impl SessionHandle {
-    pub fn new(mut interpreter: Interpreter, config: ScheduleConfig) -> Result<Self> {
+    pub fn new(interpreter: Interpreter, config: ScheduleConfig) -> Result<Self> {
         let (sender, receiver) = flume::unbounded::<CallbackSender>();
         let builder = std::thread::Builder::new().name("mnn-session-thread".to_string());
         let spawner = move || -> Result<()> {
@@ -365,10 +365,9 @@ impl SessionHandle {
         self.sender
             .send(CallbackEnum::Callback(Box::new(wrapped_f)))
             .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
-        Ok(rx
-            .recv()
+        rx.recv()
             .change_context(ErrorKind::SyncError)
-            .attach_printable("Internal Error: Unable to recv message")??)
+            .attach_printable("Internal Error: Unable to recv message")?
     }
 
     pub async fn run_async<R: Send + Sync + 'static>(

@@ -3,6 +3,8 @@ use std::{ffi::CString, mem::ManuallyDrop};
 
 use crate::{prelude::*, BackendConfig};
 
+/// Backend used for running the model
+///
 /// The `ForwardType` enum is used to specify the backend that will be used for forward computation
 /// in the MNN framework. Each variant corresponds to a different backend, which may be enabled
 /// or disabled based on the features enabled in the build configuration.
