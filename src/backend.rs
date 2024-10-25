@@ -10,6 +10,18 @@ pub struct BackendConfig {
     __marker: core::marker::PhantomData<()>,
 }
 
+impl Clone for BackendConfig {
+    fn clone(&self) -> Self {
+        unsafe {
+            let inner = mnn_sys::mnnbc_clone(self.inner);
+            Self {
+                inner,
+                __marker: core::marker::PhantomData,
+            }
+        }
+    }
+}
+
 impl Drop for BackendConfig {
     fn drop(&mut self) {
         unsafe {

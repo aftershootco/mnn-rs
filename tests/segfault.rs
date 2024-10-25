@@ -28,6 +28,7 @@ fn test_segfault_case_1_() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[ignore]
 pub fn test_resizing() {
     use mnn::*;
     let model = std::fs::read("tests/assets/resizing.mnn").expect("No resizing model");

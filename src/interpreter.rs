@@ -249,6 +249,7 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
+                net: self.inner,
                 __session_internals: crate::SessionInternals::Single(schedule),
                 __marker: PhantomData,
             })
@@ -279,6 +280,7 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
+                net: self.inner,
                 __session_internals: crate::SessionInternals::MultiSession(schedules),
                 __marker: PhantomData,
             })

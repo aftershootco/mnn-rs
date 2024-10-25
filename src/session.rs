@@ -7,6 +7,8 @@ use crate::prelude::*;
 pub struct Session {
     /// Pointer to the underlying MNN session.
     pub(crate) inner: *mut mnn_sys::Session,
+    /// Pointer to the underlying MNN interpreter
+    pub(crate) net: *mut mnn_sys::Interpreter,
     /// Internal session configurations.
     pub(crate) __session_internals: crate::SessionInternals,
     /// Marker to ensure the struct is not Send or Sync.
@@ -33,11 +35,18 @@ impl Session {
     // pub fn as_ptr_mut(&self) -> *mut mnn_sys::Session {
     //     self.session
     // }
+    //
+    pub fn destroy(&mut self) {
+        unsafe {
+            mnn_sys::Interpreter_releaseSession(self.net, self.inner);
+        }
+        // unsafe { mnn_sys::Session_destroy(self.inner) }
+    }
 }
 
 impl Drop for Session {
     /// Custom drop implementation to ensure the underlying MNN session is properly destroyed.
     fn drop(&mut self) {
-        unsafe { mnn_sys::Session_destroy(self.inner) }
+        self.destroy();
     }
 }

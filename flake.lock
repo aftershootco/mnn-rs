@@ -16,6 +16,22 @@
         "type": "github"
       }
     },
+    "cargo-instruments-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1718898550,
+        "narHash": "sha256-dtCjZxYvCEmACeUBHJ3g8pJmKXI6YnKvbw6GxiPIPWE=",
+        "owner": "cmyr",
+        "repo": "cargo-instruments",
+        "rev": "b0d79adfe3ce3785d345103e9275e8959b693fa2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cmyr",
+        "repo": "cargo-instruments",
+        "type": "github"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1725409566,
@@ -162,13 +178,15 @@
     "root": {
       "inputs": {
         "advisory-db": "advisory-db",
+        "cargo-instruments-src": "cargo-instruments-src",
         "crane": "crane",
         "flake-utils": "flake-utils",
         "mnn-overlay": "mnn-overlay",
         "mnn-src": "mnn-src",
         "nix-github-actions": "nix-github-actions",
         "nixpkgs": "nixpkgs",
-        "rust-overlay": "rust-overlay"
+        "rust-overlay": "rust-overlay",
+        "sg": "sg"
       }
     },
     "rust-overlay": {
@@ -188,6 +206,21 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "sg": {
+      "locked": {
+        "lastModified": 1729774284,
+        "narHash": "sha256-vAwaOrWK+fGuVygG+F6d+hKAL37l/SpYyBAyREfCgWo=",
+        "owner": "uttarayan21",
+        "repo": "ast-grep-nix",
+        "rev": "a5c5388566ab08ed63201a2dbd0ea1867648fda2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "uttarayan21",
+        "repo": "ast-grep-nix",
         "type": "github"
       }
     },

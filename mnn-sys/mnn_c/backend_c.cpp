@@ -5,6 +5,11 @@ MNNBackendConfig *mnnbc_create() {
   return reinterpret_cast<MNNBackendConfig *>(new MNN::BackendConfig());
 }
 
+MNNBackendConfig *mnnbc_clone(const MNNBackendConfig *config) {
+  return reinterpret_cast<MNNBackendConfig *>(new MNN::BackendConfig(
+      *reinterpret_cast<const MNN::BackendConfig *>(config)));
+}
+
 void mnnbc_destroy(MNNBackendConfig *config) {
   delete reinterpret_cast<MNN::BackendConfig *>(config);
 }
@@ -18,7 +23,7 @@ void mnnbc_set_power_mode(MNNBackendConfig *config, PowerMode power_mode) {
       static_cast<MNN::BackendConfig::PowerMode>(power_mode);
 }
 void mnnbc_set_precision_mode(MNNBackendConfig *config,
-                        PrecisionMode precision_mode) {
+                              PrecisionMode precision_mode) {
   reinterpret_cast<MNN::BackendConfig *>(config)->precision =
       static_cast<MNN::BackendConfig::PrecisionMode>(precision_mode);
 }

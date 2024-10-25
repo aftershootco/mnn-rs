@@ -168,6 +168,19 @@ pub struct ScheduleConfig {
     pub(crate) __marker: core::marker::PhantomData<()>,
 }
 
+impl Clone for ScheduleConfig {
+    fn clone(&self) -> Self {
+        unsafe {
+            let inner = mnnsc_clone(self.inner);
+            Self {
+                inner,
+                backend_config: self.backend_config.clone(),
+                __marker: core::marker::PhantomData,
+            }
+        }
+    }
+}
+
 impl Drop for ScheduleConfig {
     fn drop(&mut self) {
         unsafe {
