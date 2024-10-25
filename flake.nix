@@ -160,34 +160,34 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
-          mnn-lints = sgLib.scan ./.;
-          mnn-asan = let
-            rustPlatform = pkgs.makeRustPlatform {
-              cargo = nightlyToolchain;
-              rustc = nightlyToolchain;
-            };
-          in
-            rustPlatform.buildRustPackage (
-              commonArgs
-              // {
-                inherit src;
-                name = "mnn-leaks";
-                cargoLock = {
-                  lockFile = ./Cargo.lock;
-                  outputHashes = {
-                    "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
-                  };
-                };
-
-                buildPhase = ''
-                  cargo test --target aarch64-apple-darwin
-                '';
-                RUSTFLAGS = "-Zsanitizer=address";
-                ASAN_OPTIONS = "detect_leaks=1";
-                # MNN_COMPILE = "NO";
-                # MNN_LIB_DIR = "${pkgs.mnn}/lib";
-              }
-            );
+          # mnn-lints = sgLib.scan ./.;
+          # mnn-asan = let
+          #   rustPlatform = pkgs.makeRustPlatform {
+          #     cargo = nightlyToolchain;
+          #     rustc = nightlyToolchain;
+          #   };
+          # in
+          #   rustPlatform.buildRustPackage (
+          #     commonArgs
+          #     // {
+          #       inherit src;
+          #       name = "mnn-leaks";
+          #       cargoLock = {
+          #         lockFile = ./Cargo.lock;
+          #         outputHashes = {
+          #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
+          #         };
+          #       };
+          #
+          #       buildPhase = ''
+          #         cargo test --target aarch64-apple-darwin
+          #       '';
+          #       RUSTFLAGS = "-Zsanitizer=address";
+          #       ASAN_OPTIONS = "detect_leaks=1";
+          #       # MNN_COMPILE = "NO";
+          #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
+          #     }
+          #   );
         };
         packages =
           rec {

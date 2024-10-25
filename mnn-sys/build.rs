@@ -111,12 +111,10 @@ fn main() -> Result<()> {
             "cargo:rustc-link-search=native={}",
             install_dir.join("lib").display()
         );
+    } else if let core::result::Result::Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
+        println!("cargo:rustc-link-search=native={}", lib_dir);
     } else {
-        if let Some(lib_dir) = std::env::var("MNN_LIB_DIR").ok() {
-            println!("cargo:rustc-link-search=native={}", lib_dir);
-        } else {
-            panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
-        }
+        panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)

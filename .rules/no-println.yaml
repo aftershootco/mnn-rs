@@ -1,0 +1,11 @@
+id: no_println
+message: Do not use println! use `tracing::info`/`tracing::trace`/`tracing::debug` instead
+severity: warning
+language: Rust
+rule:
+  all:
+    - kind: macro_invocation
+    - pattern: println!($$$ITEMS)
+fix: tracing::info!($$$ITEMS)
+ignores:
+  - ./*build.rs
