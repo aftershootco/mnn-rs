@@ -6,3 +6,4 @@ target
 lama
 *.json
 *.cache
+result
