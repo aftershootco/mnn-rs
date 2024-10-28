@@ -25,6 +25,7 @@ impl AsRef<[u8]> for Model {
     }
 }
 
+#[allow(dead_code)]
 pub fn test_basic(backend: ForwardType) -> Result<()> {
     let mut net = mnn::Interpreter::from_file("tests/assets/realesr.mnn")?;
     let mut config = ScheduleConfig::new();
@@ -46,6 +47,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn test_multipath_session(backend: ForwardType, backend2: ForwardType) -> Result<()> {
     use mnn::BackendConfig;
 

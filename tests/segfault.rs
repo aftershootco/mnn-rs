@@ -43,9 +43,9 @@ pub fn test_resizing() {
             let mut shape = tensor.shape().as_ref().to_vec();
             dbg!(&shape);
             shape.iter_mut().for_each(|v| {
-                // if *v == -1 {
-                // *v = 2048;
-                // }
+                if *v == -1 {
+                    *v = 3;
+                }
             });
             dbg!(&shape);
             net.resize_tensor(&mut tensor, &shape);

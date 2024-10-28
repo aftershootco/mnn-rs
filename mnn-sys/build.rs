@@ -90,10 +90,6 @@ fn main() -> Result<()> {
             .find_position(|line| line.contains(HALIDE_SEARCH))
         {
             // remove the last line and the next 3 lines
-            // patched.remove(idx - 1);
-            // patched.remove(idx);
-            // patched.remove(idx);
-            // patched.remove(idx);
             let patched = patched
                 .into_iter()
                 .enumerate()

@@ -130,9 +130,6 @@
               cargoDocExtraArgs = "-p mnn -p mnn-sys";
             });
           mnn-fmt = craneLib.cargoFmt {inherit src;};
-          mnn-toml-fmt = craneLib.taploFmt {
-            src = pkgs.lib.sources.sourceFilesBySuffices src [".toml"];
-          };
           # Audit dependencies
           mnn-audit = craneLib.cargoAudit {
             inherit src advisory-db;
@@ -234,7 +231,7 @@
     )
     // {
       githubActions = nix-github-actions.lib.mkGithubMatrix {
-        checks = nixpkgs.lib.getAttrs ["x86_64-linux" "x86_64-darwin"] self.checks;
+        checks = nixpkgs.lib.getAttrs ["x86_64-linux" "aarch64-darwin"] self.checks;
       };
     };
 }
