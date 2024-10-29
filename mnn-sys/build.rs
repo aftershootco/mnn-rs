@@ -224,7 +224,7 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
     let vendor = vendor.as_ref();
     let bindings = bindgen::Builder::default()
         .clang_args(["-x", "c++"])
-        .clang_args(["-std=c++11"])
+        .clang_args(["-std=c++14"])
         .clang_arg(CxxOption::VULKAN.cxx())
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
