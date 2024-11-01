@@ -103,6 +103,7 @@
             nativeBuildInputs = with pkgs; [
               cmake
               llvmPackages.libclang.lib
+              clang
             ];
             buildInputs = with pkgs;
               []
