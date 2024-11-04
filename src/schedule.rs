@@ -23,7 +23,7 @@ use crate::{prelude::*, BackendConfig};
 /// # Example
 ///
 /// ```rust
-/// use mnn_rs::schedule::ForwardType;
+/// use mnn::schedule::ForwardType;
 ///
 /// let forward_type = ForwardType::Auto;
 /// println!("Selected forward type: {:?}", forward_type);
@@ -129,7 +129,7 @@ impl core::str::FromStr for ForwardType {
 /// # Example
 ///
 /// ```rust
-/// use mnn_rs::schedule::{ScheduleConfig, ForwardType};
+/// use mnn::schedule::{ScheduleConfig, ForwardType};
 ///
 /// let mut config = ScheduleConfig::new();
 /// config.set_type(ForwardType::Auto);

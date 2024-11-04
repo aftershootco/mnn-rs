@@ -445,7 +445,6 @@ dependencies = [
  "dunce",
  "error-stack",
  "libc",
- "mnn-sync",
  "mnn-sys",
  "oneshot",
  "thiserror",
