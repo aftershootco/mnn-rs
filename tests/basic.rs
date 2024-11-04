@@ -3,7 +3,6 @@ use common::*;
 use mnn::ForwardType;
 
 #[test]
-#[ignore = "Doesn't work on ci"]
 fn test_basic_cpu() {
     test_basic(ForwardType::CPU).unwrap();
 }
