@@ -211,11 +211,11 @@
     },
     "sg": {
       "locked": {
-        "lastModified": 1729774284,
-        "narHash": "sha256-vAwaOrWK+fGuVygG+F6d+hKAL37l/SpYyBAyREfCgWo=",
+        "lastModified": 1730802378,
+        "narHash": "sha256-OBfJgpS40WYSrWO+ZMhlPWWdZtSVYZ1cFMzgLqPL0yU=",
         "owner": "uttarayan21",
         "repo": "ast-grep-nix",
-        "rev": "a5c5388566ab08ed63201a2dbd0ea1867648fda2",
+        "rev": "bdf50c0f65ce72fb70a120677f660dc54dcd26e1",
         "type": "github"
       },
       "original": {

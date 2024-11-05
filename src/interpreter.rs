@@ -378,13 +378,16 @@ impl Interpreter {
     /// # Safety
     /// Very **unsafe** since it doesn't check the type of the tensor
     /// as well as the shape of the tensor
+    ///
+    /// **Panics** if the name is not ascii
+    /// **Undefined Behavior** if the tensor is not of type `H`
     pub unsafe fn input_unchecked<'s, H: HalideType>(
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
     ) -> Tensor<RefMut<'s, Device<H>>> {
         let name = name.as_ref();
-        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
+        let c_name = std::ffi::CString::new(name).expect("Input tensor name is not ascii");
         let input =
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
         Tensor::from_ptr(input)
