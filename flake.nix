@@ -17,19 +17,12 @@
       url = "github:uttarayan21/mnn-nix-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    sg = {
-      url = "github:uttarayan21/ast-grep-nix";
-    };
     advisory-db = {
       url = "github:rustsec/advisory-db";
       flake = false;
     };
     mnn-src = {
       url = "github:alibaba/MNN/2.9.6";
-      flake = false;
-    };
-    cargo-instruments-src = {
-      url = "github:cmyr/cargo-instruments";
       flake = false;
     };
   };
@@ -44,7 +37,6 @@
     advisory-db,
     nix-github-actions,
     mnn-src,
-    sg,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (
@@ -67,8 +59,6 @@
         };
         inherit (pkgs) lib;
 
-        sgLib = sg.mkLib pkgs;
-
         stableToolchain = pkgs.rust-bin.stable.latest.default;
         nightlyToolchain = pkgs.rust-bin.nightly.latest.default.override {
           extensions = ["rust-src" "rust-analyzer"];
@@ -81,16 +71,6 @@
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
-
-        #         cargo-instruments =
-        #           pkgs.rustPlatform.buildRustPackage {
-        #                 src = ""
-        # # 'cargo install cargo-instruments' --pure -p \
-        # # 	darwin.apple_sdk.frameworks.SystemConfiguration \
-        # # 	darwin.apple_sdk.frameworks.CoreServices \
-        # # 	rustc cargo sccache libgit2 pkg-config libiconv \
-        # # 	llvmPackages_13.libclang openssl
-        #           };
 
         src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
         MNN_SRC = mnn-src;
@@ -158,7 +138,6 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
-          mnn-lints = sgLib.scan ./.;
           # mnn-asan = let
           #   rustPlatform = pkgs.makeRustPlatform {
           #     cargo = nightlyToolchain;
