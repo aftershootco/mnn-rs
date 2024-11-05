@@ -88,11 +88,12 @@
             buildInputs = with pkgs;
               []
               ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-                darwin.apple_sdk.frameworks.OpenGL
-                darwin.apple_sdk.frameworks.CoreML
-                darwin.apple_sdk.frameworks.Metal
-              ]);
+                  darwin.apple_sdk.frameworks.OpenCL
+                  darwin.apple_sdk.frameworks.Metal
+                ]
+                ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.CoreML
+                ]));
           }
           // (lib.optionalAttrs pkgs.stdenv.isLinux {
             BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
@@ -176,7 +177,9 @@
               // {
                 inherit cargoArtifacts;
                 pname = "inspect";
-                cargoExtraArgs = "--example inspect";
+                cargoExtraArgs =
+                  "--example inspect"
+                  + (lib.optionals pkgs.stdenv.isDarwin "--features metal,opencl" + lib.optionals pkgs.stdenv.isAarch64 ",coreml");
               });
             default = mnn;
           }
@@ -199,10 +202,12 @@
                 llvm
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-                darwin.apple_sdk.frameworks.CoreML
-                darwin.apple_sdk.frameworks.Metal
-              ]);
+                  darwin.apple_sdk.frameworks.OpenCL
+                  darwin.apple_sdk.frameworks.Metal
+                ]
+                ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.CoreML
+                ]));
             # RUSTFLAGS = "-Zsanitizer=address";
             # ASAN_OPTIONS = "detect_leaks=1";
           };
