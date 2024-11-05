@@ -292,7 +292,7 @@ impl Interpreter {
         let path = path.as_ref();
         crate::ensure!(path.exists(), ErrorKind::IOError);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
-        let c_path = std::ffi::CString::new(path).unwrap();
+        let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         unsafe { mnn_sys::modelPrintIO(c_path.as_ptr()) }
         Ok(())
     }
@@ -384,7 +384,7 @@ impl Interpreter {
         name: impl AsRef<str>,
     ) -> Tensor<RefMut<'s, Device<H>>> {
         let name = name.as_ref();
-        let c_name = std::ffi::CString::new(name).unwrap();
+        let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input =
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
         Tensor::from_ptr(input)
@@ -866,7 +866,7 @@ fn check_whether_sync_actually_works() {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
+#[ignore = "Fails on CI"]
 fn try_to_drop_interpreter_before_session() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()

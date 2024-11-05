@@ -1,2 +1,6 @@
 ruleDirs:
-- ./.rules
+- ./tools/sg-lints/lints
+utilDirs:
+- ./tools/sg-lints/utils
+ignores:
+  - mnn-sys/vendor

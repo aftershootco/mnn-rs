@@ -1,8 +1,0 @@
-id: no_unwrap
-message: Do not use unwrap
-description: Do not use unwrap
-severity: warning
-language: Rust
-rule:
-  pattern: $ITEM.unwrap()
-exclude: ./*build.rs

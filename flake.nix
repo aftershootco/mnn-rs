@@ -158,7 +158,7 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
-          # mnn-lints = sgLib.scan ./.;
+          mnn-lints = sgLib.scan ./.;
           # mnn-asan = let
           #   rustPlatform = pkgs.makeRustPlatform {
           #     cargo = nightlyToolchain;

@@ -1,0 +1,19 @@
+id: no-unwrap
+message: Do not use unwrap
+severity: error
+language: Rust
+rule:
+  pattern: $ITEM.unwrap()
+  not:
+    inside:
+      stopBy: end
+      matches: is-test
+files:
+  - src/**/*.rs
+  - mnn-sync/src/*.rs
+  - mnn-sys/src/*.rs
+  - mnn-bridge/src/**/*.rs
+ignores:
+  - build.rs
+  - mnn-sys/vendor/**/*.rs
+
