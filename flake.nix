@@ -51,7 +51,7 @@
                 src = mnn-src;
                 buildConverter = true;
                 enableVulkan = false;
-                enableMetal = true;
+                # enableMetal = true;
                 enableOpencl = true;
               };
             })
@@ -89,9 +89,9 @@
               []
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                   darwin.apple_sdk.frameworks.OpenCL
-                  darwin.apple_sdk.frameworks.Metal
                 ]
                 ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.Metal
                   darwin.apple_sdk.frameworks.CoreML
                 ]));
           }
@@ -179,7 +179,7 @@
                 pname = "inspect";
                 cargoExtraArgs =
                   "--example inspect"
-                  + (lib.optionalString pkgs.stdenv.isDarwin " --features metal,opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",coreml");
+                  + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
               });
             default = mnn;
           }
@@ -203,9 +203,9 @@
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                   darwin.apple_sdk.frameworks.OpenCL
-                  darwin.apple_sdk.frameworks.Metal
                 ]
                 ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.Metal
                   darwin.apple_sdk.frameworks.CoreML
                 ]));
             # RUSTFLAGS = "-Zsanitizer=address";
