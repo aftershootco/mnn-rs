@@ -51,7 +51,7 @@
                 src = mnn-src;
                 buildConverter = true;
                 enableVulkan = false;
-                enableMetal = true;
+                # enableMetal = true;
                 enableOpencl = true;
               };
             })
@@ -83,15 +83,17 @@
             nativeBuildInputs = with pkgs; [
               cmake
               llvmPackages.libclang.lib
+              clang
             ];
             buildInputs = with pkgs;
               []
               ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-                darwin.apple_sdk.frameworks.OpenGL
-                darwin.apple_sdk.frameworks.CoreML
-                darwin.apple_sdk.frameworks.Metal
-              ]);
+                  darwin.apple_sdk.frameworks.OpenCL
+                ]
+                ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.Metal
+                  darwin.apple_sdk.frameworks.CoreML
+                ]));
           }
           // (lib.optionalAttrs pkgs.stdenv.isLinux {
             BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
@@ -110,9 +112,6 @@
               cargoDocExtraArgs = "-p mnn -p mnn-sys";
             });
           mnn-fmt = craneLib.cargoFmt {inherit src;};
-          mnn-toml-fmt = craneLib.taploFmt {
-            src = pkgs.lib.sources.sourceFilesBySuffices src [".toml"];
-          };
           # Audit dependencies
           mnn-audit = craneLib.cargoAudit {
             inherit src advisory-db;
@@ -140,33 +139,33 @@
               partitionType = "count";
               cargoExtraArgs = "-p mnn-sys";
             });
-          mnn-asan = let
-            rustPlatform = pkgs.makeRustPlatform {
-              cargo = nightlyToolchain;
-              rustc = nightlyToolchain;
-            };
-          in
-            rustPlatform.buildRustPackage (
-              commonArgs
-              // {
-                inherit src;
-                name = "mnn-leaks";
-                cargoLock = {
-                  lockFile = ./Cargo.lock;
-                  outputHashes = {
-                    "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
-                  };
-                };
-
-                buildPhase = ''
-                  cargo test --target aarch64-apple-darwin
-                '';
-                RUSTFLAGS = "-Zsanitizer=address";
-                ASAN_OPTIONS = "detect_leaks=1";
-                # MNN_COMPILE = "NO";
-                # MNN_LIB_DIR = "${pkgs.mnn}/lib";
-              }
-            );
+          # mnn-asan = let
+          #   rustPlatform = pkgs.makeRustPlatform {
+          #     cargo = nightlyToolchain;
+          #     rustc = nightlyToolchain;
+          #   };
+          # in
+          #   rustPlatform.buildRustPackage (
+          #     commonArgs
+          #     // {
+          #       inherit src;
+          #       name = "mnn-leaks";
+          #       cargoLock = {
+          #         lockFile = ./Cargo.lock;
+          #         outputHashes = {
+          #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
+          #         };
+          #       };
+          #
+          #       buildPhase = ''
+          #         cargo test --target aarch64-apple-darwin
+          #       '';
+          #       RUSTFLAGS = "-Zsanitizer=address";
+          #       ASAN_OPTIONS = "detect_leaks=1";
+          #       # MNN_COMPILE = "NO";
+          #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
+          #     }
+          #   );
         };
         packages =
           rec {
@@ -178,7 +177,9 @@
               // {
                 inherit cargoArtifacts;
                 pname = "inspect";
-                cargoExtraArgs = "--example inspect";
+                cargoExtraArgs =
+                  "--example inspect"
+                  + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
               });
             default = mnn;
           }
@@ -201,10 +202,12 @@
                 llvm
               ]
               ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-                darwin.apple_sdk.frameworks.CoreML
-                darwin.apple_sdk.frameworks.Metal
-              ]);
+                  darwin.apple_sdk.frameworks.OpenCL
+                ]
+                ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                  darwin.apple_sdk.frameworks.Metal
+                  darwin.apple_sdk.frameworks.CoreML
+                ]));
             # RUSTFLAGS = "-Zsanitizer=address";
             # ASAN_OPTIONS = "detect_leaks=1";
           };
@@ -213,7 +216,7 @@
     )
     // {
       githubActions = nix-github-actions.lib.mkGithubMatrix {
-        checks = nixpkgs.lib.getAttrs ["x86_64-linux"] self.checks;
+        checks = nixpkgs.lib.getAttrs ["x86_64-linux" "aarch64-darwin"] self.checks;
       };
     };
 }

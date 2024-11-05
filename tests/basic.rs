@@ -3,12 +3,12 @@ use common::*;
 use mnn::ForwardType;
 
 #[test]
-#[ignore = "takes too long"]
 fn test_basic_cpu() {
     test_basic(ForwardType::CPU).unwrap();
 }
 #[cfg(feature = "metal")]
 #[test]
+#[ignore = "Doesn't work on ci"]
 fn test_basic_metal() {
     test_basic(ForwardType::Metal).unwrap();
 }

@@ -1,0 +1,22 @@
+id: no-println
+message: Do not use println! use `tracing::info`/`tracing::trace`/`tracing::debug` instead
+severity: warning
+language: Rust
+rule:
+  kind: macro_invocation
+  pattern: println!($$$ITEMS)
+  not:
+    inside: 
+      stopBy: end
+      matches: is-test
+    
+fix: tracing::info!($$$ITEMS)
+files:
+  - src/**/*.rs
+  - mnn-sync/src/*.rs
+  - mnn-sys/src/*.rs
+  - mnn-bridge/src/**/*.rs
+ignores:
+  - build.rs
+  - mnn-sys/build.rs
+  - mnn-sys/vendor/**/*.rs

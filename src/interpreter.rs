@@ -249,6 +249,7 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
+                net: self.inner,
                 __session_internals: crate::SessionInternals::Single(schedule),
                 __marker: PhantomData,
             })
@@ -279,6 +280,7 @@ impl Interpreter {
             assert!(!session.is_null());
             Ok(crate::session::Session {
                 inner: session,
+                net: self.inner,
                 __session_internals: crate::SessionInternals::MultiSession(schedules),
                 __marker: PhantomData,
             })
@@ -290,7 +292,7 @@ impl Interpreter {
         let path = path.as_ref();
         crate::ensure!(path.exists(), ErrorKind::IOError);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
-        let c_path = std::ffi::CString::new(path).unwrap();
+        let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
         unsafe { mnn_sys::modelPrintIO(c_path.as_ptr()) }
         Ok(())
     }
@@ -376,13 +378,16 @@ impl Interpreter {
     /// # Safety
     /// Very **unsafe** since it doesn't check the type of the tensor
     /// as well as the shape of the tensor
+    ///
+    /// **Panics** if the name is not ascii
+    /// **Undefined Behavior** if the tensor is not of type `H`
     pub unsafe fn input_unchecked<'s, H: HalideType>(
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
     ) -> Tensor<RefMut<'s, Device<H>>> {
         let name = name.as_ref();
-        let c_name = std::ffi::CString::new(name).unwrap();
+        let c_name = std::ffi::CString::new(name).expect("Input tensor name is not ascii");
         let input =
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
         Tensor::from_ptr(input)
@@ -603,7 +608,7 @@ pub struct TensorInfo<'t, 'tl> {
 impl core::fmt::Debug for TensorInfo<'_, '_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let tensor = self.raw_tensor();
-        let shape = tensor.shape().clone();
+        let shape = tensor.shape();
         f.debug_struct("TensorInfo")
             .field("name", &self.name())
             .field("tensor", &shape)
@@ -864,7 +869,7 @@ fn check_whether_sync_actually_works() {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
+#[ignore = "Fails on CI"]
 fn try_to_drop_interpreter_before_session() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()

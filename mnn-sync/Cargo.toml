@@ -16,3 +16,6 @@ tracing = { version = "0.1", optional = true }
 
 [features]
 tracing = ["dep:tracing", "mnn/tracing"]
+
+[dev-dependencies]
+tracing-test = "0.2.5"

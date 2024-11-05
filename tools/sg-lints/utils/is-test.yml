@@ -1,0 +1,23 @@
+id: is-test
+language: Rust
+
+rule:
+  all:
+    - kind: function_item
+    - follows:
+        stopBy: 
+          kind: function_item
+        matches: test-token
+
+utils:
+  test-token:
+    kind: attribute_item
+    has:
+      kind: attribute
+      has:
+        any:
+          - pattern: test
+          - pattern: tokio::test
+
+ignores:
+  - mnn-sys/vendor/**/*.rs

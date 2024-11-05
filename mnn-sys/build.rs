@@ -90,10 +90,6 @@ fn main() -> Result<()> {
             .find_position(|line| line.contains(HALIDE_SEARCH))
         {
             // remove the last line and the next 3 lines
-            // patched.remove(idx - 1);
-            // patched.remove(idx);
-            // patched.remove(idx);
-            // patched.remove(idx);
             let patched = patched
                 .into_iter()
                 .enumerate()
@@ -111,12 +107,10 @@ fn main() -> Result<()> {
             "cargo:rustc-link-search=native={}",
             install_dir.join("lib").display()
         );
+    } else if let core::result::Result::Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
+        println!("cargo:rustc-link-search=native={}", lib_dir);
     } else {
-        if let Some(lib_dir) = std::env::var("MNN_LIB_DIR").ok() {
-            println!("cargo:rustc-link-search=native={}", lib_dir);
-        } else {
-            panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
-        }
+        panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
@@ -230,7 +224,7 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
     let vendor = vendor.as_ref();
     let bindings = bindgen::Builder::default()
         .clang_args(["-x", "c++"])
-        .clang_args(["-std=c++11"])
+        .clang_args(["-std=c++14"])
         .clang_arg(CxxOption::VULKAN.cxx())
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
@@ -310,7 +304,7 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
     let threads = std::thread::available_parallelism()?;
     cmake::Config::new(path)
-        .cxxflag("-std=c++14")
+        .define("CMAKE_CXX_STANDARD", "14")
         .parallel(threads.get() as u8)
         .define("MNN_BUILD_SHARED_LIBS", "OFF")
         .define("MNN_SEP_BUILD", "OFF")

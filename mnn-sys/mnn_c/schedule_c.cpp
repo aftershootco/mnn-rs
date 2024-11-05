@@ -8,6 +8,12 @@ MNNScheduleConfig *mnnsc_create() {
   return reinterpret_cast<MNNScheduleConfig *>(mnnsc);
 }
 
+MNNScheduleConfig *mnnsc_clone(const MNNScheduleConfig *from) {
+  auto mnn_from = reinterpret_cast<const MNN::ScheduleConfig *>(from);
+  auto mnn_to = new MNN::ScheduleConfig(*mnn_from);
+  return reinterpret_cast<MNNScheduleConfig *>(mnn_to);
+}
+
 void mnnsc_destroy(MNNScheduleConfig *config) {
   auto mnn_config = reinterpret_cast<MNN::ScheduleConfig *>(config);
   delete mnn_config;

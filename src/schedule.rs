@@ -3,6 +3,8 @@ use std::{ffi::CString, mem::ManuallyDrop};
 
 use crate::{prelude::*, BackendConfig};
 
+/// Backend used for running the model
+///
 /// The `ForwardType` enum is used to specify the backend that will be used for forward computation
 /// in the MNN framework. Each variant corresponds to a different backend, which may be enabled
 /// or disabled based on the features enabled in the build configuration.
@@ -21,7 +23,7 @@ use crate::{prelude::*, BackendConfig};
 /// # Example
 ///
 /// ```rust
-/// use mnn_rs::schedule::ForwardType;
+/// use mnn::schedule::ForwardType;
 ///
 /// let forward_type = ForwardType::Auto;
 /// println!("Selected forward type: {:?}", forward_type);
@@ -127,7 +129,7 @@ impl core::str::FromStr for ForwardType {
 /// # Example
 ///
 /// ```rust
-/// use mnn_rs::schedule::{ScheduleConfig, ForwardType};
+/// use mnn::schedule::{ScheduleConfig, ForwardType};
 ///
 /// let mut config = ScheduleConfig::new();
 /// config.set_type(ForwardType::Auto);
@@ -166,6 +168,19 @@ pub struct ScheduleConfig {
     pub(crate) inner: *mut MNNScheduleConfig,
     pub(crate) backend_config: Option<BackendConfig>,
     pub(crate) __marker: core::marker::PhantomData<()>,
+}
+
+impl Clone for ScheduleConfig {
+    fn clone(&self) -> Self {
+        unsafe {
+            let inner = mnnsc_clone(self.inner);
+            Self {
+                inner,
+                backend_config: self.backend_config.clone(),
+                __marker: core::marker::PhantomData,
+            }
+        }
+    }
 }
 
 impl Drop for ScheduleConfig {
