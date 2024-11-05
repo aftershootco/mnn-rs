@@ -179,7 +179,7 @@
                 pname = "inspect";
                 cargoExtraArgs =
                   "--example inspect"
-                  + (lib.optionals pkgs.stdenv.isDarwin "--features metal,opencl" + lib.optionals pkgs.stdenv.isAarch64 ",coreml");
+                  + (lib.optionalString pkgs.stdenv.isDarwin "--features metal,opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",coreml");
               });
             default = mnn;
           }
