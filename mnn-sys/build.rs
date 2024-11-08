@@ -723,7 +723,10 @@ mod cc_build {
                 .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
                 .map(|e| e.into_path());
             build.include(opencl_files_dir.join("schema").join("current"));
-            build.files(opencl_files);
+            build.define("MNN_OPENCL_ENABLED", "1");
+            build.files(
+                opencl_files.chain([opencl_files_dir.join("execution/cl/opencl_program.cc")]),
+            );
         }
 
         build.get_files().for_each(|f| {
