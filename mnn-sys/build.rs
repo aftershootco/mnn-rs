@@ -8,6 +8,12 @@ use std::{
 };
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
+static TARGET_POINTER_WIDTH: LazyLock<usize> = LazyLock::new(|| {
+    std::env::var("CARGO_CFG_TARGET_POINTER_WIDTH")
+        .expect("CARGO_CFG_TARGET_POINTER_WIDTH not set")
+        .parse()
+        .expect("Failed to parse CARGO_CFG_TARGET_POINTER_WIDTH")
+});
 static TARGET_OS: LazyLock<String> =
     LazyLock::new(|| std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set"));
 static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
@@ -102,7 +108,8 @@ fn main() -> Result<()> {
 
     if *MNN_COMPILE {
         let install_dir = out_dir.join("mnn-install");
-        build_cmake(&vendor, &install_dir)?;
+        // build_cmake(&vendor, &install_dir)?;
+        cc_build::build(&vendor)?;
         println!(
             "cargo:rustc-link-search=native={}",
             install_dir.join("lib").display()
@@ -441,6 +448,19 @@ macro_rules! cxx_option_from_feature {
         CxxOption::from_bool($cxx, cfg!(feature = $feature))
     }};
 }
+
+macro_rules! cxx_option_from_features {
+    ($name:ident=> $feature: literal, $cxx:literal) => {
+        pub const $name: CxxOption = cxx_option_from_feature!($feature, $cxx);
+    };
+    ($( $name:ident => $feature:literal, $cxx:literal),*) => {
+        $(cxx_option_from_features!($name=> $feature, $cxx);)*
+
+        pub fn all() -> Vec<CxxOption> {
+            vec![$(Self::$name),*]
+        }
+    };
+}
 impl CxxOption {
     const fn from_bool(name: &'static str, value: bool) -> Self {
         Self {
@@ -448,15 +468,20 @@ impl CxxOption {
             value: CxxOptionValue::from_bool(value),
         }
     }
-    pub const VULKAN: CxxOption = cxx_option_from_feature!("vulkan", "MNN_VULKAN");
-    pub const METAL: CxxOption = cxx_option_from_feature!("metal", "MNN_METAL");
-    pub const COREML: CxxOption = cxx_option_from_feature!("coreml", "MNN_COREML");
-    pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
-    pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");
-    pub const OPENGL: CxxOption = cxx_option_from_feature!("opengl", "MNN_OPENGL");
-    pub const CRT_STATIC: CxxOption = cxx_option_from_feature!("opengl", "MNN_WIN_RUNTIME_MT");
-    pub const THREADPOOL: CxxOption =
-        cxx_option_from_feature!("mnn-threadpool", "MNN_USE_THREAD_POOL");
+    cxx_option_from_features! {
+        VULKAN => "vulkan", "MNN_VULKAN",
+        METAL => "metal", "MNN_METAL",
+        COREML => "coreml", "MNN_COREML",
+        OPENCL => "opencl", "MNN_OPENCL",
+        OPENMP => "openmp", "MNN_OPENMP",
+        OPENGL => "opengl", "MNN_OPENGL",
+        CRT_STATIC => "crt_static", "MNN_WIN_RUNTIME_MT",
+        SPARSE_COMPUTE => "sparse-compute", "MNN_USE_SPARSE_COMPUTE",
+        THREADPOOL => "mnn-threadpool", "MNN_USE_THREAD_POOL",
+        MINI_BUILD => "mini-build", "MNN_BUILD_MINI",
+        ARM82 => "arm82", "MNN_ARM82",
+        BF16 => "bf16", "MNN_SUPPORT_BF16"
+    }
 
     pub fn new(name: &'static str, value: impl Into<CxxOptionValue>) -> Self {
         Self {
@@ -488,6 +513,14 @@ impl CxxOption {
         }
     }
 
+    pub fn cc(&self) -> &str {
+        match &self.value {
+            CxxOptionValue::On => "1",
+            CxxOptionValue::Off => "0",
+            CxxOptionValue::Value(v) => v,
+        }
+    }
+
     pub fn cmake_value(&self) -> &'static str {
         match &self.value {
             CxxOptionValue::On => "ON",
@@ -510,5 +543,193 @@ impl CxxOption {
             CxxOptionValue::Off => false,
             CxxOptionValue::Value(_) => true,
         }
+    }
+}
+
+mod cc_build {
+    use std::ffi::OsStr;
+
+    use super::*;
+    pub fn build(vendor: impl AsRef<Path>) -> Result<()> {
+        let mut build = cc::Build::new();
+        let vendor = vendor.as_ref();
+        // Get version
+        build
+            .include(vendor.join("include/"))
+            .include(vendor.join("source/"))
+            .include(vendor.join("express/"))
+            .include(vendor.join("tools/"))
+            .include(vendor.join("codegen/"))
+            .include(vendor.join("schema/current/"))
+            .include(vendor.join("3rd_party/"))
+            .include(vendor.join("3rd_party/flatbuffers/include"))
+            .include(vendor.join("3rd_party/half"))
+            .include(vendor.join("3rd_party/imageHelper"))
+            .include(vendor.join("3rd_party/OpenCLHeaders/"))
+            // .file("source/core/...")
+            // .file("source/cv/...")
+            // .file("source/math/...")
+            // .file("source/shape/...")
+            // .file("source/geometry/...")
+            // .file("source/utils/...")
+            // .file("source/backend/cpu/...")
+            // .file("express/...")
+            .cpp(true)
+            .std("c++11");
+
+        if cfg!(target_os = "windows") {
+            build
+                .flag_if_supported("/wd4267")
+                .flag_if_supported("/wd4018")
+                .flag_if_supported("/wd4251")
+                .flag_if_supported("/wd4996")
+                .flag_if_supported("/wd4244")
+                .flag_if_supported("/wd4146")
+                .flag_if_supported("/wd4129")
+                .flag_if_supported("/wd4305")
+                .flag_if_supported("/wd4275")
+                .flag_if_supported("/wd4101");
+        }
+
+        CxxOption::all().iter().for_each(|opt| {
+            eprintln!("{}: {}", opt.name, opt.enabled());
+            if opt.enabled() {
+                build.define(opt.name, opt.cc());
+            }
+        });
+
+        let core_files_dir = vendor.join("source").join("core");
+        let core_files = ignore::Walk::new(&core_files_dir)
+            .filter_map(Result::ok)
+            .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+            .map(|e| e.into_path());
+        build.files(core_files);
+
+        // #[cfg(feature = "cpu")]
+        {
+            let cpu_files_dir = vendor.join("source").join("backend").join("cpu");
+            let cpu_files = ignore::WalkBuilder::new(&cpu_files_dir)
+                .add(&cpu_files_dir.join("compute"))
+                .max_depth(Some(1))
+                .add_custom_ignore_filename("CPUImageProcess.hpp")
+                .add_custom_ignore_filename("CPUImageProcess.cpp")
+                .build()
+                .filter_map(Result::ok)
+                .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+                .map(|e| e.into_path());
+            build.include(cpu_files_dir.join("schema").join("current"));
+            if CxxOption::ARM82.enabled() {
+                if TARGET_ARCH.starts_with("armv7")
+                    || TARGET_ARCH.starts_with("aarch64")
+                    || TARGET_ARCH.starts_with("arm64")
+                {
+                    build.define("ENABLE_ARMV82", None);
+                    build.include(cpu_files_dir.join("arm"));
+                }
+            }
+
+            '_arm: {
+                let arm_source_dir = cpu_files_dir.join("arm");
+
+                let mut neon_sources: Vec<PathBuf> =
+                    vec![arm_source_dir.join("CommonOptFunctionNeon.cpp")];
+                if CxxOption::BF16.enabled() {
+                    let path = arm_source_dir.join("CommonNeonBF16.cpp");
+                    if path.exists() {
+                        neon_sources.push(path);
+                    }
+                }
+
+                if *TARGET_POINTER_WIDTH == 64 {
+                    let arm64_sources_dir = arm_source_dir.join("arm64");
+                    let arm64_sources = ignore::Walk::new(&arm64_sources_dir)
+                        .filter_map(Result::ok)
+                        .filter(|e| {
+                            e.path().extension() == Some(OsStr::new("S"))
+                                || e.path().extension() == Some(OsStr::new("s"))
+                        })
+                        .map(|e| e.into_path());
+
+                    // MNN_LOW_MEMORY
+                    // MNN_CPU_WEIGHT_DEQUANT_GEMM
+
+                    build.define("MNN_USE_NEON", None);
+                    build
+                        .files(arm64_sources.chain(neon_sources))
+                        .include(cpu_files_dir.join("arm"))
+                        .define("__aarch64__", None);
+                } else if *TARGET_POINTER_WIDTH == 32 {
+                    let arm32_sources_dir = arm_source_dir.join("arm32");
+                    let arm32_sources = ignore::Walk::new(&arm32_sources_dir)
+                        .filter_map(Result::ok)
+                        .filter(|e| {
+                            e.path().extension() == Some(OsStr::new("S"))
+                                || e.path().extension() == Some(OsStr::new("s"))
+                        })
+                        .map(|e| e.into_path());
+
+                    // MNN_LOW_MEMORY
+                    // MNN_CPU_WEIGHT_DEQUANT_GEMM
+
+                    build.define("MNN_USE_NEON", None);
+                    build
+                        .files(arm32_sources.chain(neon_sources))
+                        .include(cpu_files_dir.join("arm"))
+                        .define("__arm__", None);
+                }
+                // build.objects(
+                //     cc::Build::new()
+                //         .files(arm64_sources.chain(neon_sources))
+                //         .include(cpu_files_dir.join("arm"))
+                //         .define("__aarch64__", None)
+                //         .define(CxxOption::BF16.name, CxxOption::BF16.cc())
+                //         .compile_intermediates(),
+                // );
+            }
+
+            build.files(cpu_files);
+        }
+
+        {
+            let cv_files_dir = vendor.join("source").join("cv");
+            let cv_files = ignore::Walk::new(&cv_files_dir)
+                .filter_map(Result::ok)
+                .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+                .map(|e| e.into_path());
+            // build.include(cv_files_dir.join("schema").join("current"));
+            if *TARGET_OS == "macos" {
+                build.flag_if_supported("-fno-stack-check");
+            }
+            build.files(cv_files);
+        }
+
+        {
+            let extra_files = ignore::WalkBuilder::new(vendor.join("source").join("math"))
+                .add(vendor.join("source").join("shape"))
+                .add(vendor.join("source").join("geometry"))
+                .add(vendor.join("source").join("utils"))
+                .build()
+                .filter_map(Result::ok)
+                .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+                .map(|e| e.into_path());
+            build.files(extra_files);
+        }
+
+        #[cfg(feature = "opencl")]
+        {
+            let opencl_files_dir = vendor.join("source").join("backend").join("opencl");
+            let opencl_files = ignore::Walk::new(&opencl_files_dir)
+                .filter_map(Result::ok)
+                .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+                .map(|e| e.into_path());
+            build.include(opencl_files_dir.join("schema").join("current"));
+            build.files(opencl_files);
+        }
+
+        build.get_files().for_each(|f| {
+            rerun_if_changed(f);
+        });
+        build.compile("mnn");
+        Ok(())
     }
 }

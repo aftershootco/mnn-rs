@@ -21,6 +21,7 @@ error-stack.workspace = true
 oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
 dunce = "1.0.5"
+cc = "1.1.36"
 
 [features]
 metal = ["mnn-sys/metal"]
@@ -52,3 +53,6 @@ harness = false
 [profile.rwd]
 debug = true
 inherits = "release"
+
+[build-dependencies]
+cc = "1.1.36"
