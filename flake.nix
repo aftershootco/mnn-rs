@@ -54,6 +54,17 @@
                 # enableMetal = true;
                 enableOpencl = true;
               };
+              cargo-audit = pkgs.rustPlatform.buildRustPackage rec {
+                version = "0.21.0";
+                pname = "cargo-audit";
+                src = pkgs.fetchCrate {
+                  inherit pname version;
+                  sha256 = "sha256-oMXpJE49If4QKE80ZKhRpMRPh3Bl517a2Ez/1VcaQJQ=";
+                };
+                cargoLock = rec {
+                  lockFile = "${src}/Cargo.lock";
+                };
+              };
             })
           ];
         };
@@ -113,9 +124,12 @@
             });
           mnn-fmt = craneLib.cargoFmt {inherit src;};
           # Audit dependencies
-          mnn-audit = craneLib.cargoAudit {
-            inherit src advisory-db;
-          };
+          mnn-audit =
+            craneLib.cargoAudit.override {
+              cargo-audit = pkgs.cargo-audit;
+            } {
+              inherit src advisory-db;
+            };
 
           # Audit licenses
           mnn-deny = craneLib.cargoDeny {
@@ -197,6 +211,7 @@
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
+                # cargo-audit
                 cargo-semver-checks
                 rust-bindgen
                 llvm

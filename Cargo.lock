@@ -210,14 +210,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
-name = "cmake"
-version = "0.1.50"
-source = "git+https://github.com/blonteractor/cmake-rs#b96aab10486f2c1540422dd4e6f38e983745fd5a"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -545,7 +537,6 @@ dependencies = [
  "anyhow",
  "bindgen",
  "cc",
- "cmake",
  "diffy",
  "dunce",
  "fs_extra",
