@@ -581,7 +581,8 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             }
         }
 
-        '_arm: {
+        
+        if TARGET_OS.starts_with("aarch64") || TARGET_OS.starts_with("arm") {
             let arm_source_dir = cpu_files_dir.join("arm");
 
             let mut neon_sources: Vec<PathBuf> =
