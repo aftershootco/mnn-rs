@@ -15,6 +15,15 @@ static TARGET_POINTER_WIDTH: LazyLock<usize> = LazyLock::new(|| {
         .parse()
         .expect("Failed to parse CARGO_CFG_TARGET_POINTER_WIDTH")
 });
+
+static TARGET_FEATURES: LazyLock<Vec<String>> = LazyLock::new(|| {
+    std::env::var("CARGO_CFG_TARGET_FEATURE")
+        .expect("CARGO_CFG_TARGET_FEATURE not set")
+        .split(',')
+        .map(|s| s.to_string())
+        .collect()
+});
+
 static TARGET_OS: LazyLock<String> =
     LazyLock::new(|| std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set"));
 static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
@@ -438,7 +447,17 @@ impl CxxOption {
         THREADPOOL => "mnn-threadpool", "MNN_USE_THREAD_POOL",
         MINI_BUILD => "mini-build", "MNN_BUILD_MINI",
         ARM82 => "arm82", "MNN_ARM82",
-        BF16 => "bf16", "MNN_SUPPORT_BF16"
+        BF16 => "bf16", "MNN_SUPPORT_BF16",
+        AVX512 => "avx512", "MNN_AVX512",
+        LOW_MEMORY => "low-memory", "MNN_LOW_MEMORY",
+        NEON => "neon", "MNN_USE_NEON",
+        CPU_WEIGHT_DEQUANT_GEMM => "cpu-weight-dequant-gemm", "MNN_CPU_WEIGHT_DEQUANT_GEMM"
+    }
+
+    pub fn define(&self, build: &mut cc::Build) {
+        if self.enabled() {
+            build.define(self.name, self.cc());
+        }
     }
 
     pub fn new(name: &'static str, value: impl Into<CxxOptionValue>) -> Self {
@@ -504,11 +523,32 @@ impl CxxOption {
     }
 }
 
+fn is_arm() -> bool {
+    TARGET_ARCH.starts_with("armv7")
+        || TARGET_ARCH.starts_with("aarch64")
+        || TARGET_ARCH.starts_with("arm64")
+}
+
+fn is_x86() -> bool {
+    TARGET_ARCH.starts_with("x86")
+    // || TARGET_ARCH.starts_with("i686")
+    // || TARGET_ARCH.starts_with("i386")
+}
+
+fn read_dir(input: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
+    ignore::WalkBuilder::new(input)
+        .max_depth(Some(1))
+        .build()
+        .filter_map(Result::ok)
+        .map(|e| e.into_path())
+}
+
 pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let mut build = cc::Build::new();
     let vendor = vendor.as_ref();
     // Get version
     build
+        // .try_flags_from_environment(concat!(env!("CARGO_PKG_NAME"), "_CFLAGS"))?
         .include(vendor.join("include/"))
         .include(vendor.join("source/"))
         .include(vendor.join("express/"))
@@ -520,14 +560,6 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         .include(vendor.join("3rd_party/half"))
         .include(vendor.join("3rd_party/imageHelper"))
         .include(vendor.join("3rd_party/OpenCLHeaders/"))
-        // .file("source/core/...")
-        // .file("source/cv/...")
-        // .file("source/math/...")
-        // .file("source/shape/...")
-        // .file("source/geometry/...")
-        // .file("source/utils/...")
-        // .file("source/backend/cpu/...")
-        // .file("express/...")
         .cpp(true)
         .std("c++11");
 
@@ -563,7 +595,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     {
         let cpu_files_dir = vendor.join("source").join("backend").join("cpu");
         let cpu_files = ignore::WalkBuilder::new(&cpu_files_dir)
-            .add(&cpu_files_dir.join("compute"))
+            .add(cpu_files_dir.join("compute"))
             .max_depth(Some(1))
             .add_custom_ignore_filename("CPUImageProcess.hpp")
             .add_custom_ignore_filename("CPUImageProcess.cpp")
@@ -571,74 +603,18 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             .filter_map(Result::ok)
             .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
             .map(|e| e.into_path());
-        if CxxOption::ARM82.enabled() {
-            if TARGET_ARCH.starts_with("armv7")
-                || TARGET_ARCH.starts_with("aarch64")
-                || TARGET_ARCH.starts_with("arm64")
-            {
-                build.define("ENABLE_ARMV82", None);
-                build.include(cpu_files_dir.join("arm"));
-            }
+
+        if CxxOption::ARM82.enabled() && is_arm() {
+            build.define("ENABLE_ARMV82", None);
+            build.include(cpu_files_dir.join("arm"));
         }
 
-        
-        if TARGET_OS.starts_with("aarch64") || TARGET_OS.starts_with("arm") {
-            let arm_source_dir = cpu_files_dir.join("arm");
+        if is_arm() {
+            arm(&mut build, cpu_files_dir.join("arm"))?;
+        }
 
-            let mut neon_sources: Vec<PathBuf> =
-                vec![arm_source_dir.join("CommonOptFunctionNeon.cpp")];
-            if CxxOption::BF16.enabled() {
-                let path = arm_source_dir.join("CommonNeonBF16.cpp");
-                if path.exists() {
-                    neon_sources.push(path);
-                }
-            }
-
-            if *TARGET_POINTER_WIDTH == 64 {
-                let arm64_sources_dir = arm_source_dir.join("arm64");
-                let arm64_sources = ignore::Walk::new(&arm64_sources_dir)
-                    .filter_map(Result::ok)
-                    .filter(|e| {
-                        e.path().extension() == Some(OsStr::new("S"))
-                            || e.path().extension() == Some(OsStr::new("s"))
-                    })
-                    .map(|e| e.into_path());
-
-                // MNN_LOW_MEMORY
-                // MNN_CPU_WEIGHT_DEQUANT_GEMM
-
-                build.define("MNN_USE_NEON", None);
-                build
-                    .files(arm64_sources.chain(neon_sources))
-                    .include(cpu_files_dir.join("arm"))
-                    .define("__aarch64__", None);
-            } else if *TARGET_POINTER_WIDTH == 32 {
-                let arm32_sources_dir = arm_source_dir.join("arm32");
-                let arm32_sources = ignore::Walk::new(&arm32_sources_dir)
-                    .filter_map(Result::ok)
-                    .filter(|e| {
-                        e.path().extension() == Some(OsStr::new("S"))
-                            || e.path().extension() == Some(OsStr::new("s"))
-                    })
-                    .map(|e| e.into_path());
-
-                // MNN_LOW_MEMORY
-                // MNN_CPU_WEIGHT_DEQUANT_GEMM
-
-                build.define("MNN_USE_NEON", None);
-                build
-                    .files(arm32_sources.chain(neon_sources))
-                    .include(cpu_files_dir.join("arm"))
-                    .define("__arm__", None);
-            }
-            // build.objects(
-            //     cc::Build::new()
-            //         .files(arm64_sources.chain(neon_sources))
-            //         .include(cpu_files_dir.join("arm"))
-            //         .define("__aarch64__", None)
-            //         .define(CxxOption::BF16.name, CxxOption::BF16.cc())
-            //         .compile_intermediates(),
-            // );
+        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
+            x86_64(&mut build, cpu_files_dir.join("x86_64"))?;
         }
 
         build.files(cpu_files);
@@ -686,4 +662,196 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     });
     build.compile("mnn");
     Ok(())
+}
+
+fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Build> {
+    let arm_source_dir = arm_dir.as_ref();
+
+    let mut neon_sources: Vec<PathBuf> = vec![arm_source_dir.join("CommonOptFunctionNeon.cpp")];
+    if CxxOption::BF16.enabled() {
+        let path = arm_source_dir.join("CommonNeonBF16.cpp");
+        if path.exists() {
+            neon_sources.push(path);
+        }
+    }
+
+    if *TARGET_POINTER_WIDTH == 64 {
+        let arm64_sources_dir = arm_source_dir.join("arm64");
+        let arm64_sources = ignore::Walk::new(&arm64_sources_dir)
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.path().extension() == Some(OsStr::new("S"))
+                    || e.path().extension() == Some(OsStr::new("s"))
+            })
+            .map(|e| e.into_path());
+
+        // MNN_LOW_MEMORY
+        // MNN_CPU_WEIGHT_DEQUANT_GEMM
+
+        build.define("MNN_USE_NEON", None);
+        build
+            .files(arm64_sources.chain(neon_sources))
+            .include(arm_source_dir)
+            .define("__aarch64__", None);
+    } else if *TARGET_POINTER_WIDTH == 32 {
+        let arm32_sources_dir = arm_source_dir.join("arm32");
+        let arm32_sources = ignore::Walk::new(&arm32_sources_dir)
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.path().extension() == Some(OsStr::new("S"))
+                    || e.path().extension() == Some(OsStr::new("s"))
+            })
+            .map(|e| e.into_path());
+
+        // MNN_LOW_MEMORY
+        // MNN_CPU_WEIGHT_DEQUANT_GEMM
+
+        build.define("MNN_USE_NEON", None);
+        build
+            .files(arm32_sources.chain(neon_sources))
+            .include(arm_source_dir)
+            .define("__arm__", None);
+    }
+    Ok(build)
+}
+
+fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc::Build> {
+    let mnn_assembler = std::env::var("MNN_ASSEMBLER").ok();
+    let like_msvc = build.get_compiler().is_like_msvc();
+    let win_use_asm = like_msvc && *TARGET_POINTER_WIDTH == 64 && mnn_assembler.is_some();
+    let has_avx512 = target_has_avx512();
+    build.define("MNN_USE_SSE", None);
+    let x86_src_dir = x86_64_dir.as_ref();
+    let mnn_x8664_src = read_dir(&x86_src_dir);
+    let mnn_avx_src = read_dir(x86_src_dir.join("avx"));
+    let mnn_avxfma_src = read_dir(x86_src_dir.join("avxfma"));
+    let mnn_sse_src = read_dir(x86_src_dir.join("sse"));
+    let mnn_avx512_vnni_src = x86_src_dir.join("avx512/GemmInt8_VNNI.cpp");
+    let mnn_avx512_src = read_dir(x86_src_dir.join("avx512")).filter(|p| p != &mnn_avx512_vnni_src);
+
+    if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
+        let mnn_avx512 = cc::Build::new()
+            .files(mnn_avx512_src)
+            .define("MNN_USE_SSE", None)
+            .define("MNN_X86_USE_ASM", None)
+            .tap_mut(|build| {
+                if build.get_compiler().is_like_msvc() {
+                    build.flag_if_supported("/arch:AVX512");
+                } else {
+                    // target_compile_options(MNNAVX512 PRIVATE -m64 -mavx512f -mavx512dq -mavx512vl -mavx512bw -mfma)
+                    build
+                        .flag_if_supported("-m64")
+                        .flag_if_supported("-mavx512f")
+                        .flag_if_supported("-mavx512dq")
+                        .flag_if_supported("-mavx512vl")
+                        .flag_if_supported("-mavx512bw")
+                        .flag_if_supported("-mfma");
+                }
+            })
+            .compile_intermediates();
+        build.objects(mnn_avx512);
+        let mnn_avx512_vnni = true;
+        if mnn_avx512_vnni {
+            let mnn_avx512_vnni = cc::Build::new()
+                .file(mnn_avx512_vnni_src)
+                .define("MNN_USE_SSE", None)
+                .define("MNN_X86_USE_ASM", None)
+                .tap_mut(|build| {
+                    if build.get_compiler().is_like_msvc() {
+                        build.flag_if_supported("/arch:AVX512");
+                    } else {
+                        // target_compile_options(MNNAVX512_VNNI PRIVATE -m64 -mavx512f -mavx512dq -mavx512vl -mavx512bw -mfma -mavx512vnni)
+                        build
+                            .flag_if_supported("-m64")
+                            .flag_if_supported("-mavx512f")
+                            .flag_if_supported("-mavx512dq")
+                            .flag_if_supported("-mavx512vl")
+                            .flag_if_supported("-mavx512bw")
+                            .flag_if_supported("-mfma")
+                            .flag_if_supported("-mavx512vnni");
+                    }
+                })
+                .compile_intermediates();
+            build.objects(mnn_avx512_vnni);
+        }
+    }
+
+    let mnn_sse = cc::Build::new()
+        .files(mnn_sse_src)
+        .flag("MNN_USE_SSE")
+        .tap_mut(|build| {
+            if !like_msvc {
+                build.flag_if_supported("-msse4.1");
+            }
+            CxxOption::LOW_MEMORY.define(build);
+        })
+        .compile_intermediates();
+
+    let mnn_avx = cc::Build::new()
+        .files(mnn_avx_src)
+        .flag("MNN_USE_SSE")
+        .tap_mut(|build| {
+            if like_msvc {
+                build.flag_if_supported("/arch:AVX");
+            } else {
+                build
+                    .flag_if_supported("-mavx2")
+                    .define("MNN_X86_USE_ASM", None);
+            }
+            CxxOption::LOW_MEMORY.define(build);
+        })
+        .compile_intermediates();
+
+    let mnn_avxfma = cc::Build::new()
+        .files(mnn_avxfma_src)
+        .flag("MNN_USE_SSE")
+        .tap_mut(|build| {
+            if like_msvc {
+                build.flag_if_supported("/arch:AVX2");
+            } else {
+                build
+                    .flag_if_supported("-mavx2")
+                    .flag_if_supported("-mfma")
+                    .define("MNN_X86_USE_ASM", None);
+            }
+            CxxOption::LOW_MEMORY.define(build);
+            CxxOption::BF16.define(build)
+        })
+        .compile_intermediates();
+
+    let mnn_x8664 = cc::Build::new()
+        .files(mnn_x8664_src)
+        .flag("MNN_USE_SSE")
+        .tap_mut(|build| {
+            CxxOption::LOW_MEMORY.define(build);
+            CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(build);
+            if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
+                CxxOption::AVX512.define(build);
+            }
+        })
+        .compile_intermediates();
+
+    build.objects(mnn_sse);
+    build.objects(mnn_x8664);
+    build.objects(mnn_avx);
+    build.objects(mnn_avxfma);
+
+    has_avx512.then(|| {
+        CxxOption::AVX512.define(build);
+    });
+
+    Ok(build)
+}
+
+fn target_has_avx512() -> bool {
+    const AVX_PRG: &str = r#"
+#ifndef __AVX512F__
+#error "AVX-512 support is required to compile this program."
+#endif
+int main() {return 0;} "#;
+    std::fs::write("test.c", AVX_PRG).ok();
+    cc::Build::new()
+        .file("test.c")
+        .try_compile("avx512")
+        .is_ok()
 }

@@ -481,7 +481,6 @@ pub fn test_sync_api() {
 }
 
 #[test]
-#[ignore = "This test is not reliable on CI"]
 pub fn test_sync_api_race() {
     let interpreter = Interpreter::from_file("../tests/assets/realesr.mnn")
         .expect("Failed to create interpreter");
