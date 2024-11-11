@@ -37,6 +37,7 @@ impl Default for BackendConfig {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PowerMode {
     Low,
     Normal,
@@ -98,6 +99,7 @@ impl FromStr for PrecisionMode {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MemoryMode {
     Low,
     Normal,
@@ -115,6 +117,7 @@ impl MemoryMode {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PrecisionMode {
     Normal = 0,
     High,

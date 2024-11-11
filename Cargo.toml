@@ -21,6 +21,7 @@ error-stack.workspace = true
 oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
 dunce = "1.0.5"
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 metal = ["mnn-sys/metal"]
@@ -34,6 +35,7 @@ openmp = ["mnn-sys/openmp"]
 mnn-threadpool = ["mnn-sys/mnn-threadpool"]
 tracing = ["dep:tracing"]
 profile = ["tracing"]
+serde = ["dep:serde"]
 
 default = ["mnn-threadpool"]
 
