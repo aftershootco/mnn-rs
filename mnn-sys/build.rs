@@ -145,9 +145,13 @@ fn main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=OpenCL");
         #[cfg(feature = "opengl")]
         println!("cargo:rustc-link-lib=framework=OpenGL");
-    } else {
-        // #[cfg(feature = "opencl")]
-        // println!("cargo:rustc-link-lib=static=opencl");
+    } else if *TARGET_OS == "linux" {
+        #[cfg(feature = "opencl")]
+        {
+            if !pkg_config::probe_library("OpenCL").is_ok() {
+                println!("cargo:rustc-link-lib=static=OpenCL");
+            };
+        }
     }
     if is_emscripten() {
         // println!("cargo:rustc-link-lib=static=stdc++");
@@ -609,9 +613,9 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             arm(&mut build, cpu_files_dir.join("arm"))?;
         }
 
-        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
-            x86_64(&mut build, cpu_files_dir.join("x86_64"))?;
-        }
+        // if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
+        //     x86_64(&mut build, cpu_files_dir.join("x86_64"))?;
+        // }
 
         build.files(cpu_files);
     }

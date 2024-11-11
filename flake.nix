@@ -95,9 +95,14 @@
               cmake
               llvmPackages.libclang.lib
               clang
+              pkg-config
             ];
             buildInputs = with pkgs;
               []
+              ++ (lib.optionals pkgs.stdenv.isLinux [
+                ocl-icd
+                opencl-headers
+              ])
               ++ (lib.optionals pkgs.stdenv.isDarwin [
                   darwin.apple_sdk.frameworks.OpenCL
                 ]
@@ -206,6 +211,7 @@
             // {
               packages = with pkgs;
                 [
+                  clang
                   nushell
                   git
                   git-lfs

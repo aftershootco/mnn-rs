@@ -21,7 +21,7 @@ impl Default for TensorCallback {
 }
 
 impl TensorCallback {
-    pub fn from_ptr(f: *mut libc::c_void) -> Self {
+    pub fn from_ptr(f: *mut core::ffi::c_void) -> Self {
         debug_assert!(!f.is_null());
         unsafe {
             Self {
@@ -30,8 +30,8 @@ impl TensorCallback {
         }
     }
 
-    pub fn into_ptr(self) -> *mut libc::c_void {
-        Arc::into_raw(self.inner) as *mut libc::c_void
+    pub fn into_ptr(self) -> *mut core::ffi::c_void {
+        Arc::into_raw(self.inner) as *mut core::ffi::c_void
     }
 
     pub fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
@@ -463,7 +463,7 @@ impl Interpreter {
         end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         sync: bool,
     ) -> Result<()> {
-        let sync = sync as libc::c_int;
+        let sync = sync as core::ffi::c_int;
         let before = TensorCallback::from(before).into_ptr();
         let end = TensorCallback::from(end).into_ptr();
         let ret = unsafe {
@@ -555,7 +555,7 @@ impl Interpreter {
                 self.inner,
                 session.inner,
                 mnn_sys::cpp::MNN_Interpreter_SessionInfoCode_FLOPS as _,
-                flop_ptr.cast::<libc::c_void>(),
+                flop_ptr.cast::<core::ffi::c_void>(),
             )
         };
         ensure!(
@@ -742,15 +742,15 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
 
 // #[no_mangle]
 // extern "C" fn rust_closure_callback_runner(
-//     f: *mut libc::c_void,
+//     f: *mut core::ffi::c_void,
 //     tensors: *const *mut mnn_sys::Tensor,
 //     tensor_count: usize,
-//     name: *const libc::c_char,
-// ) -> libc::c_int {
+//     name: *const core::ffi::c_char,
+// ) -> core::ffi::c_int {
 //     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
 //     let name = unsafe { std::ffi::CStr::from_ptr(name) };
 //     let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
-//     let ret = f(tensors, name) as libc::c_int;
+//     let ret = f(tensors, name) as core::ffi::c_int;
 //     core::mem::forget(f);
 //     ret
 // }
@@ -766,24 +766,24 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
 //     let tensors = [std::ptr::null_mut()];
 //     let name = std::ffi::CString::new("Test").unwrap();
 //     let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr())
-//         as libc::c_int;
+//         as core::ffi::c_int;
 //     assert_eq!(ret, 0);
 // }
 
 #[no_mangle]
 extern "C" fn rust_closure_callback_runner_op(
-    f: *mut libc::c_void,
+    f: *mut core::ffi::c_void,
     tensors: *const *mut mnn_sys::Tensor,
     tensor_count: usize,
-    op: *mut libc::c_void,
-) -> libc::c_int {
+    op: *mut core::ffi::c_void,
+) -> core::ffi::c_int {
     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
     let f: TensorCallback = TensorCallback::from_ptr(f);
     let op = OperatorInfo {
         inner: op.cast(),
         __marker: PhantomData,
     };
-    let ret = f(tensors, op) as libc::c_int;
+    let ret = f(tensors, op) as core::ffi::c_int;
 
     core::mem::forget(f);
     ret
@@ -791,7 +791,7 @@ extern "C" fn rust_closure_callback_runner_op(
 
 #[repr(transparent)]
 pub struct OperatorInfo<'op> {
-    pub(crate) inner: *mut libc::c_void,
+    pub(crate) inner: *mut core::ffi::c_void,
     pub(crate) __marker: PhantomData<&'op ()>,
 }
 

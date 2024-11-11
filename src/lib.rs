@@ -86,5 +86,5 @@ pub mod prelude {
     pub(crate) use crate::profile::profile;
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
-    pub use libc::*;
+    pub use core::ffi::*;
 }
