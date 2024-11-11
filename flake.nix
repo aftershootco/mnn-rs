@@ -205,9 +205,10 @@
           default = pkgs.mkShell {
             packages = with pkgs;
               [
-                mnn
+                nushell
+                git
+                git-lfs
                 nightlyToolchain
-                zstd
                 cargo-nextest
                 cargo-hakari
                 cargo-deny
@@ -223,8 +224,6 @@
                   darwin.apple_sdk.frameworks.Metal
                   darwin.apple_sdk.frameworks.CoreML
                 ]));
-            # RUSTFLAGS = "-Zsanitizer=address";
-            # ASAN_OPTIONS = "detect_leaks=1";
           };
         };
       }
