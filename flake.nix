@@ -202,29 +202,30 @@
           };
 
         devShells = {
-          default = pkgs.mkShell {
-            packages = with pkgs;
-              [
-                nushell
-                git
-                git-lfs
-                nightlyToolchain
-                cargo-nextest
-                cargo-hakari
-                cargo-deny
-                # cargo-audit
-                cargo-semver-checks
-                rust-bindgen
-                llvm
-              ]
-              ++ (lib.optionals pkgs.stdenv.isDarwin [
-                  darwin.apple_sdk.frameworks.OpenCL
+          default = pkgs.mkShell (commonArgs
+            // {
+              packages = with pkgs;
+                [
+                  nushell
+                  git
+                  git-lfs
+                  nightlyToolchain
+                  cargo-nextest
+                  cargo-hakari
+                  cargo-deny
+                  # cargo-audit
+                  cargo-semver-checks
+                  rust-bindgen
+                  llvm
                 ]
-                ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                  darwin.apple_sdk.frameworks.Metal
-                  darwin.apple_sdk.frameworks.CoreML
-                ]));
-          };
+                ++ (lib.optionals pkgs.stdenv.isDarwin [
+                    darwin.apple_sdk.frameworks.OpenCL
+                  ]
+                  ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                    darwin.apple_sdk.frameworks.Metal
+                    darwin.apple_sdk.frameworks.CoreML
+                  ]));
+            });
         };
       }
     )
