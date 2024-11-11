@@ -117,14 +117,10 @@ fn main() -> Result<()> {
     }
 
     if *MNN_COMPILE {
-        let install_dir = out_dir.join("mnn-install");
         build_cpp_build(&vendor)?;
-        println!(
-            "cargo:rustc-link-search=native={}",
-            install_dir.join("lib").display()
-        );
     } else if let core::result::Result::Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
         println!("cargo:rustc-link-search=native={}", lib_dir);
+        println!("cargo:rustc-link-lib=static=MNN");
     } else {
         panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
     }
@@ -167,7 +163,6 @@ fn main() -> Result<()> {
             wasm32_emscripten_libs.display()
         );
     }
-    println!("cargo:rustc-link-lib=static=MNN");
     Ok(())
 }
 
