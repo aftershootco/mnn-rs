@@ -549,6 +549,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     // Get version
     build
         // .try_flags_from_environment(concat!(env!("CARGO_PKG_NAME"), "_CFLAGS"))?
+        .cargo_warnings(false)
         .include(vendor.join("include/"))
         .include(vendor.join("source/"))
         .include(vendor.join("express/"))
