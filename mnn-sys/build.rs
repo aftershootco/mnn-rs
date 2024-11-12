@@ -827,10 +827,7 @@ fn x86_64<'a>(
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if !like_msvc {
-                build
-                    // .flag_if_supported("-msse")
-                    // .flag_if_supported("-msse2")
-                    .flag("-msse4.1");
+                build.flag_if_supported("-msse4.1");
             }
             CxxOption::LOW_MEMORY.define(build);
         })
