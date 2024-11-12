@@ -1,5 +1,9 @@
 use ::tap::*;
-use anyhow::*;
+use error_stack::*;
+#[derive(Debug, thiserror::Error)]
+#[error("Failed to build mnn-sys")]
+pub struct Error;
+pub type Result<T, E = Report<Error>> = core::result::Result<T, E>;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -7,6 +11,7 @@ use std::{
     path::{Path, PathBuf},
     sync::LazyLock,
 };
+
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static TARGET_POINTER_WIDTH: LazyLock<usize> = LazyLock::new(|| {
@@ -60,20 +65,37 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
         .as_ref()
         .read_dir()
-        .with_context(|| format!("Vendor directory missing: {}", vendor.as_ref().display()))?
+        .change_context(Error)
+        .attach_printable_lazy(|| {
+            format!("Vendor directory missing: {}", vendor.as_ref().display())
+        })?
         .flatten()
         .count()
         == 0
     {
-        anyhow::bail!("Vendor not found maybe you need to run \"git submodule update --init\"")
+        return Err(Report::new(Error).attach_printable(
+            "Vendor not found maybe you need to run \"git submodule update --init\"",
+        ));
     }
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() {
+    match _main() {
+        Ok(_) => (),
+        Err(e) => {
+            Report::set_color_mode(fmt::ColorMode::Color);
+            Report::set_charset(fmt::Charset::default());
+            eprintln!("{e:?}");
+            panic!("Failed to compile mnn-sys")
+        }
+    }
+}
+
+fn _main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").change_context(Error)?);
     let source = PathBuf::from(
         std::env::var("MNN_SRC")
             .ok()
@@ -91,15 +113,17 @@ fn main() -> Result<()> {
                 .overwrite(true)
                 .copy_inside(true),
         )
-        .context("Failed to copy vendor")?;
+        .change_context(Error)
+        .attach_printable("Failed to copy vendor")?;
         let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
-        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
+        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))
+            .change_context(Error)?;
         // try_patch_file("patches/halide_type_t_64.patch", intptr)
-        //     .context("Failed to patch vendor")?;
+        //     .attach_printable("Failed to patch vendor")?;
 
         use itertools::Itertools;
-        let intptr_contents = std::fs::read_to_string(&intptr)?;
+        let intptr_contents = std::fs::read_to_string(&intptr).change_context(Error)?;
         let patched = intptr_contents.lines().collect::<Vec<_>>();
         if let Some((idx, _)) = patched
             .iter()
@@ -112,7 +136,7 @@ fn main() -> Result<()> {
                 .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
                 .map(|(_, c)| c)
                 .collect::<Vec<_>>();
-            std::fs::write(intptr, patched.join("\n"))?;
+            std::fs::write(intptr, patched.join("\n")).change_context(Error)?;
         }
     }
 
@@ -126,9 +150,9 @@ fn main() -> Result<()> {
     }
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
-        .with_context(|| "Failed to build mnn_c")?;
-    mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
-    mnn_cpp_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_cpp bindings")?;
+        .attach_printable("Failed to build mnn_c")?;
+    mnn_c_bindgen(&vendor, &out_dir).attach_printable("Failed to generate mnn_c bindings")?;
+    mnn_cpp_bindgen(&vendor, &out_dir).attach_printable("Failed to generate mnn_cpp bindings")?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
     if *TARGET_OS == "macos" {
         #[cfg(feature = "metal")]
@@ -157,9 +181,12 @@ fn main() -> Result<()> {
         // println!("cargo:rustc-link-lib=static=stdc++");
         let emscripten_cache = std::process::Command::new("em-config")
             .arg("CACHE")
-            .output()?
+            .output()
+            .change_context(Error)?
             .stdout;
-        let emscripten_cache = std::str::from_utf8(&emscripten_cache)?.trim();
+        let emscripten_cache = std::str::from_utf8(&emscripten_cache)
+            .change_context(Error)?
+            .trim();
         let wasm32_emscripten_libs =
             PathBuf::from(emscripten_cache).join("sysroot/lib/wasm32-emscripten");
         println!(
@@ -173,9 +200,13 @@ fn main() -> Result<()> {
 pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<()> {
     let vendor = vendor.as_ref();
     let mnn_c = PathBuf::from(MANIFEST_DIR).join("mnn_c");
-    mnn_c.read_dir()?.flatten().for_each(|e| {
-        rerun_if_changed(e.path());
-    });
+    mnn_c
+        .read_dir()
+        .change_context(Error)?
+        .flatten()
+        .for_each(|e| {
+            rerun_if_changed(e.path());
+        });
     const HEADERS: &[&str] = &[
         "error_code_c.h",
         "interpreter_c.h",
@@ -185,7 +216,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
     ];
 
     let bindings = bindgen::Builder::default()
-        // .clang_args(["-x", "c++"])
         .clang_arg(CxxOption::VULKAN.cxx())
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
@@ -230,8 +260,11 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         //     // eprintln!("Full bindgen: {}", d.command_line_flags().join(" "));
         //     std::fs::write("bindgen.txt", d.command_line_flags().join(" ")).ok();
         // })
-        .generate()?;
-    bindings.write_to_file(out.as_ref().join("mnn_c.rs"))?;
+        .generate()
+        .change_context(Error)?;
+    bindings
+        .write_to_file(out.as_ref().join("mnn_c.rs"))
+        .change_context(Error)?;
     Ok(())
 }
 
@@ -260,17 +293,24 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
         .allowlist_item(".*SessionInfoCode.*");
     // let cmd = bindings.command_line_flags().join(" ");
     // println!("cargo:warn=bindgen: {}", cmd);
-    let bindings = bindings.generate()?;
-    bindings.write_to_file(out.as_ref().join("mnn_cpp.rs"))?;
+    let bindings = bindings.generate().change_context(Error)?;
+    bindings
+        .write_to_file(out.as_ref().join("mnn_cpp.rs"))
+        .change_context(Error)?;
     Ok(())
 }
 
 pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<()> {
     let mnn_c = path.as_ref();
-    let files = mnn_c.read_dir()?.flatten().map(|e| e.path()).filter(|e| {
-        e.extension() == Some(std::ffi::OsStr::new("cpp"))
-            || e.extension() == Some(std::ffi::OsStr::new("c"))
-    });
+    let files = mnn_c
+        .read_dir()
+        .change_context(Error)?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|e| {
+            e.extension() == Some(std::ffi::OsStr::new("cpp"))
+                || e.extension() == Some(std::ffi::OsStr::new("c"))
+        });
     let vendor = vendor.as_ref();
     cc::Build::new()
         .include(vendor.join("include"))
@@ -312,20 +352,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         //     build
         // })
         .try_compile("mnn_c")
-        .context("Failed to compile mnn_c library")?;
-    Ok(())
-}
-
-pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<()> {
-    let patch = dunce::canonicalize(patch)?;
-    rerun_if_changed(&patch);
-    let patch = std::fs::read_to_string(&patch)?;
-    let patch = diffy::Patch::from_str(&patch)?;
-    let file_path = file.as_ref();
-    let file = std::fs::read_to_string(file_path).context("Failed to read input file")?;
-    let patched_file =
-        diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
-    std::fs::write(file_path, patched_file)?;
+        .change_context(Error)
+        .attach_printable("Failed to compile mnn_c library")?;
     Ok(())
 }
 
@@ -545,21 +573,24 @@ fn read_dir(input: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
 pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let mut build = cc::Build::new();
     let vendor = vendor.as_ref();
+    let mut includes = vec![
+        vendor.join("include/"),
+        vendor.join("source/"),
+        vendor.join("express/"),
+        vendor.join("tools/"),
+        vendor.join("codegen/"),
+        vendor.join("schema/current/"),
+        vendor.join("3rd_party/"),
+        vendor.join("3rd_party/flatbuffers/include"),
+        vendor.join("3rd_party/half"),
+        vendor.join("3rd_party/imageHelper"),
+        vendor.join("3rd_party/OpenCLHeaders/"),
+    ];
     // Get version
     build
         // .try_flags_from_environment(concat!(env!("CARGO_PKG_NAME"), "_CFLAGS"))?
         .cargo_warnings(false)
-        .include(vendor.join("include/"))
-        .include(vendor.join("source/"))
-        .include(vendor.join("express/"))
-        .include(vendor.join("tools/"))
-        .include(vendor.join("codegen/"))
-        .include(vendor.join("schema/current/"))
-        .include(vendor.join("3rd_party/"))
-        .include(vendor.join("3rd_party/flatbuffers/include"))
-        .include(vendor.join("3rd_party/half"))
-        .include(vendor.join("3rd_party/imageHelper"))
-        .include(vendor.join("3rd_party/OpenCLHeaders/"))
+        .includes(&includes)
         .cpp(true)
         .std("c++11");
 
@@ -607,15 +638,16 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         if CxxOption::ARM82.enabled() && is_arm() {
             build.define("ENABLE_ARMV82", None);
             build.include(cpu_files_dir.join("arm"));
+            includes.push(cpu_files_dir.join("arm"));
         }
 
         if is_arm() {
             arm(&mut build, cpu_files_dir.join("arm"))?;
         }
 
-        // if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
-        //     x86_64(&mut build, cpu_files_dir.join("x86_64"))?;
-        // }
+        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
+            x86_64(&mut build, &includes, cpu_files_dir.join("x86_x64"))?;
+        }
 
         build.files(cpu_files);
     }
@@ -652,15 +684,17 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             .filter_map(Result::ok)
             .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
             .map(|e| e.into_path());
-        build.include(opencl_files_dir.join("schema").join("current"));
+        let ocl_includes = opencl_files_dir.join("schema").join("current");
+        build.include(ocl_includes.clone());
+        includes.push(ocl_includes);
         build.define("MNN_OPENCL_ENABLED", "1");
         build.files(opencl_files.chain([opencl_files_dir.join("execution/cl/opencl_program.cc")]));
     }
 
-    build.get_files().for_each(|f| {
-        rerun_if_changed(f);
-    });
-    build.compile("mnn");
+    build
+        .try_compile("mnn")
+        .change_context(Error)
+        .attach_printable("Failed to compile mnn")?;
     Ok(())
 }
 
@@ -715,19 +749,25 @@ fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Buil
     Ok(build)
 }
 
-fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc::Build> {
+fn x86_64<'a>(
+    build: &'a mut cc::Build,
+    includes: &'_ [PathBuf],
+    x86_64_dir: impl AsRef<Path>,
+) -> Result<&'a mut cc::Build> {
     let mnn_assembler = std::env::var("MNN_ASSEMBLER").ok();
     let like_msvc = build.get_compiler().is_like_msvc();
     let win_use_asm = like_msvc && *TARGET_POINTER_WIDTH == 64 && mnn_assembler.is_some();
     let has_avx512 = target_has_avx512();
     build.define("MNN_USE_SSE", None);
     let x86_src_dir = x86_64_dir.as_ref();
-    let mnn_x8664_src = read_dir(&x86_src_dir);
-    let mnn_avx_src = read_dir(x86_src_dir.join("avx"));
-    let mnn_avxfma_src = read_dir(x86_src_dir.join("avxfma"));
-    let mnn_sse_src = read_dir(x86_src_dir.join("sse"));
+    let mnn_x8664_src = read_dir(&x86_src_dir).filter(|p| cpp_filter(p));
+    let mnn_avx_src = read_dir(x86_src_dir.join("avx")).filter(|p| cpp_filter(p));
+    let mnn_avxfma_src = read_dir(x86_src_dir.join("avxfma")).filter(|p| cpp_filter(p));
+    let mnn_sse_src = read_dir(x86_src_dir.join("sse")).filter(|p| cpp_filter(p));
     let mnn_avx512_vnni_src = x86_src_dir.join("avx512/GemmInt8_VNNI.cpp");
-    let mnn_avx512_src = read_dir(x86_src_dir.join("avx512")).filter(|p| p != &mnn_avx512_vnni_src);
+    let mnn_avx512_src = read_dir(x86_src_dir.join("avx512"))
+        .filter(|p| cpp_filter(p))
+        .filter(|p| p != &mnn_avx512_vnni_src);
 
     if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
         let mnn_avx512 = cc::Build::new()
@@ -748,7 +788,8 @@ fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc
                         .flag_if_supported("-mfma");
                 }
             })
-            .compile_intermediates();
+            .try_compile_intermediates()
+            .change_context(Error)?;
         build.objects(mnn_avx512);
         let mnn_avx512_vnni = true;
         if mnn_avx512_vnni {
@@ -771,25 +812,38 @@ fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc
                             .flag_if_supported("-mavx512vnni");
                     }
                 })
-                .compile_intermediates();
+                .try_compile_intermediates()
+                .change_context(Error)?;
             build.objects(mnn_avx512_vnni);
         }
     }
 
     let mnn_sse = cc::Build::new()
+        .cpp(true)
+        .std("c++11")
+        .includes(includes)
+        // .cargo_warnings(false)
         .files(mnn_sse_src)
-        .flag("MNN_USE_SSE")
+        .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if !like_msvc {
-                build.flag_if_supported("-msse4.1");
+                build
+                    // .flag_if_supported("-msse")
+                    // .flag_if_supported("-msse2")
+                    .flag("-msse4.1");
             }
             CxxOption::LOW_MEMORY.define(build);
         })
-        .compile_intermediates();
+        .try_compile_intermediates()
+        .change_context(Error)
+        .attach_printable("Failed to build sse extensions")?;
 
     let mnn_avx = cc::Build::new()
+        .cpp(true)
+        .std("c++11")
+        .includes(includes)
         .files(mnn_avx_src)
-        .flag("MNN_USE_SSE")
+        .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
                 build.flag_if_supported("/arch:AVX");
@@ -800,11 +854,15 @@ fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc
             }
             CxxOption::LOW_MEMORY.define(build);
         })
-        .compile_intermediates();
+        .try_compile_intermediates()
+        .change_context(Error)?;
 
     let mnn_avxfma = cc::Build::new()
+        .cpp(true)
+        .std("c++11")
+        .includes(includes)
         .files(mnn_avxfma_src)
-        .flag("MNN_USE_SSE")
+        .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
                 build.flag_if_supported("/arch:AVX2");
@@ -817,11 +875,14 @@ fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc
             CxxOption::LOW_MEMORY.define(build);
             CxxOption::BF16.define(build)
         })
-        .compile_intermediates();
+        .try_compile_intermediates()
+        .change_context(Error)?;
 
     let mnn_x8664 = cc::Build::new()
+        .cpp(true)
+        .std("c++11")
+        .includes(includes)
         .files(mnn_x8664_src)
-        .flag("MNN_USE_SSE")
         .tap_mut(|build| {
             CxxOption::LOW_MEMORY.define(build);
             CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(build);
@@ -829,7 +890,8 @@ fn x86_64(build: &mut cc::Build, x86_64_dir: impl AsRef<Path>) -> Result<&mut cc
                 CxxOption::AVX512.define(build);
             }
         })
-        .compile_intermediates();
+        .try_compile_intermediates()
+        .change_context(Error)?;
 
     build.objects(mnn_sse);
     build.objects(mnn_x8664);
@@ -849,9 +911,17 @@ fn target_has_avx512() -> bool {
 #error "AVX-512 support is required to compile this program."
 #endif
 int main() {return 0;} "#;
-    std::fs::write("test.c", AVX_PRG).ok();
+    let out_dir: PathBuf = std::env::var("OUT_DIR")
+        .expect("OUT_DIR must be set in build.rs")
+        .into();
+    std::fs::write(out_dir.join("test.c"), AVX_PRG).expect("Failed to write to out_dir");
     cc::Build::new()
         .file("test.c")
+        .cargo_warnings(false)
         .try_compile("avx512")
         .is_ok()
+}
+
+fn cpp_filter(path: impl AsRef<Path>) -> bool {
+    path.as_ref().extension() == Some(OsStr::new("cpp"))
 }

@@ -215,7 +215,7 @@
                   nushell
                   git
                   git-lfs
-                  nightlyToolchain
+                  stableToolchainWithRustAnalyzer
                   cargo-nextest
                   cargo-hakari
                   cargo-deny
