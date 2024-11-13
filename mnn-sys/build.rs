@@ -65,6 +65,11 @@ const HALIDE_SEARCH: &str =
 
 const STATIC_CRT: bool = cfg!(feature = "crt_static");
 
+fn has_cpu_feature(feature: impl AsRef<str>) -> bool {
+    let feature = feature.as_ref();
+    TARGET_FEATURES.iter().find(|f| *f == feature).is_some()
+}
+
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
         .as_ref()
@@ -128,13 +133,9 @@ fn _main() -> Result<()> {
         // try_patch_file("patches/halide_type_t_64.patch", intptr)
         //     .attach_printable("Failed to patch vendor")?;
 
-        use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr).change_context(Error)?;
         let patched = intptr_contents.lines().collect::<Vec<_>>();
-        if let Some((idx, _)) = patched
-            .iter()
-            .find_position(|line| line.contains(HALIDE_SEARCH))
-        {
+        if let Some(idx) = patched.iter().position(|line| line.contains(HALIDE_SEARCH)) {
             // remove the last line and the next 3 lines
             let patched = patched
                 .into_iter()
@@ -438,6 +439,7 @@ impl CxxOption {
         ARM82 => "arm82", "MNN_ARM82",
         BF16 => "bf16", "MNN_SUPPORT_BF16",
         AVX512 => "avx512", "MNN_AVX512",
+        SSE => "sse", "MNN_USE_SSE",
         LOW_MEMORY => "low-memory", "MNN_LOW_MEMORY",
         NEON => "neon", "MNN_USE_NEON",
         CPU_WEIGHT_DEQUANT_GEMM => "cpu-weight-dequant-gemm", "MNN_CPU_WEIGHT_DEQUANT_GEMM"
@@ -566,7 +568,8 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     CxxOption::SPARSE_COMPUTE.define(&mut build);
     CxxOption::THREADPOOL.define(&mut build);
     CxxOption::MINI_BUILD.define(&mut build);
-    is_arm().then(|| CxxOption::NEON.define(&mut build));
+    (is_arm() && has_cpu_feature("neon")).then(|| CxxOption::NEON.define(&mut build));
+    (is_x86() && has_cpu_feature("sse")).then(|| CxxOption::SSE.define(&mut build));
     CxxOption::LOW_MEMORY.define(&mut build);
     CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(&mut build);
 
@@ -599,7 +602,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             arm(&mut build, cpu_files_dir.join("arm"))?;
         }
 
-        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() && cfg!(feature = "sse") {
+        if has_cpu_feature("sse") && is_x86() && CxxOption::SSE.enabled() {
             x86_64(&mut build, &includes, cpu_files_dir.join("x86_x64"))?;
         }
 
@@ -708,7 +711,6 @@ fn x86_64<'a>(
     let like_msvc = build.get_compiler().is_like_msvc();
     let win_use_asm = like_msvc && *TARGET_POINTER_WIDTH == 64 && mnn_assembler.is_some();
     let has_avx512 = target_has_avx512();
-    build.define("MNN_USE_SSE", None);
     let x86_src_dir = x86_64_dir.as_ref();
     let mnn_x8664_src = read_dir(&x86_src_dir).filter(|p| cpp_filter(p));
     let mnn_avx_src = read_dir(x86_src_dir.join("avx")).filter(|p| cpp_filter(p) || asm_filter(p));

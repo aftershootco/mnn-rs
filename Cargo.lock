@@ -527,7 +527,6 @@ dependencies = [
  "error-stack",
  "fs_extra",
  "ignore",
- "itertools",
  "pkg-config",
  "tap",
  "thiserror",
