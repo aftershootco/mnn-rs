@@ -74,7 +74,7 @@
         };
         inherit (pkgs) lib;
 
-        version = "1.80.0";
+        version = "latest";
 
         rustToolchain = pkgs.rust-bin.stable.${version}.default;
         rustToolchainWithLLvmTools = pkgs.rust-bin.stable.${version}.default.override {
