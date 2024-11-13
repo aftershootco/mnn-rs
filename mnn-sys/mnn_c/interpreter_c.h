@@ -196,7 +196,7 @@ const char *Interpreter_uuid(const Interpreter *interpreter);
 
 const char *OperatorInfo_name(const void *op);
 const char *OperatorInfo_type(const void *op);
-const float OperatorInfo_flops(const void *op);
+float OperatorInfo_flops(const void *op);
 
 #ifdef __cplusplus
 }

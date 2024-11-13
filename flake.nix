@@ -77,9 +77,12 @@
         stableToolchainWithLLvmTools = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src" "llvm-tools"];
         };
-        stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override {
-          extensions = ["rust-src" "rust-analyzer"];
-        };
+        stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override ({
+            extensions = ["rust-src" "rust-analyzer"];
+          }
+          // (lib.optionalAttrs pkgs.stdenv.isDarwin {
+            targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
+          }));
         craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
 

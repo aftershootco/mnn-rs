@@ -172,7 +172,7 @@ fn _main() -> Result<()> {
     } else if *TARGET_OS == "linux" {
         #[cfg(feature = "opencl")]
         {
-            if !pkg_config::probe_library("OpenCL").is_ok() {
+            if pkg_config::probe_library("OpenCL").is_err() {
                 println!("cargo:rustc-link-lib=static=OpenCL");
             };
         }
@@ -822,7 +822,6 @@ fn x86_64<'a>(
         .cpp(true)
         .std("c++11")
         .includes(includes)
-        // .cargo_warnings(false)
         .files(mnn_sse_src)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {

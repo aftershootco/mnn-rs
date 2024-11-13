@@ -27,11 +27,17 @@ coreml = ["metal"]
 opencl = []
 openmp = []
 opengl = []
+
 mnn-threadpool = []
+
 crt_static = []
 mini-build = []
 sparse-compute = []
 arm82 = []
 bf16 = []
+cpu-weight-dequant-gemm = []
+avx512 = []
+neon = []
+low-memory = []
 
 default = ["mnn-threadpool", "sparse-compute", "opencl"]

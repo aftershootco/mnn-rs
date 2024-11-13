@@ -496,7 +496,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytemuck",
- "cc",
  "clap",
  "divan",
  "dunce",

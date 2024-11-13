@@ -52,6 +52,3 @@ harness = false
 [profile.rwd]
 debug = true
 inherits = "release"
-
-[build-dependencies]
-cc = "1.1.36"
