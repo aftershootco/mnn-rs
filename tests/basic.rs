@@ -19,7 +19,7 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
 
-    let mut net = mnn::Interpreter::from_file(realesr)?;
+    let net = mnn::Interpreter::from_file(realesr)?;
     net.set_cache_file(realesr.with_extension("cache"), 128)?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);

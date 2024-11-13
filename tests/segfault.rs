@@ -6,7 +6,7 @@ fn test_segfault_case_1_() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
 
-    let mut net = mnn::Interpreter::from_file(realesr)?;
+    let net = mnn::Interpreter::from_file(realesr)?;
     net.set_cache_file(realesr.with_extension("cache"), 128)?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
@@ -31,7 +31,7 @@ fn test_segfault_case_1_() -> Result<(), Box<dyn std::error::Error>> {
 pub fn test_segfault_case_2_() {
     use mnn::*;
     let model = std::fs::read("tests/assets/resizing.mnn").expect("No resizing model");
-    let mut net = Interpreter::from_bytes(&model).unwrap();
+    let net = Interpreter::from_bytes(&model).unwrap();
     let config = ScheduleConfig::default();
     let mut session = net.create_session(config).unwrap();
 

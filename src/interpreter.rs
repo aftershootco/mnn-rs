@@ -179,7 +179,7 @@ impl Interpreter {
     ///
     /// **Warning:**
     /// It should be called before create session!
-    pub fn set_session_mode(&mut self, mode: SessionMode) {
+    pub fn set_session_mode(&self, mode: SessionMode) {
         unsafe { mnn_sys::Interpreter_setSessionMode(self.inner, mode.to_mnn_sys()) }
     }
 
@@ -260,7 +260,7 @@ impl Interpreter {
     /// # Safety
     /// This function is marked unsafe since it's not clear what the safety guarantees are right
     /// now. With a simple test it caused a segfault so it's marked unsafe
-    pub unsafe fn release_model(&mut self) {
+    pub unsafe fn release_model(&self) {
         unsafe { mnn_sys::Interpreter_releaseModel(self.inner) }
     }
 
@@ -500,7 +500,7 @@ impl Interpreter {
     /// The API should be called before create session.
     ///
     /// Key Depercerate, keeping for future use!
-    pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
+    pub fn set_cache_file(&self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
         let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -824,7 +824,7 @@ fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
         .run_session_with_callback(
@@ -841,7 +841,7 @@ fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     let time = std::time::Instant::now();
     interpreter

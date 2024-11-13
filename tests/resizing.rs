@@ -4,7 +4,7 @@ use common::*;
 #[test]
 pub fn test_resizing() -> Result<()> {
     let model = std::fs::read("tests/assets/resizing.mnn").expect("No resizing model");
-    let mut net = Interpreter::from_bytes(&model).unwrap();
+    let net = Interpreter::from_bytes(&model).unwrap();
     net.set_cache_file("resizing.cache", 128)?;
     let mut config = ScheduleConfig::default();
     #[cfg(feature = "opencl")]
