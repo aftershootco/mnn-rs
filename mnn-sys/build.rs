@@ -61,6 +61,8 @@ static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
 const HALIDE_SEARCH: &str =
     r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
 
+const STATIC_CRT: bool = cfg!(feature = "crt_static");
+
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
         .as_ref()
@@ -332,13 +334,11 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
                 config.target("wasm32-unknown-emscripten");
                 config.cpp_link_stdlib("c++-noexcept");
             }
-            #[cfg(feature = "crt_static")]
-            config.static_crt(true);
             config
         })
         .cpp(true)
         .static_flag(true)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
         .files(files)
         .std("c++14")
         .try_compile("mnn_c")
@@ -350,32 +350,6 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
 pub fn rerun_if_changed(path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed={}", path.as_ref().display());
 }
-
-// pub fn vulkan_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
-//     let vendor = vendor.as_ref();
-//     let vulkan_dir = vendor.join("source/backend/vulkan");
-//     if cfg!(feature = "vulkan") {
-//         vec![
-//             vulkan_dir.clone(),
-//             vulkan_dir.join("runtime"),
-//             vulkan_dir.join("component"),
-//             // IDK If the order is important but the cmake file does it like this
-//             vulkan_dir.join("buffer/execution"),
-//             vulkan_dir.join("buffer/backend"),
-//             vulkan_dir.join("buffer"),
-//             vulkan_dir.join("buffer/shaders"),
-//             // vulkan_dir.join("image/execution"),
-//             // vulkan_dir.join("image/backend"),
-//             // vulkan_dir.join("image"),
-//             // vulkan_dir.join("image/shaders"),
-//             vendor.join("schema/current"),
-//             vendor.join("3rd_party/flatbuffers/include"),
-//             vendor.join("source"),
-//         ]
-//     } else {
-//         vec![]
-//     }
-// }
 
 pub fn is_emscripten() -> bool {
     *TARGET_OS == "emscripten" && *TARGET_ARCH == "wasm32"
@@ -576,7 +550,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     build
         .includes(&includes)
         .cpp(true)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
         .static_flag(true)
         .std("c++11");
 
@@ -745,7 +719,8 @@ fn x86_64<'a>(
     if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
         let mnn_avx512 = cc::Build::new()
             .files(mnn_avx512_src)
-            .static_crt(true)
+            .static_crt(STATIC_CRT)
+            .static_flag(true)
             .define("MNN_USE_SSE", None)
             .define("MNN_X86_USE_ASM", None)
             .tap_mut(|build| {
@@ -797,7 +772,8 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_sse_src)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
+        .static_flag(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if !like_msvc {
@@ -814,7 +790,8 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_avx_src)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
+        .static_flag(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
@@ -834,7 +811,8 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_avxfma_src)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
+        .static_flag(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
@@ -856,7 +834,8 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_x8664_src)
-        .static_crt(true)
+        .static_crt(STATIC_CRT)
+        .static_flag(true)
         .tap_mut(|build| {
             CxxOption::LOW_MEMORY.define(build);
             CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(build);
