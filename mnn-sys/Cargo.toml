@@ -33,6 +33,7 @@ opencl = []
 
 metal = []
 coreml = ["metal"]
+vulkan = []
 
 mnn-threadpool = []
 

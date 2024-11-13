@@ -95,6 +95,8 @@ fn main() {
 }
 
 fn _main() -> Result<()> {
+    #[cfg(any(feature = "vulkan", feature = "metal", feature = "coreml"))]
+    compile_error!("Vulkan, Metal and CoreML are not supported currently");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").change_context(Error)?);
@@ -169,8 +171,6 @@ fn _main() -> Result<()> {
         println!("cargo:rustc-link-lib=framework=CoreVideo");
         #[cfg(feature = "opencl")]
         println!("cargo:rustc-link-lib=framework=OpenCL");
-        #[cfg(feature = "opengl")]
-        println!("cargo:rustc-link-lib=framework=OpenGL");
     } else if *TARGET_OS == "linux" {
         #[cfg(feature = "opencl")]
         {
@@ -320,8 +320,6 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         .pipe(|config| {
             #[cfg(feature = "vulkan")]
             config.define("MNN_VULKAN", "1");
-            #[cfg(feature = "opengl")]
-            config.define("MNN_OPENGL", "1");
             #[cfg(feature = "metal")]
             config.define("MNN_METAL", "1");
             #[cfg(feature = "coreml")]
@@ -431,8 +429,6 @@ impl CxxOption {
         METAL => "metal", "MNN_METAL",
         COREML => "coreml", "MNN_COREML",
         OPENCL => "opencl", "MNN_OPENCL",
-        OPENMP => "openmp", "MNN_OPENMP",
-        OPENGL => "opengl", "MNN_OPENGL",
         CRT_STATIC => "crt_static", "MNN_WIN_RUNTIME_MT",
         SPARSE_COMPUTE => "sparse-compute", "MNN_USE_SPARSE_COMPUTE",
         THREADPOOL => "mnn-threadpool", "MNN_USE_THREAD_POOL",
