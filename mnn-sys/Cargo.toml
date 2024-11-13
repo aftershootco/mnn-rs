@@ -43,10 +43,13 @@ sparse-compute = []
 arm82 = []
 bf16 = []
 cpu-weight-dequant-gemm = []
+
 # Disable if you don't plan to use cpu backend and want quicker compilation
 sse = []
 avx512 = []
 neon = []
+simd = ["sse", "avx512", "neon"]
+
 low-memory = []
 
-default = ["mnn-threadpool", "sparse-compute", "sse", "neon", "opencl"]
+default = ["mnn-threadpool", "sparse-compute", "opencl", "simd"]

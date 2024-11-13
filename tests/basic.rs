@@ -6,15 +6,15 @@ use mnn::ForwardType;
 fn test_basic_cpu() {
     test_basic(ForwardType::CPU).unwrap();
 }
+
 #[cfg(feature = "metal")]
 #[test]
-#[ignore = "Doesn't work on ci"]
 fn test_basic_metal() {
     test_basic(ForwardType::Metal).unwrap();
 }
+
 #[cfg(feature = "opencl")]
 #[test]
-#[ignore = "Doesn't work on ci"]
 fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
@@ -46,15 +46,11 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     // drop(net);
     Ok(())
 }
+
 #[cfg(feature = "coreml")]
 #[test]
 fn test_basic_coreml() {
     test_basic(ForwardType::CoreML).unwrap();
-}
-#[cfg(feature = "opengl")]
-#[test]
-fn test_basic_opengl() {
-    test_basic(ForwardType::OpenGL).unwrap();
 }
 
 #[test]

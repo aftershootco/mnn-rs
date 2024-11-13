@@ -32,6 +32,9 @@ jobs:
       matrix: ${{fromJSON(needs.checks-matrix.outputs.matrix)}}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: 'recursive'
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - run: nix build -L '.#${{ matrix.attr }}'
@@ -44,6 +47,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        lfs: true
+        submodules: 'recursive'
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/magic-nix-cache-action@main
 

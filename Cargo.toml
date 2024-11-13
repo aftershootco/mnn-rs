@@ -18,11 +18,12 @@ mnn = { version = "0.3.0", path = "." }
 error-stack = { version = "0.5" }
 
 [dependencies]
-libc = "0.2"
-mnn-sys = { version = "0.2", path = "mnn-sys", features = [] }
+mnn-sys = { version = "0.2", path = "mnn-sys", default-features = false, features = [
+  "mnn-threadpool",
+  "sparse-compute",
+] }
 thiserror = "2"
 error-stack.workspace = true
-oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
 dunce = "1.0.5"
 
@@ -32,13 +33,16 @@ opencl = ["mnn-sys/opencl"]
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
 
+vulkan = [] # This is currently unimplemented
+
 crt_static = ["mnn-sys/crt_static"]
-# Disable mnn-threadpool to enable this
-mnn-threadpool = ["mnn-sys/mnn-threadpool"]
+
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 
-default = ["mnn-threadpool"]
+simd = ["mnn-sys/simd"]
+
+default = ["simd"]
 
 
 [dev-dependencies]

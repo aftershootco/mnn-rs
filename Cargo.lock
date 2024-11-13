@@ -491,9 +491,7 @@ dependencies = [
  "divan",
  "dunce",
  "error-stack",
- "libc",
  "mnn-sys",
- "oneshot",
  "thiserror",
  "tracing",
 ]

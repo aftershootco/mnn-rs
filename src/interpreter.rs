@@ -241,9 +241,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_session(
-        &mut self,
+        &self,
         schedule: crate::ScheduleConfig,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating session"; {
             let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
             assert!(!session.is_null());
@@ -270,7 +270,7 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_multipath_session(
-        &mut self,
+        &self,
         schedule: impl IntoIterator<Item = ScheduleConfig>,
     ) -> Result<crate::session::Session> {
         profile!("Creating multipath session"; {
@@ -436,7 +436,7 @@ impl Interpreter {
     }
 
     /// Run a session
-    pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
+    pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
             let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
             ensure!(
@@ -457,7 +457,7 @@ impl Interpreter {
     ///
     /// `sync` : synchronously wait for finish of execution or not.
     pub fn run_session_with_callback(
-        &mut self,
+        &self,
         session: &crate::session::Session,
         before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
@@ -510,7 +510,7 @@ impl Interpreter {
     }
 
     /// Update cache file
-    pub fn update_cache_file(&mut self, session: &mut crate::session::Session) -> Result<()> {
+    pub fn update_cache_file(&self, session: &mut crate::session::Session) -> Result<()> {
         MNNError::from_error_code(unsafe {
             mnn_sys::Interpreter_updateCacheFile(self.inner, session.inner)
         });
@@ -820,7 +820,6 @@ impl OperatorInfo<'_> {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
 fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
@@ -838,7 +837,6 @@ fn test_run_session_with_callback_info_api() {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
 fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
@@ -868,14 +866,14 @@ fn check_whether_sync_actually_works() {
     assert!((time - time2) > std::time::Duration::from_millis(50));
 }
 
-#[test]
-#[ignore = "Fails on CI"]
-fn try_to_drop_interpreter_before_session() {
-    let file = Path::new("tests/assets/realesr.mnn")
-        .canonicalize()
-        .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
-    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-    drop(interpreter);
-    drop(session);
-}
+// Impossible to compile
+// #[test]
+// fn try_to_drop_interpreter_before_session() {
+//     let file = Path::new("tests/assets/realesr.mnn")
+//         .canonicalize()
+//         .unwrap();
+//     let mut interpreter = Interpreter::from_file(&file).unwrap();
+//     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+//     drop(interpreter);
+//     drop(session);
+// }

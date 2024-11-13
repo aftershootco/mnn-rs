@@ -31,9 +31,11 @@ static TARGET_FEATURES: LazyLock<Vec<String>> = LazyLock::new(|| {
 
 static TARGET_OS: LazyLock<String> =
     LazyLock::new(|| std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set"));
+
 static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
     std::env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not found")
 });
+
 static EMSCRIPTEN_CACHE: LazyLock<String> = LazyLock::new(|| {
     let emscripten_cache = std::process::Command::new("em-config")
         .arg("CACHE")
@@ -180,7 +182,6 @@ fn _main() -> Result<()> {
         }
     }
     if is_emscripten() {
-        // println!("cargo:rustc-link-lib=static=stdc++");
         let emscripten_cache = std::process::Command::new("em-config")
             .arg("CACHE")
             .output()
@@ -526,7 +527,7 @@ fn read_dir(input: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     ignore::WalkBuilder::new(input)
         .max_depth(Some(1))
         .build()
-        .filter_map(Result::ok)
+        .flatten()
         .map(|e| e.into_path())
 }
 
@@ -559,12 +560,11 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
 
     let core_files_dir = vendor.join("source").join("core");
     let core_files = ignore::Walk::new(&core_files_dir)
-        .filter_map(Result::ok)
+        .flatten()
         .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
         .map(|e| e.into_path());
     build.files(core_files);
 
-    // #[cfg(feature = "cpu")]
     {
         let cpu_files_dir = vendor.join("source").join("backend").join("cpu");
         let cpu_files = ignore::WalkBuilder::new(&cpu_files_dir)
@@ -573,7 +573,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             .add_custom_ignore_filename("CPUImageProcess.hpp")
             .add_custom_ignore_filename("CPUImageProcess.cpp")
             .build()
-            .filter_map(Result::ok)
+            .flatten()
             .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
             .map(|e| e.into_path());
 
@@ -597,7 +597,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     {
         let cv_files_dir = vendor.join("source").join("cv");
         let cv_files = ignore::Walk::new(&cv_files_dir)
-            .filter_map(Result::ok)
+            .flatten()
             .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
             .map(|e| e.into_path());
         // build.include(cv_files_dir.join("schema").join("current"));
@@ -613,8 +613,8 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             .add(vendor.join("source").join("geometry"))
             .add(vendor.join("source").join("utils"))
             .build()
-            .filter_map(Result::ok)
-            .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
+            .flatten()
+            .filter(|p| cpp_filter(p.path()))
             .map(|e| e.into_path());
         build.files(extra_files);
     }
@@ -623,7 +623,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     {
         let opencl_files_dir = vendor.join("source").join("backend").join("opencl");
         let opencl_files = ignore::Walk::new(&opencl_files_dir)
-            .filter_map(Result::ok)
+            .flatten()
             .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
             .map(|e| e.into_path());
         let ocl_includes = opencl_files_dir.join("schema").join("current");
@@ -654,7 +654,7 @@ fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Buil
     if *TARGET_POINTER_WIDTH == 64 {
         let arm64_sources_dir = arm_source_dir.join("arm64");
         let arm64_sources = ignore::Walk::new(&arm64_sources_dir)
-            .filter_map(Result::ok)
+            .flatten()
             .filter(|e| {
                 e.path().extension() == Some(OsStr::new("S"))
                     || e.path().extension() == Some(OsStr::new("s"))
@@ -672,7 +672,7 @@ fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Buil
     } else if *TARGET_POINTER_WIDTH == 32 {
         let arm32_sources_dir = arm_source_dir.join("arm32");
         let arm32_sources = ignore::Walk::new(&arm32_sources_dir)
-            .filter_map(Result::ok)
+            .flatten()
             .filter(|e| {
                 e.path().extension() == Some(OsStr::new("S"))
                     || e.path().extension() == Some(OsStr::new("s"))
