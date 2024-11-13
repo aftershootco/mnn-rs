@@ -425,6 +425,7 @@ impl CxxOption {
             value: CxxOptionValue::from_bool(value),
         }
     }
+
     cxx_option_from_features! {
         VULKAN => "vulkan", "MNN_VULKAN",
         METAL => "metal", "MNN_METAL",
@@ -551,12 +552,23 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         .static_flag(true)
         .std("c++11");
 
-    CxxOption::all().iter().for_each(|opt| {
-        eprintln!("cargo:warn={}: {}", opt.name, opt.enabled());
-        if opt.enabled() {
-            build.define(opt.name, opt.cc());
-        }
-    });
+    // CxxOption::all().iter().for_each(|opt| {
+    //     eprintln!("cargo:warn={}: {}", opt.name, opt.enabled());
+    //     if opt.enabled() {
+    //         build.define(opt.name, opt.cc());
+    //     }
+    // });
+    CxxOption::VULKAN.define(&mut build);
+    CxxOption::METAL.define(&mut build);
+    CxxOption::COREML.define(&mut build);
+    CxxOption::OPENCL.define(&mut build);
+    CxxOption::CRT_STATIC.define(&mut build);
+    CxxOption::SPARSE_COMPUTE.define(&mut build);
+    CxxOption::THREADPOOL.define(&mut build);
+    CxxOption::MINI_BUILD.define(&mut build);
+    is_arm().then(|| CxxOption::NEON.define(&mut build));
+    CxxOption::LOW_MEMORY.define(&mut build);
+    CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(&mut build);
 
     let core_files_dir = vendor.join("source").join("core");
     let core_files = ignore::Walk::new(&core_files_dir)
@@ -579,11 +591,11 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
 
         if CxxOption::ARM82.enabled() && is_arm() {
             build.define("ENABLE_ARMV82", None);
-            build.include(cpu_files_dir.join("arm"));
-            includes.push(cpu_files_dir.join("arm"));
         }
 
         if is_arm() {
+            build.include(cpu_files_dir.join("arm"));
+            includes.push(cpu_files_dir.join("arm"));
             arm(&mut build, cpu_files_dir.join("arm"))?;
         }
 
@@ -643,13 +655,13 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
 fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Build> {
     let arm_source_dir = arm_dir.as_ref();
 
-    let mut neon_sources: Vec<PathBuf> = vec![arm_source_dir.join("CommonOptFunctionNeon.cpp")];
-    if CxxOption::BF16.enabled() {
-        let path = arm_source_dir.join("CommonNeonBF16.cpp");
-        if path.exists() {
-            neon_sources.push(path);
-        }
-    }
+    let neon_sources: Vec<PathBuf> = vec![arm_source_dir.join("CommonOptFunctionNeon.cpp")];
+    // if CxxOption::BF16.enabled() {
+    //     let path = arm_source_dir.join("CommonNeonBF16.cpp");
+    //     if path.exists() {
+    //         neon_sources.push(path);
+    //     }
+    // }
 
     if *TARGET_POINTER_WIDTH == 64 {
         let arm64_sources_dir = arm_source_dir.join("arm64");
@@ -664,10 +676,8 @@ fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Buil
         // MNN_LOW_MEMORY
         // MNN_CPU_WEIGHT_DEQUANT_GEMM
 
-        build.define("MNN_USE_NEON", None);
         build
             .files(arm64_sources.chain(neon_sources))
-            .include(arm_source_dir)
             .define("__aarch64__", None);
     } else if *TARGET_POINTER_WIDTH == 32 {
         let arm32_sources_dir = arm_source_dir.join("arm32");
@@ -682,10 +692,8 @@ fn arm(build: &mut cc::Build, arm_dir: impl AsRef<Path>) -> Result<&mut cc::Buil
         // MNN_LOW_MEMORY
         // MNN_CPU_WEIGHT_DEQUANT_GEMM
 
-        build.define("MNN_USE_NEON", None);
         build
             .files(arm32_sources.chain(neon_sources))
-            .include(arm_source_dir)
             .define("__arm__", None);
     }
     Ok(build)
