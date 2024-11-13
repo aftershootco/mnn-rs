@@ -65,58 +65,57 @@
                   lockFile = "${src}/Cargo.lock";
                 };
               };
+              cargo-llvm-cov = prev.cargo-llvm-cov.overrideAttrs (_: {
+                LLVM_COV = "${final.llvmPackages_19.llvm}/bin/llvm-cov";
+                LLVM_PROFDATA = "${final.llvmPackages_19.llvm}/bin/llvm-profdata";
+              });
             })
           ];
         };
         inherit (pkgs) lib;
 
-        stableToolchain = pkgs.rust-bin.stable.latest.default;
-        nightlyToolchain = pkgs.rust-bin.nightly.latest.default.override {
-          extensions = ["rust-src" "rust-analyzer"];
-        };
-        stableToolchainWithLLvmTools = pkgs.rust-bin.stable.latest.default.override {
+        version = "1.80.0";
+
+        rustToolchain = pkgs.rust-bin.stable.${version}.default;
+        rustToolchainWithLLvmTools = pkgs.rust-bin.stable.${version}.default.override {
           extensions = ["rust-src" "llvm-tools"];
         };
-        stableToolchainWithRustAnalyzer = pkgs.rust-bin.stable.latest.default.override ({
+        rustToolchainWithRustAnalyzer = pkgs.rust-bin.stable.${version}.default.override ({
             extensions = ["rust-src" "rust-analyzer"];
           }
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
             targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
           }));
-        craneLib = (crane.mkLib pkgs).overrideToolchain stableToolchain;
-        craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain stableToolchainWithLLvmTools;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+        craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
 
         src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
         MNN_SRC = mnn-src;
-        commonArgs =
-          {
-            inherit src MNN_SRC;
-            pname = "mnn";
-            doCheck = false;
-            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-            nativeBuildInputs = with pkgs; [
-              cmake
-              llvmPackages.libclang.lib
-              clang
-              pkg-config
-            ];
-            buildInputs = with pkgs;
-              []
-              ++ (lib.optionals pkgs.stdenv.isLinux [
-                ocl-icd
-                opencl-headers
-              ])
-              ++ (lib.optionals pkgs.stdenv.isDarwin [
-                  darwin.apple_sdk.frameworks.OpenCL
-                ]
-                ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                  darwin.apple_sdk.frameworks.Metal
-                  darwin.apple_sdk.frameworks.CoreML
-                ]));
-          }
-          // (lib.optionalAttrs pkgs.stdenv.isLinux {
-            BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.llvmPackages.libclang.lib}/lib/clang/18/include";
-          });
+        commonArgs = {
+          inherit src MNN_SRC;
+          pname = "mnn";
+          doCheck = false;
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          nativeBuildInputs = with pkgs; [
+            cmake
+            llvmPackages.libclang.lib
+            clang
+            pkg-config
+          ];
+          buildInputs = with pkgs;
+            []
+            ++ (lib.optionals pkgs.stdenv.isLinux [
+              ocl-icd
+              opencl-headers
+            ])
+            ++ (lib.optionals pkgs.stdenv.isDarwin [
+                darwin.apple_sdk.frameworks.OpenCL
+              ]
+              ++ (lib.optionals pkgs.stdenv.isAarch64 [
+                darwin.apple_sdk.frameworks.Metal
+                darwin.apple_sdk.frameworks.CoreML
+              ]));
+        };
         cargoArtifacts = craneLib.buildPackage commonArgs;
       in {
         checks = {
@@ -214,18 +213,18 @@
             // {
               packages = with pkgs;
                 [
+                  cargo-audit
+                  cargo-deny
+                  cargo-hakari
+                  cargo-nextest
+                  cargo-semver-checks
                   clang
-                  nushell
                   git
                   git-lfs
-                  stableToolchainWithRustAnalyzer
-                  cargo-nextest
-                  cargo-hakari
-                  cargo-deny
-                  # cargo-audit
-                  cargo-semver-checks
-                  rust-bindgen
                   llvm
+                  nushell
+                  rust-bindgen
+                  rustToolchainWithRustAnalyzer
                 ]
                 ++ (lib.optionals pkgs.stdenv.isDarwin [
                     darwin.apple_sdk.frameworks.OpenCL
@@ -233,7 +232,10 @@
                   ++ (lib.optionals pkgs.stdenv.isAarch64 [
                     darwin.apple_sdk.frameworks.Metal
                     darwin.apple_sdk.frameworks.CoreML
-                  ]));
+                  ]))
+                ++ (lib.optionals pkgs.stdenv.isLinux [
+                  cargo-llvm-cov
+                ]);
             });
         };
       }
