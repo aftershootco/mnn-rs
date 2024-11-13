@@ -761,12 +761,13 @@ fn x86_64<'a>(
     build.define("MNN_USE_SSE", None);
     let x86_src_dir = x86_64_dir.as_ref();
     let mnn_x8664_src = read_dir(&x86_src_dir).filter(|p| cpp_filter(p));
-    let mnn_avx_src = read_dir(x86_src_dir.join("avx")).filter(|p| cpp_filter(p));
-    let mnn_avxfma_src = read_dir(x86_src_dir.join("avxfma")).filter(|p| cpp_filter(p));
+    let mnn_avx_src = read_dir(x86_src_dir.join("avx")).filter(|p| cpp_filter(p) || asm_filter(p));
+    let mnn_avxfma_src =
+        read_dir(x86_src_dir.join("avxfma")).filter(|p| cpp_filter(p) || asm_filter(p));
     let mnn_sse_src = read_dir(x86_src_dir.join("sse")).filter(|p| cpp_filter(p));
     let mnn_avx512_vnni_src = x86_src_dir.join("avx512/GemmInt8_VNNI.cpp");
     let mnn_avx512_src = read_dir(x86_src_dir.join("avx512"))
-        .filter(|p| cpp_filter(p))
+        .filter(|p| cpp_filter(p) || asm_filter(p))
         .filter(|p| p != &mnn_avx512_vnni_src);
 
     if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
@@ -920,4 +921,9 @@ int main() {return 0;} "#;
 
 fn cpp_filter(path: impl AsRef<Path>) -> bool {
     path.as_ref().extension() == Some(OsStr::new("cpp"))
+}
+
+fn asm_filter(path: impl AsRef<Path>) -> bool {
+    path.as_ref().extension() == Some(OsStr::new("S"))
+        || path.as_ref().extension() == Some(OsStr::new("s"))
 }
