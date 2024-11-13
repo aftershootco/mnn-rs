@@ -591,7 +591,7 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
             arm(&mut build, cpu_files_dir.join("arm"))?;
         }
 
-        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() {
+        if TARGET_FEATURES.contains(&("sse".into())) && is_x86() && cfg!(feature = "sse") {
             x86_64(&mut build, &includes, cpu_files_dir.join("x86_x64"))?;
         }
 
