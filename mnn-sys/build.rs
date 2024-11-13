@@ -921,6 +921,7 @@ int main() {return 0;} "#;
 
 fn cpp_filter(path: impl AsRef<Path>) -> bool {
     path.as_ref().extension() == Some(OsStr::new("cpp"))
+        || path.as_ref().extension() == Some(OsStr::new("cc"))
 }
 
 fn asm_filter(path: impl AsRef<Path>) -> bool {
