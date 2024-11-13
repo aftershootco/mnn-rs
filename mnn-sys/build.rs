@@ -338,19 +338,9 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         })
         .cpp(true)
         .static_flag(true)
+        .static_crt(true)
         .files(files)
         .std("c++14")
-        // .pipe(|build| {
-        //     let c = build.get_compiler();
-        //     use std::io::Write;
-        //     writeln!(
-        //         std::fs::File::create("./command.txt").unwrap(),
-        //         "{:?}",
-        //         c.to_command()
-        //     )
-        //     .unwrap();
-        //     build
-        // })
         .try_compile("mnn_c")
         .change_context(Error)
         .attach_printable("Failed to compile mnn_c library")?;
@@ -576,40 +566,22 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let mut includes = vec![
         vendor.join("include/"),
         vendor.join("source/"),
-        vendor.join("express/"),
-        vendor.join("tools/"),
-        vendor.join("codegen/"),
         vendor.join("schema/current/"),
         vendor.join("3rd_party/"),
         vendor.join("3rd_party/flatbuffers/include"),
         vendor.join("3rd_party/half"),
-        vendor.join("3rd_party/imageHelper"),
         vendor.join("3rd_party/OpenCLHeaders/"),
     ];
-    // Get version
+
     build
-        // .try_flags_from_environment(concat!(env!("CARGO_PKG_NAME"), "_CFLAGS"))?
-        .cargo_warnings(false)
         .includes(&includes)
         .cpp(true)
+        .static_crt(true)
+        .static_flag(true)
         .std("c++11");
 
-    if cfg!(target_os = "windows") {
-        build
-            .flag_if_supported("/wd4267")
-            .flag_if_supported("/wd4018")
-            .flag_if_supported("/wd4251")
-            .flag_if_supported("/wd4996")
-            .flag_if_supported("/wd4244")
-            .flag_if_supported("/wd4146")
-            .flag_if_supported("/wd4129")
-            .flag_if_supported("/wd4305")
-            .flag_if_supported("/wd4275")
-            .flag_if_supported("/wd4101");
-    }
-
     CxxOption::all().iter().for_each(|opt| {
-        eprintln!("{}: {}", opt.name, opt.enabled());
+        eprintln!("cargo:warn={}: {}", opt.name, opt.enabled());
         if opt.enabled() {
             build.define(opt.name, opt.cc());
         }
@@ -773,6 +745,7 @@ fn x86_64<'a>(
     if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
         let mnn_avx512 = cc::Build::new()
             .files(mnn_avx512_src)
+            .static_crt(true)
             .define("MNN_USE_SSE", None)
             .define("MNN_X86_USE_ASM", None)
             .tap_mut(|build| {
@@ -824,6 +797,7 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_sse_src)
+        .static_crt(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if !like_msvc {
@@ -840,6 +814,7 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_avx_src)
+        .static_crt(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
@@ -859,6 +834,7 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_avxfma_src)
+        .static_crt(true)
         .define("MNN_USE_SSE", None)
         .tap_mut(|build| {
             if like_msvc {
@@ -880,6 +856,7 @@ fn x86_64<'a>(
         .std("c++11")
         .includes(includes)
         .files(mnn_x8664_src)
+        .static_crt(true)
         .tap_mut(|build| {
             CxxOption::LOW_MEMORY.define(build);
             CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(build);

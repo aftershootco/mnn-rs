@@ -2,6 +2,7 @@
 members = [".", "mnn-bridge", "mnn-sync", "mnn-sys"]
 [workspace.package]
 license = "Apache-2.0"
+repository = "https://github.com/aftershootco/mnn-rs"
 
 [package]
 name = "mnn"

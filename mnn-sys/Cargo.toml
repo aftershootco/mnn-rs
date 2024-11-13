@@ -4,6 +4,18 @@ version = "0.1.0"
 edition = "2021"
 links = "mnn"
 license = { workspace = true }
+repository = { workspace = true }
+description = "Low-level bindings to MNN"
+include = [
+  "/src",
+  "/vendor/source",
+  "/vendor/3rd_party/flatbuffers",
+  "/vendor/3rd_party/half",
+  "/vendor/3rd_party/OpenCLHeaders",
+  "/vendor/include",
+  "/vendor/schema",
+  "/build.rs",
+]
 
 [build-dependencies]
 anyhow = "1.0.86"
