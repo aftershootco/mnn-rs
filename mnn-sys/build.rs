@@ -67,7 +67,7 @@ const STATIC_CRT: bool = cfg!(feature = "crt_static");
 
 fn has_cpu_feature(feature: impl AsRef<str>) -> bool {
     let feature = feature.as_ref();
-    TARGET_FEATURES.iter().find(|f| *f == feature).is_some()
+    TARGET_FEATURES.iter().any(|f| *f == feature)
 }
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
@@ -148,7 +148,7 @@ fn _main() -> Result<()> {
     }
 
     if *MNN_COMPILE {
-        build_cpp_build(&vendor)?;
+        mnn_cpp_build(&vendor)?;
     } else if let core::result::Result::Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
         println!("cargo:rustc-link-search=native={}", lib_dir);
         println!("cargo:rustc-link-lib=static=MNN");
@@ -534,7 +534,7 @@ fn read_dir(input: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
         .map(|e| e.into_path())
 }
 
-pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
+pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let mut build = cc::Build::new();
     let vendor = vendor.as_ref();
     let mut includes = vec![
@@ -554,12 +554,38 @@ pub fn build_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         .static_flag(true)
         .std("c++11");
 
-    // CxxOption::all().iter().for_each(|opt| {
-    //     eprintln!("cargo:warn={}: {}", opt.name, opt.enabled());
-    //     if opt.enabled() {
-    //         build.define(opt.name, opt.cc());
-    //     }
-    // });
+    if cfg!(unix) {
+        build
+            .flag_if_supported("-Wno-format")
+            .flag_if_supported("-Wno-ignored-qualifiers")
+            .flag_if_supported("-Wno-sign-compare")
+            .flag_if_supported("-Wno-unused-but-set-variable")
+            .flag_if_supported("-Wno-unused-function")
+            .flag_if_supported("-Wno-unused-lambda-capture")
+            .flag_if_supported("-Wno-unused-local-typedef")
+            .flag_if_supported("-Wno-unused-parameter")
+            .flag_if_supported("-Wno-unused-private-field")
+            .flag_if_supported("-Wno-unused-variable");
+    }
+    if cfg!(windows) {
+        build
+            .flag_if_supported("/wd4267")
+            .flag_if_supported("/wd4018")
+            .flag_if_supported("/wd4251")
+            .flag_if_supported("/wd4996")
+            .flag_if_supported("/wd4244")
+            .flag_if_supported("/wd4146")
+            .flag_if_supported("/wd4129")
+            .flag_if_supported("/wd4305")
+            .flag_if_supported("/wd4275")
+            .flag_if_supported("/wd4101");
+    }
+
+    let like_msvc = build.get_compiler().is_like_msvc();
+    if like_msvc {
+        build.flag_if_supported("/source-charset:utf-8");
+    }
+
     CxxOption::VULKAN.define(&mut build);
     CxxOption::METAL.define(&mut build);
     CxxOption::COREML.define(&mut build);
