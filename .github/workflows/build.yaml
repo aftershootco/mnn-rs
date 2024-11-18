@@ -53,10 +53,13 @@ jobs:
         lfs: true
         submodules: 'recursive'
     - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/magic-nix-cache-action@main
+    - uses: cachix/cachix-action@v14
+      with:
+        name: mnn-rs
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
     - name: Run codecov
-      run: nix build .#mnn-llvm-cov
+      run: nix build .#checks.x86_64-linux.mnn-llvm-cov
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1

@@ -114,95 +114,95 @@
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
       in {
-        checks = {
-          mnn-clippy = craneLib.cargoClippy (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            });
-          mnn-docs = craneLib.cargoDoc (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoDocExtraArgs = "-p mnn -p mnn-sys";
-            });
-          mnn-fmt = craneLib.cargoFmt {inherit src;};
-          # Audit dependencies
-          mnn-audit =
-            craneLib.cargoAudit.override {
-              cargo-audit = pkgs.cargo-audit;
-            } {
-              inherit src advisory-db;
-            };
+        checks =
+          {
+            mnn-clippy = craneLib.cargoClippy (commonArgs
+              // {
+                inherit cargoArtifacts;
+                cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+              });
+            mnn-docs = craneLib.cargoDoc (commonArgs
+              // {
+                inherit cargoArtifacts;
+                cargoDocExtraArgs = "-p mnn -p mnn-sys";
+              });
+            mnn-fmt = craneLib.cargoFmt {inherit src;};
+            # Audit dependencies
+            mnn-audit =
+              craneLib.cargoAudit.override {
+                cargo-audit = pkgs.cargo-audit;
+              } {
+                inherit src advisory-db;
+              };
 
-          # Audit licenses
-          mnn-deny = craneLib.cargoDeny {
-            inherit src;
-          };
-          mnn-nextest = craneLib.cargoNextest (commonArgs
-            // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
-            });
-          mnn-sys-clippy = craneLib.cargoClippy (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "-p mnn-sys --all-targets -- --deny warnings";
-            });
-          mnn-sys-nextest = craneLib.cargoNextest (commonArgs
-            // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
-              cargoExtraArgs = "-p mnn-sys";
-            });
-          # mnn-asan = let
-          #   rustPlatform = pkgs.makeRustPlatform {
-          #     cargo = nightlyToolchain;
-          #     rustc = nightlyToolchain;
-          #   };
-          # in
-          #   rustPlatform.buildRustPackage (
-          #     commonArgs
-          #     // {
-          #       inherit src;
-          #       name = "mnn-leaks";
-          #       cargoLock = {
-          #         lockFile = ./Cargo.lock;
-          #         outputHashes = {
-          #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
-          #         };
-          #       };
-          #
-          #       buildPhase = ''
-          #         cargo test --target aarch64-apple-darwin
-          #       '';
-          #       RUSTFLAGS = "-Zsanitizer=address";
-          #       ASAN_OPTIONS = "detect_leaks=1";
-          #       # MNN_COMPILE = "NO";
-          #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
-          #     }
-          #   );
-        };
-        packages =
-          rec {
-            mnn = craneLib.buildPackage (commonArgs
+            # Audit licenses
+            mnn-deny = craneLib.cargoDeny {
+              inherit src;
+            };
+            mnn-nextest = craneLib.cargoNextest (commonArgs
               // {
                 inherit cargoArtifacts;
+                partitions = 1;
+                partitionType = "count";
               });
-            inspect = craneLib.buildPackage (commonArgs
+            mnn-sys-clippy = craneLib.cargoClippy (commonArgs
               // {
                 inherit cargoArtifacts;
-                pname = "inspect";
-                cargoExtraArgs =
-                  "--example inspect"
-                  + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
+                cargoClippyExtraArgs = "-p mnn-sys --all-targets -- --deny warnings";
               });
-            default = mnn;
+            mnn-sys-nextest = craneLib.cargoNextest (commonArgs
+              // {
+                inherit cargoArtifacts;
+                partitions = 1;
+                partitionType = "count";
+                cargoExtraArgs = "-p mnn-sys";
+              });
+            # mnn-asan = let
+            #   rustPlatform = pkgs.makeRustPlatform {
+            #     cargo = nightlyToolchain;
+            #     rustc = nightlyToolchain;
+            #   };
+            # in
+            #   rustPlatform.buildRustPackage (
+            #     commonArgs
+            #     // {
+            #       inherit src;
+            #       name = "mnn-leaks";
+            #       cargoLock = {
+            #         lockFile = ./Cargo.lock;
+            #         outputHashes = {
+            #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
+            #         };
+            #       };
+            #
+            #       buildPhase = ''
+            #         cargo test --target aarch64-apple-darwin
+            #       '';
+            #       RUSTFLAGS = "-Zsanitizer=address";
+            #       ASAN_OPTIONS = "detect_leaks=1";
+            #       # MNN_COMPILE = "NO";
+            #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
+            #     }
+            #   );
           }
           // lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
             mnn-llvm-cov = craneLibLLvmTools.cargoLlvmCov (commonArgs // {inherit cargoArtifacts;});
           };
+        packages = rec {
+          mnn = craneLib.buildPackage (commonArgs
+            // {
+              inherit cargoArtifacts;
+            });
+          inspect = craneLib.buildPackage (commonArgs
+            // {
+              inherit cargoArtifacts;
+              pname = "inspect";
+              cargoExtraArgs =
+                "--example inspect"
+                + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
+            });
+          default = mnn;
+        };
 
         devShells = {
           default = pkgs.mkShell (commonArgs
