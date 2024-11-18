@@ -127,7 +127,7 @@ impl SessionRunnerState {
         tracing::info!("Unloading session");
         match core::mem::take(self) {
             Self::Loaded(sr) => {
-                let net = sr.unload()?;
+                let net = sr.unload();
                 *self = Self::Unloaded(net);
                 Ok(())
             }
@@ -221,11 +221,11 @@ impl SessionRunner {
         })
     }
 
-    pub fn unload(self) -> Result<mnn::Interpreter> {
+    pub fn unload(self) -> mnn::Interpreter {
         let session = self.session;
         let net = self.interpreter;
         drop(session);
-        Ok(net)
+        net
     }
 
     pub fn run_session(&mut self) -> Result<()> {

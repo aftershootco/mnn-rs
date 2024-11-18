@@ -65,10 +65,6 @@
                   lockFile = "${src}/Cargo.lock";
                 };
               };
-              cargo-llvm-cov = prev.cargo-llvm-cov.overrideAttrs (_: {
-                LLVM_COV = "${final.llvmPackages_19.llvm}/bin/llvm-cov";
-                LLVM_PROFDATA = "${final.llvmPackages_19.llvm}/bin/llvm-profdata";
-              });
             })
           ];
         };
@@ -222,6 +218,7 @@
                   git
                   git-lfs
                   llvm
+                  mnn
                   nushell
                   rust-bindgen
                   rustToolchainWithRustAnalyzer
