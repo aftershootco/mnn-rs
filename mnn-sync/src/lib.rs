@@ -46,6 +46,7 @@ pub enum CallbackEnum {
     Callback(Callback),
     Unload(oneshot::Sender<Result<()>>),
     Load(oneshot::Sender<Result<()>>),
+    Status(oneshot::Sender<bool>),
     Close,
 }
 type CallbackSender = CallbackEnum;
@@ -189,6 +190,10 @@ impl SessionState {
     pub fn unload(&mut self) -> Result<()> {
         self.sr.unload()
     }
+
+    pub fn is_loaded(&self) -> bool {
+        self.sr.is_loaded()
+    }
 }
 
 #[non_exhaustive]
@@ -319,6 +324,13 @@ impl SessionHandle {
                             .change_context(ErrorKind::SyncError)
                             .attach_printable("Internal Error: Failed to send load message")?;
                     }
+
+                    CallbackEnum::Status(tx) => {
+                        let res = ss.is_loaded();
+                        tx.send(res)
+                            .change_context(ErrorKind::SyncError)
+                            .attach_printable("Internal Error: Failed to send status message")?;
+                    }
                     CallbackEnum::Close => {
                         break;
                     }
@@ -433,6 +445,17 @@ impl SessionHandle {
         rx.await
             .change_context(ErrorKind::SyncError)
             .attach_printable("Internal Error: Failed to recv load message")?
+    }
+
+    pub fn is_loaded(&self) -> Result<bool> {
+        let (tx, rx) = oneshot::channel();
+        self.sender
+            .send(CallbackEnum::Status(tx))
+            .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
+        Ok(rx
+            .recv()
+            .change_context(ErrorKind::SyncError)
+            .attach_printable("Internal Error: Failed to recv status message")?)
     }
 
     pub fn close(&self) -> Result<()> {

@@ -33,6 +33,7 @@ use crate::{prelude::*, BackendConfig};
 /// The availability of certain variants depends on the features enabled during the build.
 /// For example, the `Metal` variant is only available if the `metal` feature is enabled.
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ForwardType {
     All,
     #[default]
