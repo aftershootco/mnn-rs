@@ -125,7 +125,7 @@ impl SessionRunnerState {
 
     pub fn unload(&mut self) -> Result<()> {
         #[cfg(feature = "tracing")]
-        tracing::info!("Unloading session");
+        tracing::trace!("Unloading session");
         match core::mem::take(self) {
             Self::Loaded(sr) => {
                 let net = sr.unload()?;
@@ -142,7 +142,7 @@ impl SessionRunnerState {
 
     pub fn load(&mut self, config: &ScheduleConfig) -> Result<()> {
         #[cfg(feature = "tracing")]
-        tracing::info!("Loading session");
+        tracing::trace!("Loading session");
         match core::mem::take(self) {
             Self::Loaded(sr) => {
                 *self = Self::Loaded(sr);
