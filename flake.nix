@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/2.9.6";
+      url = "github:alibaba/MNN/3.0.0";
       flake = false;
     };
   };
@@ -47,7 +47,7 @@
             rust-overlay.overlays.default
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
-                version = "2.9.6";
+                version = "3.0.0";
                 src = mnn-src;
                 buildConverter = true;
                 enableVulkan = false;
@@ -199,7 +199,9 @@
               pname = "inspect";
               cargoExtraArgs =
                 "--example inspect"
-                + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
+                + (
+                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
+                );
             });
           default = mnn;
         };
@@ -218,7 +220,7 @@
                   git
                   git-lfs
                   llvm
-                  mnn
+                  # mnn
                   nushell
                   rust-bindgen
                   rustToolchainWithRustAnalyzer
