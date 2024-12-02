@@ -76,11 +76,10 @@ fn main() -> Result<()> {
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
-        let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
+        let intptr = vendor.join("include").join("MNN").join("MNNDefine.h");
         #[cfg(unix)]
         std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
-        // try_patch_file("patches/halide_type_t_64.patch", intptr)
-        //     .context("Failed to patch vendor")?;
+        try_patch_file("patches/mnn-tracing.patch", &intptr).context("Failed to patch vendor")?;
 
         use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr)?;
