@@ -899,6 +899,7 @@ fn x86_64<'a>(
         .static_flag(true)
         .tap_mut(|build| {
             CxxOption::LOW_MEMORY.define(build);
+            CxxOption::SSE.define(build);
             CxxOption::CPU_WEIGHT_DEQUANT_GEMM.define(build);
             if has_avx512 && CxxOption::AVX512.enabled() && (!like_msvc || win_use_asm) {
                 CxxOption::AVX512.define(build);
