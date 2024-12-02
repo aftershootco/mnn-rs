@@ -62,6 +62,30 @@ static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
 
 const HALIDE_SEARCH: &str =
     r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
+const TRACING_SEARCH: &str = "#define MNN_PRINT(format, ...) printf(format, ##__VA_ARGS__)\n#define MNN_ERROR(format, ...) printf(format, ##__VA_ARGS__)";
+const TRACING_REPLACE: &str = r#"
+enum class Level {
+  Info = 0,
+  Error = 1,
+};
+extern "C" {
+void mnn_ffi_emit(const char *file, size_t line, Level level,
+                  const char *message);
+}
+#define MNN_PRINT(format, ...)                                                 \
+  {                                                                            \
+    char logtmp[4096];                                                         \
+    snprintf(logtmp, 4096, format, ##__VA_ARGS__);                             \
+    mnn_ffi_emit(__FILE__, __LINE__, Level::Info, logtmp);                     \
+  }
+
+#define MNN_ERROR(format, ...)                                                 \
+  {                                                                            \
+    char logtmp[4096];                                                         \
+    snprintf(logtmp, 4096, format, ##__VA_ARGS__);                             \
+    mnn_ffi_emit(__FILE__, __LINE__, Level::Error, logtmp);                    \
+  }
+"#;
 
 const STATIC_CRT: bool = cfg!(feature = "crt_static");
 
@@ -143,7 +167,12 @@ fn _main() -> Result<()> {
                 .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
                 .map(|(_, c)| c)
                 .collect::<Vec<_>>();
-            std::fs::write(intptr, patched.join("\n")).change_context(Error)?;
+
+            std::fs::write(
+                intptr,
+                patched.join("\n").replace(TRACING_SEARCH, TRACING_REPLACE),
+            )
+            .change_context(Error)?;
         }
     }
 

@@ -52,7 +52,7 @@ anyhow = "1.0"
 bytemuck = "1.17"
 clap = { version = "4.5", features = ["derive"] }
 divan = "0.1.14"
-# mnn-sync = { path = "mnn-sync" }
+tracing-subscriber = "0.3.19"
 
 [[bench]]
 name = "mnn-bench"
