@@ -685,7 +685,7 @@ pub struct RawTensor<'r> {
 //     }
 // }
 
-impl<'r> RawTensor<'r> {
+impl RawTensor<'_> {
     pub fn shape(&self) -> TensorShape {
         unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
     }
