@@ -54,17 +54,6 @@
                 # enableMetal = true;
                 enableOpencl = true;
               };
-              cargo-audit = pkgs.rustPlatform.buildRustPackage rec {
-                version = "0.21.0";
-                pname = "cargo-audit";
-                src = pkgs.fetchCrate {
-                  inherit pname version;
-                  sha256 = "sha256-oMXpJE49If4QKE80ZKhRpMRPh3Bl517a2Ez/1VcaQJQ=";
-                };
-                cargoLock = rec {
-                  lockFile = "${src}/Cargo.lock";
-                };
-              };
             })
           ];
         };
@@ -213,6 +202,7 @@
         devShells = {
           default = pkgs.mkShell (commonArgs
             // {
+              MNN_SRC = null;
               packages = with pkgs;
                 [
                   cargo-audit
