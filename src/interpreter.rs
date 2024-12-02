@@ -126,7 +126,7 @@ impl SessionMode {
 #[derive(Debug)]
 pub struct Interpreter {
     pub(crate) inner: *mut mnn_sys::Interpreter,
-    pub(crate) __marker: PhantomData<()>,
+    pub(crate) __marker: PhantomData<Arc<*mut ()>>,
 }
 
 unsafe impl Send for Interpreter {}

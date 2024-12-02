@@ -200,23 +200,16 @@ impl SessionState {
 #[derive(Debug)]
 pub struct SessionRunner {
     pub interpreter: Interpreter,
-    pub session: Session,
+    pub session: Session<'static>,
 }
 
 impl SessionRunner {
-    pub fn new(interpreter: Interpreter, session: Session) -> Self {
-        Self {
-            interpreter,
-            session,
-        }
-    }
-
-    pub fn create(mut net: Interpreter, config: ScheduleConfig) -> Result<Self> {
+    pub fn create(net: Interpreter, config: ScheduleConfig) -> Result<Self> {
         #[cfg(feature = "tracing")]
         tracing::trace!("Creating session");
         #[cfg(feature = "tracing")]
         let now = std::time::Instant::now();
-        let mut session = net.create_session(config)?;
+        let mut session = unsafe { core::mem::transmute(net.create_session(config)?) };
         net.update_cache_file(&mut session)?;
         #[cfg(feature = "tracing")]
         tracing::trace!("Session created in {:?}", now.elapsed());
@@ -237,9 +230,9 @@ impl SessionRunner {
         self.interpreter.run_session(&self.session)
     }
 
-    pub fn both_mut(&mut self) -> (&mut Interpreter, &mut Session) {
-        (&mut self.interpreter, &mut self.session)
-    }
+    // pub fn both_mut(&mut self) -> (&mut Interpreter, &mut Session) {
+    //     (&mut self.interpreter, &mut self.session)
+    // }
 
     pub fn resize_session(&mut self) -> Result<()> {
         self.interpreter.resize_session(&mut self.session);
@@ -258,7 +251,7 @@ impl SessionRunner {
         &self.session
     }
 
-    pub fn session_mut(&mut self) -> &mut Session {
+    pub fn session_mut(&mut self) -> &mut Session<'static> {
         &mut self.session
     }
 
