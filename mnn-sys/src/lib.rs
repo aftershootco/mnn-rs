@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+mod tracing;
 
 pub mod cpp {
     #![allow(non_upper_case_globals)]

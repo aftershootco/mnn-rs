@@ -86,7 +86,11 @@
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
 
         src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
-        MNN_SRC = mnn-src;
+        MNN_SRC = pkgs.applyPatches {
+          name = "mnn-src";
+          src = mnn-src;
+          patches = [./mnn-sys/patches/mnn-tracing.patch];
+        };
         commonArgs = {
           inherit src MNN_SRC;
           pname = "mnn";

@@ -48,6 +48,14 @@ pub fn main() -> anyhow::Result<()> {
     let mut interpreter = Interpreter::from_file(&cli.model)?;
     interpreter.set_cache_file(cli.model.with_extension("cache"), 128)?;
 
+    tracing_subscriber::fmt()
+        .event_format(
+            tracing_subscriber::fmt::format()
+                .with_file(true)
+                .with_line_number(true),
+        )
+        .init();
+
     let mut config = ScheduleConfig::new();
     config.set_type(cli.forward);
     let mut session = time!(interpreter.create_session(config)?; "create session");
