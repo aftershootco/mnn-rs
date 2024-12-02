@@ -162,8 +162,7 @@ extern "C" fn mnn_ffi_emit(
                     .expect("Invalid message for C message")
             };
 
-            let message_value =
-                &tracing_core::field::display(message) as &dyn tracing_core::field::Value;
+            let message_value = &message as &dyn tracing_core::field::Value;
             let message_field = fields
                 .into_iter()
                 .next()

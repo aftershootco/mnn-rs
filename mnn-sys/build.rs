@@ -1,7 +1,7 @@
 use ::tap::*;
 use anyhow::*;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+// #[cfg(unix)]
+// use std::os::unix::fs::PermissionsExt;
 use std::{
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -39,6 +39,30 @@ static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
 
 const HALIDE_SEARCH: &str =
     r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
+const TRACING_SEARCH: &str = "#define MNN_PRINT(format, ...) printf(format, ##__VA_ARGS__)\n#define MNN_ERROR(format, ...) printf(format, ##__VA_ARGS__)";
+const TRACING_REPLACE: &str = r#"
+enum class Level {
+  Info = 0,
+  Error = 1,
+};
+extern "C" {
+void mnn_ffi_emit(const char *file, size_t line, Level level,
+                  const char *message);
+}
+#define MNN_PRINT(format, ...)                                                 \
+  {                                                                            \
+    char logtmp[4096];                                                         \
+    snprintf(logtmp, 4096, format, ##__VA_ARGS__);                             \
+    mnn_ffi_emit(__FILE__, __LINE__, Level::Info, logtmp);                     \
+  }
+
+#define MNN_ERROR(format, ...)                                                 \
+  {                                                                            \
+    char logtmp[4096];                                                         \
+    snprintf(logtmp, 4096, format, ##__VA_ARGS__);                             \
+    mnn_ffi_emit(__FILE__, __LINE__, Level::Error, logtmp);                    \
+  }
+"#;
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     if vendor
@@ -77,9 +101,9 @@ fn main() -> Result<()> {
         )
         .context("Failed to copy vendor")?;
         let intptr = vendor.join("include").join("MNN").join("MNNDefine.h");
-        #[cfg(unix)]
-        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
-        try_patch_file("patches/mnn-tracing.patch", &intptr).context("Failed to patch vendor")?;
+        // #[cfg(unix)]
+        // std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
+        // try_patch_file("patches/mnn-tracing.patch", &intptr).context("Failed to patch vendor")?;
 
         use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr)?;
@@ -95,7 +119,11 @@ fn main() -> Result<()> {
                 .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
                 .map(|(_, c)| c)
                 .collect::<Vec<_>>();
-            std::fs::write(intptr, patched.join("\n"))?;
+
+            std::fs::write(
+                intptr,
+                patched.join("\n").replace(TRACING_SEARCH, TRACING_REPLACE),
+            )?;
         }
     }
 
