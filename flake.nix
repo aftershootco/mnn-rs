@@ -117,7 +117,7 @@
             mnn-docs = craneLib.cargoDoc (commonArgs
               // {
                 inherit cargoArtifacts;
-                cargoDocExtraArgs = "-p mnn -p mnn-sys";
+                cargoDocExtraArgs = "-p mnn -p mnn-sys -p mnn-bridge -p mnn-sync";
               });
             mnn-fmt = craneLib.cargoFmt {inherit src;};
             # Audit dependencies
