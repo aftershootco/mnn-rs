@@ -122,7 +122,7 @@ fn main() -> Result<()> {
             std::fs::write(intptr, patched.join("\n"))?;
         }
 
-        let mnn_define = vendor.join("include").join("MNN").join("MNNDefine.hpp");
+        let mnn_define = vendor.join("include").join("MNN").join("MNNDefine.h");
         let patched =
             std::fs::read_to_string(&mnn_define)?.replace(TRACING_SEARCH, TRACING_REPLACE);
         #[cfg(unix)]
