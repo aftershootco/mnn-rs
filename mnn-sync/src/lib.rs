@@ -203,13 +203,22 @@ pub struct SessionRunner {
     pub session: Session<'static>,
 }
 
+// impl Drop for SessionRunner {
+//     fn drop(&mut self) {
+//         drop(self.session);
+//         drop(self.interpreter);
+//     }
+// }
+
 impl SessionRunner {
     pub fn create(net: Interpreter, config: ScheduleConfig) -> Result<Self> {
         #[cfg(feature = "tracing")]
         tracing::trace!("Creating session");
         #[cfg(feature = "tracing")]
         let now = std::time::Instant::now();
-        let mut session = unsafe { core::mem::transmute(net.create_session(config)?) };
+        let mut session = unsafe {
+            core::mem::transmute::<Session<'_>, Session<'static>>(net.create_session(config)?)
+        };
         net.update_cache_file(&mut session)?;
         #[cfg(feature = "tracing")]
         tracing::trace!("Session created in {:?}", now.elapsed());
