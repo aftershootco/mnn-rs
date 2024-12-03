@@ -1,7 +1,7 @@
 use ::tap::*;
 use anyhow::*;
-// #[cfg(unix)]
-// use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::{
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -100,10 +100,9 @@ fn main() -> Result<()> {
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
-        let intptr = vendor.join("include").join("MNN").join("MNNDefine.h");
-        // #[cfg(unix)]
-        // std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
-        // try_patch_file("patches/mnn-tracing.patch", &intptr).context("Failed to patch vendor")?;
+        let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
+        #[cfg(unix)]
+        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
 
         use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr)?;
@@ -120,11 +119,15 @@ fn main() -> Result<()> {
                 .map(|(_, c)| c)
                 .collect::<Vec<_>>();
 
-            std::fs::write(
-                intptr,
-                patched.join("\n").replace(TRACING_SEARCH, TRACING_REPLACE),
-            )?;
+            std::fs::write(intptr, patched.join("\n"))?;
         }
+
+        let mnn_define = vendor.join("include").join("MNN").join("MNNDefine.hpp");
+        let patched =
+            std::fs::read_to_string(&mnn_define)?.replace(TRACING_SEARCH, TRACING_REPLACE);
+        #[cfg(unix)]
+        std::fs::set_permissions(&mnn_define, std::fs::Permissions::from_mode(0o644))?;
+        std::fs::write(mnn_define, patched)?;
     }
 
     if *MNN_COMPILE {
