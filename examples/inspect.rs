@@ -18,6 +18,8 @@ pub struct Cli {
     input_data_type: DataType,
     #[clap(short, long, default_value = "1")]
     loops: usize,
+    #[clap(short, long)]
+    no_cache: bool,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -46,7 +48,9 @@ pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let cli = Cli::parse();
     let mut interpreter = Interpreter::from_file(&cli.model)?;
-    interpreter.set_cache_file(cli.model.with_extension("cache"), 128)?;
+    if !cli.no_cache {
+        interpreter.set_cache_file(cli.model.with_extension("cache"), 128)?;
+    }
 
     tracing_subscriber::fmt()
         .event_format(
@@ -59,7 +63,9 @@ pub fn main() -> anyhow::Result<()> {
     let mut config = ScheduleConfig::new();
     config.set_type(cli.forward);
     let mut session = time!(interpreter.create_session(config)?; "create session");
-    interpreter.update_cache_file(&mut session)?;
+    if !cli.no_cache {
+        interpreter.update_cache_file(&mut session)?;
+    }
 
     let mut current = 0;
     println!("--------------------------------Info--------------------------------");

@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/3.0.0";
+      url = "github:alibaba/MNN/3.0.1";
       flake = false;
     };
   };
@@ -47,11 +47,9 @@
             rust-overlay.overlays.default
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
-                version = "3.0.0";
                 src = mnn-src;
                 buildConverter = true;
-                enableVulkan = false;
-                # enableMetal = true;
+                enableMetal = true;
                 enableOpencl = true;
               };
               cargo-audit = pkgs.rustPlatform.buildRustPackage rec {
@@ -109,12 +107,8 @@
               opencl-headers
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-              ]
-              ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                darwin.apple_sdk.frameworks.Metal
-                darwin.apple_sdk.frameworks.CoreML
-              ]));
+              apple-sdk_15
+            ]);
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
       in {
@@ -204,7 +198,7 @@
               cargoExtraArgs =
                 "--example inspect"
                 + (
-                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
+                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl,metal,coreml" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
                 );
             });
           default = mnn;
@@ -213,6 +207,7 @@
         devShells = {
           default = pkgs.mkShell (commonArgs
             // {
+              MNN_SRC = null;
               packages = with pkgs;
                 [
                   cargo-audit
@@ -224,18 +219,13 @@
                   git
                   git-lfs
                   llvm
-                  # mnn
+                  llvmPackages.lldb
+                  mnn
                   nushell
                   rust-bindgen
+                  google-cloud-sdk
                   rustToolchainWithRustAnalyzer
                 ]
-                ++ (lib.optionals pkgs.stdenv.isDarwin [
-                    darwin.apple_sdk.frameworks.OpenCL
-                  ]
-                  ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                    darwin.apple_sdk.frameworks.Metal
-                    darwin.apple_sdk.frameworks.CoreML
-                  ]))
                 ++ (lib.optionals pkgs.stdenv.isLinux [
                   cargo-llvm-cov
                 ]);
