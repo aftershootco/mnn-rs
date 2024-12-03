@@ -16,7 +16,6 @@ use crate::{prelude::*, BackendConfig};
 /// - `CPU`: Use the CPU for computation.
 /// - `Metal`: Use the Metal backend for computation (requires the `metal` feature).
 /// - `OpenCL`: Use the OpenCL backend for computation (requires the `opencl` feature).
-/// - `OpenGL`: Use the OpenGL backend for computation (requires the `opengl` feature).
 /// - `Vulkan`: Use the Vulkan backend for computation (requires the `vulkan` feature).
 /// - `CoreML`: Use the CoreML backend for computation (requires the `coreml` feature).
 ///
@@ -44,8 +43,6 @@ pub enum ForwardType {
     Metal,
     #[cfg(feature = "opencl")]
     OpenCL,
-    #[cfg(feature = "opengl")]
-    OpenGL,
     #[cfg(feature = "vulkan")]
     Vulkan,
     #[cfg(feature = "coreml")]
@@ -63,8 +60,6 @@ impl ForwardType {
             ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => MNNForwardType::MNN_FORWARD_OPENCL,
-            #[cfg(feature = "opengl")]
-            ForwardType::OpenGL => MNNForwardType::MNN_FORWARD_OPENGL,
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => MNNForwardType::MNN_FORWARD_VULKAN,
             #[cfg(feature = "coreml")]
@@ -81,8 +76,6 @@ impl ForwardType {
             "metal",
             #[cfg(feature = "opencl")]
             "opencl",
-            #[cfg(feature = "opengl")]
-            "opengl",
             #[cfg(feature = "vulkan")]
             "vulkan",
             #[cfg(feature = "coreml")]
@@ -103,8 +96,6 @@ impl core::str::FromStr for ForwardType {
             "metal" => Ok(ForwardType::Metal),
             #[cfg(feature = "opencl")]
             "opencl" => Ok(ForwardType::OpenCL),
-            #[cfg(feature = "opengl")]
-            "opengl" => Ok(ForwardType::OpenGL),
             #[cfg(feature = "vulkan")]
             "vulkan" => Ok(ForwardType::Vulkan),
             #[cfg(feature = "coreml")]
@@ -227,7 +218,7 @@ impl ScheduleConfig {
     /// # Errors
     ///
     /// Returns an error if any of the tensor names contain null bytes.
-    pub fn set_save_tensors(&mut self, save_tensors: &[&str]) -> Result<()> {
+    pub fn set_save_tensors(&mut self, save_tensors: &[&str]) -> Result<&mut Self> {
         let vec_cstring = save_tensors
             .iter()
             .map(|s| std::ffi::CString::new(*s).map_err(|e| error!(ErrorKind::AsciiError, e)))
@@ -237,7 +228,7 @@ impl ScheduleConfig {
             .map(|s: &CString| s.as_c_str().as_ptr())
             .collect::<Vec<_>>();
         unsafe { mnnsc_set_save_tensors(self.inner, vec_cstr.as_ptr(), vec_cstr.len()) }
-        Ok(())
+        Ok(self)
     }
 
     /// Sets the type of backend to be used for computation.
@@ -245,10 +236,11 @@ impl ScheduleConfig {
     /// # Arguments
     ///
     /// - `forward_type`: The type of backend to be used.
-    pub fn set_type(&mut self, forward_type: ForwardType) {
+    pub fn set_type(&mut self, forward_type: ForwardType) -> &mut Self {
         unsafe {
             mnnsc_set_type(self.inner, forward_type.to_mnn_sys());
         }
+        self
     }
 
     /// Sets the number of threads to be used for computation.
@@ -256,10 +248,11 @@ impl ScheduleConfig {
     /// # Arguments
     ///
     /// - `num_threads`: The number of threads to be used.
-    pub fn set_num_threads(&mut self, num_threads: i32) {
+    pub fn set_num_threads(&mut self, num_threads: i32) -> &mut Self {
         unsafe {
             mnnsc_set_num_threads(self.inner, num_threads);
         }
+        self
     }
 
     /// Sets the mode of computation.
@@ -267,10 +260,11 @@ impl ScheduleConfig {
     /// # Arguments
     ///
     /// - `mode`: The mode of computation.
-    pub fn set_mode(&mut self, mode: i32) {
+    pub fn set_mode(&mut self, mode: i32) -> &mut Self {
         unsafe {
             mnnsc_set_mode(self.inner, mode);
         }
+        self
     }
 
     /// Sets the backup type of backend to be used if the primary backend fails.
@@ -278,10 +272,11 @@ impl ScheduleConfig {
     /// # Arguments
     ///
     /// - `backup_type`: The backup type of backend to be used.
-    pub fn set_backup_type(&mut self, backup_type: ForwardType) {
+    pub fn set_backup_type(&mut self, backup_type: ForwardType) -> &mut Self {
         unsafe {
             mnnsc_set_backup_type(self.inner, backup_type.to_mnn_sys());
         }
+        self
     }
 
     /// Sets the backend-specific configuration.
@@ -289,7 +284,10 @@ impl ScheduleConfig {
     /// # Arguments
     ///
     /// - `backend_config`: specifies additional backend-specific configurations.
-    pub fn set_backend_config(&mut self, backend_config: impl Into<Option<BackendConfig>>) {
+    pub fn set_backend_config(
+        &mut self,
+        backend_config: impl Into<Option<BackendConfig>>,
+    ) -> &mut Self {
         self.backend_config = backend_config.into();
         let ptr = if let Some(ref b) = self.backend_config {
             b.inner
@@ -299,6 +297,7 @@ impl ScheduleConfig {
         unsafe {
             mnnsc_set_backend_config(self.inner, ptr);
         }
+        self
     }
 }
 

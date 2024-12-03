@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/2.9.6";
+      url = "github:alibaba/MNN/3.0.0";
       flake = false;
     };
   };
@@ -47,23 +47,12 @@
             rust-overlay.overlays.default
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
-                version = "2.9.6";
+                version = "3.0.0";
                 src = mnn-src;
                 buildConverter = true;
                 enableVulkan = false;
                 # enableMetal = true;
                 enableOpencl = true;
-              };
-              cargo-audit = pkgs.rustPlatform.buildRustPackage rec {
-                version = "0.21.0";
-                pname = "cargo-audit";
-                src = pkgs.fetchCrate {
-                  inherit pname version;
-                  sha256 = "sha256-oMXpJE49If4QKE80ZKhRpMRPh3Bl517a2Ez/1VcaQJQ=";
-                };
-                cargoLock = rec {
-                  lockFile = "${src}/Cargo.lock";
-                };
               };
             })
           ];
@@ -86,7 +75,11 @@
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
 
         src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
-        MNN_SRC = mnn-src;
+        MNN_SRC = pkgs.applyPatches {
+          name = "mnn-src";
+          src = mnn-src;
+          patches = [./mnn-sys/patches/mnn-tracing.patch];
+        };
         commonArgs = {
           inherit src MNN_SRC;
           pname = "mnn";
@@ -124,7 +117,7 @@
             mnn-docs = craneLib.cargoDoc (commonArgs
               // {
                 inherit cargoArtifacts;
-                cargoDocExtraArgs = "-p mnn -p mnn-sys";
+                cargoDocExtraArgs = "-p mnn -p mnn-sys -p mnn-bridge -p mnn-sync";
               });
             mnn-fmt = craneLib.cargoFmt {inherit src;};
             # Audit dependencies
@@ -199,7 +192,9 @@
               pname = "inspect";
               cargoExtraArgs =
                 "--example inspect"
-                + (lib.optionalString pkgs.stdenv.isDarwin " --features opencl" + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml");
+                + (
+                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
+                );
             });
           default = mnn;
         };
@@ -207,6 +202,7 @@
         devShells = {
           default = pkgs.mkShell (commonArgs
             // {
+              MNN_SRC = null;
               packages = with pkgs;
                 [
                   cargo-audit
@@ -218,7 +214,7 @@
                   git
                   git-lfs
                   llvm
-                  mnn
+                  # mnn
                   nushell
                   rust-bindgen
                   rustToolchainWithRustAnalyzer
