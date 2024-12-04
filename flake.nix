@@ -101,7 +101,9 @@
             pkg-config
           ];
           buildInputs = with pkgs;
-            []
+            [
+                  mnn
+                        ]
             ++ (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
@@ -208,6 +210,7 @@
           default = pkgs.mkShell (commonArgs
             // {
               MNN_SRC = null;
+              LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
               packages = with pkgs;
                 [
                   cargo-audit

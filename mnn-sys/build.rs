@@ -91,6 +91,7 @@ fn main() -> Result<()> {
     ensure_vendor_exists(&source)?;
 
     let vendor = out_dir.join("vendor");
+    std::fs::remove_dir_all(&vendor).ok();
     if !vendor.exists() {
         fs_extra::dir::copy(
             &source,
