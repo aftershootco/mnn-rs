@@ -23,6 +23,8 @@ void mnnsc_set_backup_type(MNNScheduleConfig *config,
                            MNNForwardType backupType);
 void mnnsc_set_backend_config(MNNScheduleConfig *config,
                               MNNBackendConfig *backendConfig);
+MNNForwardType mnnsc_get_type(MNNScheduleConfig *config);
+MNNForwardType mnnsc_get_backup_type(MNNScheduleConfig *config);
 
 #ifdef __cplusplus
 }

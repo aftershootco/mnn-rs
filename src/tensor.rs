@@ -696,6 +696,14 @@ impl<'r> RawTensor<'r> {
         }
     }
 
+    pub fn size(&self) -> usize {
+        unsafe { mnn_sys::Tensor_usize(self.inner) }
+    }
+
+    pub fn element_size(&self) -> usize {
+        unsafe { mnn_sys::Tensor_elementSize(self.inner) as usize }
+    }
+
     pub fn dimensions(&self) -> usize {
         unsafe { mnn_sys::Tensor_dimensions(self.inner) as usize }
     }
@@ -720,6 +728,23 @@ impl<'r> RawTensor<'r> {
         unsafe {
             Tensor_wait(self.inner, map_type, finish as i32);
         }
+    }
+
+    /// # Safety
+    /// This is very unsafe do not use this unless you know what you are doing
+    /// Gives a raw pointer to the tensor's data
+    /// P.S. I don't know what I'm doing
+    pub unsafe fn unchecked_host_ptr(&self) -> *mut c_void {
+        let data = mnn_sys::Tensor_host_mut(self.inner);
+        debug_assert!(data.is_null());
+        data
+    }
+
+    /// # Safety
+    /// This is very unsafe do not use this unless you know what you are doing
+    /// Gives a mutable byte slice to the tensor's data
+    pub unsafe fn unchecked_host_bytes(&self) -> &mut [u8] {
+        core::slice::from_raw_parts_mut(self.unchecked_host_ptr().cast(), self.size())
     }
 
     /// # Safety

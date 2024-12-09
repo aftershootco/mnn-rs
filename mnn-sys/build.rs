@@ -91,7 +91,7 @@ fn main() -> Result<()> {
     ensure_vendor_exists(&source)?;
 
     let vendor = out_dir.join("vendor");
-    std::fs::remove_dir_all(&vendor).ok();
+    // std::fs::remove_dir_all(&vendor).ok();
     if !vendor.exists() {
         fs_extra::dir::copy(
             &source,
@@ -374,18 +374,18 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
     Ok(())
 }
 
-pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<()> {
-    let patch = dunce::canonicalize(patch)?;
-    rerun_if_changed(&patch);
-    let patch = std::fs::read_to_string(&patch)?;
-    let patch = diffy::Patch::from_str(&patch)?;
-    let file_path = file.as_ref();
-    let file = std::fs::read_to_string(file_path).context("Failed to read input file")?;
-    let patched_file =
-        diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
-    std::fs::write(file_path, patched_file)?;
-    Ok(())
-}
+// pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<()> {
+//     let patch = dunce::canonicalize(patch)?;
+//     rerun_if_changed(&patch);
+//     let patch = std::fs::read_to_string(&patch)?;
+//     let patch = diffy::Patch::from_str(&patch)?;
+//     let file_path = file.as_ref();
+//     let file = std::fs::read_to_string(file_path).context("Failed to read input file")?;
+//     let patched_file =
+//         diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
+//     std::fs::write(file_path, patched_file)?;
+//     Ok(())
+// }
 
 pub fn rerun_if_changed(path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed={}", path.as_ref().display());

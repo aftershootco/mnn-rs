@@ -75,7 +75,7 @@
           extensions = ["rust-src" "llvm-tools"];
         };
         rustToolchainWithRustAnalyzer = pkgs.rust-bin.stable.${version}.default.override ({
-            extensions = ["rust-src" "rust-analyzer"];
+            extensions = ["rust-docs" "rust-src" "rust-analyzer"];
           }
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
             targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
@@ -102,14 +102,14 @@
           ];
           buildInputs = with pkgs;
             [
-                  mnn
-                        ]
+              mnn
+            ]
             ++ (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
-              apple-sdk_15
+              apple-sdk_13
             ]);
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
