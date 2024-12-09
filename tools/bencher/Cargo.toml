@@ -14,9 +14,11 @@ mnn = { workspace = true, features = ["opencl", "serde"] }
 mnn = { workspace = true, features = ["opencl", "serde"] }
 
 [dependencies]
-chumsky = "0.9.3"
 clap = { version = "4.5.22", features = ["derive"] }
-clap-verbosity-flag = { version = "3.0.1", features = ["tracing"], default-features = false }
+clap-verbosity-flag = { version = "3.0.1", features = [
+  "tracing",
+], default-features = false }
+clap_complete = "4.5.38"
 console = "0.15.8"
 dunce = "1.0.5"
 error-stack = { workspace = true, features = ["serde"] }

@@ -50,6 +50,12 @@ pub struct Cli {
 pub enum Subcommand {
     Bench(Bench),
     Generate(Generate),
+    Completions(Completions),
+}
+#[derive(Debug, Clone, Parser)]
+pub struct Completions {
+    #[clap(short, long)]
+    pub shell: clap_complete::Shell,
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -226,6 +232,15 @@ pub fn main() -> Result<()> {
     match cli.subcommand {
         Subcommand::Bench(cli) => bench_main(cli)?,
         Subcommand::Generate(cli) => generate_main(cli)?,
+        Subcommand::Completions(cli) => {
+            use clap_complete::aot::{generate, Generator, Shell};
+
+            let shell = cli.shell;
+            let mut cmd = Cli::command();
+            let name = cmd.get_name().to_string();
+            generate(shell, &mut cmd, name, &mut std::io::stdout());
+            // Cli::command().gen_completions_to("mnn", shell, &mut std::io::stdout());
+        }
     }
 
     Ok(())
