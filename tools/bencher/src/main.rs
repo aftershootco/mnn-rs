@@ -26,16 +26,27 @@ impl<T> ResultExtCC for T where T: ResultExt {}
 
 #[derive(Debug, Clone, Parser)]
 pub struct Generate {
+    #[arg(required = true)]
     models: Vec<PathBuf>,
     // Always generate with cpu by default
-    #[clap(short, long, default_value = "cpu")]
+    #[arg(short, long, default_value = "cpu")]
     forward: mnn::ForwardType,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     power: mnn::PowerMode,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     precision: mnn::PrecisionMode,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     memory: mnn::MemoryMode,
+    // #[arg(flatten)]
+    // output_types: Vec<TypedOutput>,
+    #[arg(short, long)]
+    output_type: DataType,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct TypedOutput {
+    name: String,
+    data_type: DataType,
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -54,29 +65,94 @@ pub enum Subcommand {
 }
 #[derive(Debug, Clone, Parser)]
 pub struct Completions {
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub shell: clap_complete::Shell,
 }
 
 #[derive(Debug, Clone, Parser)]
 pub struct Bench {
+    #[arg(required = true)]
     models: Vec<PathBuf>,
-    #[clap(flatten)]
+    #[command(flatten)]
     sc_items: ScheduleConfigItems,
-    #[clap(short, long, default_value = "10")]
+    #[arg(short, long, default_value = "10")]
     warmup: u8,
-    #[clap(short, long)]
+    #[arg(short, long)]
     output: Option<PathBuf>,
     /// Run in exec mode i.e. run the self binary with the given arguments individually. This
     /// provides a way to bypass segmentation faults in the library.
-    #[clap(short, long)]
+    #[arg(short, long)]
     exec: bool,
 }
 
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Config {
     inputs: BTreeMap<String, PathBuf>,
-    outputs: BTreeMap<String, PathBuf>,
+    outputs: BTreeMap<String, ConfigData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ConfigData {
+    data_type: DataType,
+    path: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, ValueEnum)]
+pub enum DataType {
+    // Float16,
+    Float32,
+    Int32,
+    Int64,
+    Int8,
+    Uint8,
+}
+
+impl DataType {
+    pub fn mas(&self, lhs: &[u8], rhs: &[u8]) -> f64 {
+        match self {
+            // Self::Float16 => Self::mean_absolute_error_bytes::<f16>(lhs, rhs),
+            Self::Float32 => Self::mean_absolute_error_bytes::<f32>(lhs, rhs),
+            Self::Int32 => Self::mean_absolute_error_bytes::<i32>(lhs, rhs),
+            Self::Int64 => Self::mean_absolute_error_bytes::<i64>(lhs, rhs),
+            Self::Int8 => Self::mean_absolute_error_bytes::<i8>(lhs, rhs),
+            Self::Uint8 => Self::mean_absolute_error_bytes::<u8>(lhs, rhs),
+        }
+    }
+
+    pub fn mean_absolute_error_bytes<
+        T: core::ops::Sub<Output = T>
+            + PartialOrd
+            + Copy
+            + core::ops::Add<Output = T>
+            + num::cast::AsPrimitive<f64>
+            + bytemuck::Pod,
+    >(
+        lhs: &[u8],
+        rhs: &[u8],
+    ) -> f64 {
+        let lhs = bytemuck::cast_slice(lhs);
+        let rhs = bytemuck::cast_slice(rhs);
+        Self::mean_absolute_error::<T>(lhs, rhs)
+    }
+
+    pub fn mean_absolute_error<
+        T: core::ops::Sub<Output = T>
+            + PartialOrd
+            + Copy
+            + core::ops::Add<Output = T>
+            + num::cast::AsPrimitive<f64>,
+    >(
+        lhs: impl AsRef<[T]>,
+        rhs: impl AsRef<[T]>,
+    ) -> f64 {
+        let (sum, count) = lhs
+            .as_ref()
+            .iter()
+            .zip(rhs.as_ref())
+            .map(|(&l, &r)| if l > r { l - r } else { r - l })
+            .fold((0f64, 0usize), |(acc, count), x| (acc + x.as_(), count + 1));
+        sum / count as f64
+    }
 }
 
 impl Config {
@@ -92,16 +168,16 @@ impl Config {
 #[derive(Debug, Clone, Args)]
 pub struct ScheduleConfigItems {
     /// Comma separated list of forward types (cpu / opencl / metal / coreml)
-    #[clap(short, long, value_delimiter = ',', num_args= 1.., default_value = "cpu")]
+    #[arg(short, long, value_delimiter = ',', num_args= 1.., default_value = "cpu")]
     forward: Vec<mnn::ForwardType>,
     /// Comma separated list of power modes (low / high / normal)
-    #[clap(short = 'P', long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
+    #[arg(short = 'P', long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
     power: Vec<mnn::PowerMode>,
     /// Comma separated list of precision modes (low / high / normal)
-    #[clap(short, long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
+    #[arg(short, long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
     precision: Vec<mnn::PrecisionMode>,
     /// Comma separated list of memory modes (low / high / normal)
-    #[clap(short, long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
+    #[arg(short, long,value_delimiter = ',', num_args= 1.., default_value = "normal")]
     memory: Vec<mnn::MemoryMode>,
 }
 
@@ -195,6 +271,7 @@ pub struct Metric {
     pub cached_load_time: Duration,  // in ms
     pub inference_time: Duration,    // in ms
     pub schedule_config: ScheduleConfig,
+    pub outputs: BTreeMap<String, f64>, // mean absolute error
 }
 
 impl serde::Serialize for Metric {
@@ -216,6 +293,7 @@ impl serde::Serialize for Metric {
             &format!("{}ms", self.inference_time.as_millis()),
         )?;
         state.serialize_field("schedule_config", &self.schedule_config)?;
+        state.serialize_field("outputs", &self.outputs)?;
         state.end()
     }
 }
@@ -239,14 +317,77 @@ pub fn main() -> Result<()> {
             let mut cmd = Cli::command();
             let name = cmd.get_name().to_string();
             generate(shell, &mut cmd, name, &mut std::io::stdout());
-            // Cli::command().gen_completions_to("mnn", shell, &mut std::io::stdout());
         }
     }
 
     Ok(())
 }
 
-pub fn generate_main(_cli: Generate) -> Result<()> {
+pub fn generate_main(cli: Generate) -> Result<()> {
+    for model in cli.models {
+        let mut cfg = Config {
+            inputs: Default::default(),
+            outputs: Default::default(),
+        };
+        let mut net = mnn::Interpreter::from_file(&model).cc(BenchError)?;
+        let sc = ScheduleConfig::new()
+            .with_type(cli.forward)
+            .with_backend_config(
+                mnn::BackendConfig::new()
+                    .with_power_mode(cli.power)
+                    .with_precision_mode(cli.precision)
+                    .with_memory_mode(cli.memory),
+            );
+        let session = net.create_session(sc).cc(BenchError)?;
+        let inputs = net.inputs(&session);
+        for input in &inputs {
+            let model_name = model
+                .file_stem()
+                .expect("Failed to get model name")
+                .to_string_lossy();
+            let name = format!("{}_input_{}.bin", model_name, input.name());
+            let path = model.with_file_name(name);
+            let tensor = input.raw_tensor();
+            unsafe {
+                tensor.unchecked_host_bytes().fill(1);
+                std::fs::write(&path, tensor.unchecked_host_bytes()).cc(BenchError)?;
+            }
+            cfg.inputs.insert(
+                input.name().to_string(),
+                dunce::canonicalize(path).cc(BenchError)?,
+            );
+        }
+        drop(inputs);
+
+        net.run_session(&session);
+
+        let outputs = net.outputs(&session);
+        for output in &outputs {
+            let model_name = model
+                .file_stem()
+                .expect("Failed to get model name")
+                .to_string_lossy();
+            let name = format!("{}_output_{}.bin", model_name, output.name());
+            let path = model.with_file_name(name);
+            let tensor = output.raw_tensor();
+            unsafe {
+                let out = tensor.unchecked_host_bytes();
+                std::fs::write(&path, out).cc(BenchError)?;
+            }
+            cfg.outputs.insert(
+                output.name().to_string(),
+                ConfigData {
+                    data_type: cli.output_type,
+                    path: dunce::canonicalize(path).cc(BenchError)?,
+                },
+            );
+        }
+        std::fs::write(
+            model.with_extension("json"),
+            serde_json::to_string_pretty(&cfg).cc(BenchError)?,
+        )
+        .cc(BenchError)?;
+    }
     Ok(())
 }
 
@@ -464,20 +605,23 @@ pub fn bench(
     })
     .cc(BenchError)?;
 
+    let mut outputs = BTreeMap::new();
     for (name, path) in config.outputs.iter() {
         bar.set_message(format!("Checking output {name}"));
         not_terminal.then(|| eprintln!("Checking output {name}"));
         let output = unsafe {
-            net.raw_output(&session, name)
+            let out = net
+                .raw_output(&session, name)
                 .cc(BenchError)?
-                .unchecked_host_bytes()
-                .to_vec()
+                .create_host_tensor_from_device(true);
+
+            out.unchecked_host_bytes().to_vec()
         };
-        assert_eq!(
-            output.len(),
-            std::fs::metadata(path).cc(BenchError)?.len() as usize
-        );
-        assert_eq!(output, std::fs::read(path).cc(BenchError)?);
+        if let Some(cd) = config.outputs.get(name) {
+            let expected = std::fs::read(&cd.path).cc(BenchError)?;
+            let mas = cd.data_type.mas(&output, &expected);
+            outputs.insert(name.clone(), mas);
+        }
     }
     let memory = net.memory(&session).cc(BenchError)?;
     let flops = net.flops(&session).cc(BenchError)?;
@@ -489,6 +633,7 @@ pub fn bench(
         initial_load_time,
         cached_load_time,
         inference_time,
+        outputs,
     })
 }
 

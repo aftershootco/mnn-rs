@@ -231,6 +231,11 @@ impl BackendConfig {
         }
     }
 
+    pub fn with_memory_mode(mut self, mode: MemoryMode) -> Self {
+        self.set_memory_mode(mode);
+        self
+    }
+
     pub fn get_memory_mode(&self) -> MemoryMode {
         unsafe { MemoryMode::from_mnn_sys(mnn_sys::mnnbc_get_memory_mode(self.inner)) }
     }
@@ -242,6 +247,11 @@ impl BackendConfig {
         }
     }
 
+    pub fn with_power_mode(mut self, mode: PowerMode) -> Self {
+        self.set_power_mode(mode);
+        self
+    }
+
     pub fn get_power_mode(&self) -> PowerMode {
         unsafe { PowerMode::from_mnn_sys(mnn_sys::mnnbc_get_power_mode(self.inner)) }
     }
@@ -251,6 +261,11 @@ impl BackendConfig {
         unsafe {
             mnn_sys::mnnbc_set_precision_mode(self.inner, mode.to_mnn_sys());
         }
+    }
+
+    pub fn with_precision_mode(mut self, mode: PrecisionMode) -> Self {
+        self.set_precision_mode(mode);
+        self
     }
 
     pub fn get_precision_mode(&self) -> PrecisionMode {
@@ -265,6 +280,11 @@ impl BackendConfig {
         }
     }
 
+    pub fn with_flags(mut self, flags: usize) -> Self {
+        self.set_flags(flags);
+        self
+    }
+
     /// # Safety
     /// This just binds to the underlying unsafe api and should be used only if you know what you
     /// are doing
@@ -272,5 +292,10 @@ impl BackendConfig {
         unsafe {
             mnn_sys::mnnbc_set_shared_context(self.inner, shared_context);
         }
+    }
+
+    pub unsafe fn with_shared_context(mut self, shared_context: *mut libc::c_void) -> Self {
+        self.set_shared_context(shared_context);
+        self
     }
 }

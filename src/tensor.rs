@@ -282,6 +282,15 @@ where
         let htc = halide_type_of::<H>();
         unsafe { Tensor_isTypeOf(self.tensor, htc) }
     }
+
+    pub unsafe fn into_raw(self) -> RawTensor<'static> {
+        let out = RawTensor {
+            inner: self.tensor,
+            __marker: PhantomData,
+        };
+        core::mem::forget(self);
+        out
+    }
 }
 impl<T: MutableTensorType> Tensor<T>
 where
@@ -686,8 +695,38 @@ pub struct RawTensor<'r> {
 // }
 
 impl<'r> RawTensor<'r> {
+    pub fn create_host_tensor_from_device(&self, copy_data: bool) -> RawTensor<'static> {
+        let tensor =
+            unsafe { mnn_sys::Tensor_createHostTensorFromDevice(self.inner, copy_data as i32) };
+        // crate::ensure!(!tensor.is_null(), ErrorKind::TensorError);
+        assert!(!tensor.is_null());
+        RawTensor {
+            inner: tensor,
+            __marker: PhantomData,
+        }
+    }
+
+    /// Copies the data from a host tensor to the self tensor
+    pub fn copy_from_host_tensor(&mut self, tensor: &RawTensor) -> Result<()> {
+        let ret = unsafe { Tensor_copyFromHostTensor(self.inner, tensor.inner) };
+        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
+        Ok(())
+    }
+
+    /// Copies the data from the self tensor to a host tensor
+    pub fn copy_to_host_tensor(&self, tensor: &mut RawTensor) -> Result<()> {
+        let ret = unsafe { Tensor_copyToHostTensor(self.inner, tensor.inner) };
+        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
+        Ok(())
+    }
+
     pub fn shape(&self) -> TensorShape {
         unsafe { mnn_sys::Tensor_shape(self.inner) }.into()
+    }
+
+    pub fn get_dimension_type(&self) -> DimensionType {
+        debug_assert!(!self.inner.is_null());
+        From::from(unsafe { mnn_sys::Tensor_getDimensionType(self.inner) })
     }
 
     pub fn destroy(self) {
@@ -735,6 +774,7 @@ impl<'r> RawTensor<'r> {
     /// Gives a raw pointer to the tensor's data
     /// P.S. I don't know what I'm doing
     pub unsafe fn unchecked_host_ptr(&self) -> *mut c_void {
+        debug_assert!(!self.inner.is_null());
         let data = mnn_sys::Tensor_host_mut(self.inner);
         debug_assert!(data.is_null());
         data

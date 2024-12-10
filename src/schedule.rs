@@ -310,6 +310,11 @@ impl ScheduleConfig {
         self
     }
 
+    pub fn with_type(mut self, forward_type: ForwardType) -> Self {
+        self.set_type(forward_type);
+        self
+    }
+
     /// Gets the type of backend to be used for computation.
     pub fn get_type(&self) -> ForwardType {
         unsafe { ForwardType::from_mnn_sys(mnnsc_get_type(self.inner)) }
@@ -327,6 +332,11 @@ impl ScheduleConfig {
         self
     }
 
+    pub fn with_num_threads(mut self, num_threads: i32) -> Self {
+        self.set_num_threads(num_threads);
+        self
+    }
+
     /// Sets the mode of computation.
     ///
     /// # Arguments
@@ -339,6 +349,11 @@ impl ScheduleConfig {
         self
     }
 
+    pub fn with_mode(mut self, mode: i32) -> Self {
+        self.set_mode(mode);
+        self
+    }
+
     /// Sets the backup type of backend to be used if the primary backend fails.
     ///
     /// # Arguments
@@ -348,6 +363,11 @@ impl ScheduleConfig {
         unsafe {
             mnnsc_set_backup_type(self.inner, backup_type.to_mnn_sys());
         }
+        self
+    }
+
+    pub fn with_backup_type(mut self, backup_type: ForwardType) -> Self {
+        self.set_backup_type(backup_type);
         self
     }
 
@@ -374,6 +394,11 @@ impl ScheduleConfig {
         unsafe {
             mnnsc_set_backend_config(self.inner, ptr);
         }
+        self
+    }
+
+    pub fn with_backend_config(mut self, backend_config: impl Into<Option<BackendConfig>>) -> Self {
+        self.set_backend_config(backend_config);
         self
     }
 }
