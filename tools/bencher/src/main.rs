@@ -110,7 +110,6 @@ pub enum DataType {
 impl DataType {
     pub fn mas(&self, lhs: &[u8], rhs: &[u8]) -> f64 {
         match self {
-            // Self::Float16 => Self::mean_absolute_error_bytes::<f16>(lhs, rhs),
             Self::Float32 => Self::mean_absolute_error_bytes::<f32>(lhs, rhs),
             Self::Int32 => Self::mean_absolute_error_bytes::<i32>(lhs, rhs),
             Self::Int64 => Self::mean_absolute_error_bytes::<i64>(lhs, rhs),
@@ -347,7 +346,7 @@ pub fn generate_main(cli: Generate) -> Result<()> {
                 .to_string_lossy();
             let name = format!("{}_input_{}.bin", model_name, input.name());
             let path = model.with_file_name(name);
-            let tensor = input.raw_tensor();
+            let tensor = input.raw_tensor().create_host_tensor_from_device(false);
             unsafe {
                 tensor.unchecked_host_bytes().fill(1);
                 std::fs::write(&path, tensor.unchecked_host_bytes()).cc(BenchError)?;
@@ -371,8 +370,13 @@ pub fn generate_main(cli: Generate) -> Result<()> {
             let path = model.with_file_name(name);
             let tensor = output.raw_tensor();
             unsafe {
-                let out = tensor.unchecked_host_bytes();
-                std::fs::write(&path, out).cc(BenchError)?;
+                std::fs::write(
+                    &path,
+                    tensor
+                        .create_host_tensor_from_device(true)
+                        .unchecked_host_bytes(),
+                )
+                .cc(BenchError)?;
             }
             cfg.outputs.insert(
                 output.name().to_string(),
@@ -592,6 +596,7 @@ pub fn bench(
         unsafe {
             net.raw_input(&session, name)
                 .cc(BenchError)?
+                .create_host_tensor_from_device(false)
                 .unchecked_host_bytes()
                 .copy_from_slice(&input);
         }
@@ -610,12 +615,11 @@ pub fn bench(
         bar.set_message(format!("Checking output {name}"));
         not_terminal.then(|| eprintln!("Checking output {name}"));
         let output = unsafe {
-            let out = net
-                .raw_output(&session, name)
+            net.raw_output(&session, name)
                 .cc(BenchError)?
-                .create_host_tensor_from_device(true);
-
-            out.unchecked_host_bytes().to_vec()
+                .create_host_tensor_from_device(true)
+                .unchecked_host_bytes()
+                .to_vec()
         };
         if let Some(cd) = config.outputs.get(name) {
             let expected = std::fs::read(&cd.path).cc(BenchError)?;

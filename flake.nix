@@ -229,7 +229,7 @@
                     cargo-llvm-cov
                   ]
                 )
-                ++ [packages.bencher];
+                ++ (with packages; [bencher inspect]);
             });
         };
       }
