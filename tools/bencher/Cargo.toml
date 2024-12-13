@@ -5,7 +5,7 @@ edition = "2021"
 license.workspace = true
 
 [target."aarch64-apple-darwin".dependencies]
-mnn = { workspace = true, features = ["metal", "opencl", "serde"] }
+mnn = { workspace = true, features = ["opencl", "serde", "metal", "coreml"] }
 
 [target."x86_64-apple-darwin".dependencies]
 mnn = { workspace = true, features = ["opencl", "serde"] }

@@ -52,17 +52,6 @@
                 enableMetal = true;
                 enableOpencl = true;
               };
-              cargo-audit = pkgs.rustPlatform.buildRustPackage rec {
-                version = "0.21.0";
-                pname = "cargo-audit";
-                src = pkgs.fetchCrate {
-                  inherit pname version;
-                  sha256 = "sha256-oMXpJE49If4QKE80ZKhRpMRPh3Bl517a2Ez/1VcaQJQ=";
-                };
-                cargoLock = rec {
-                  lockFile = "${src}/Cargo.lock";
-                };
-              };
             })
           ];
         };
@@ -113,7 +102,7 @@
             ]);
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
-      in {
+      in rec {
         checks =
           {
             mnn-clippy = craneLib.cargoClippy (commonArgs
@@ -203,6 +192,12 @@
                   lib.optionalString pkgs.stdenv.isDarwin " --features opencl,metal,coreml" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
                 );
             });
+          bencher = craneLib.buildPackage (commonArgs
+            // {
+              inherit cargoArtifacts;
+              pname = "bencher";
+              cargoExtraArgs = "--package bencher";
+            });
           default = mnn;
         };
 
@@ -229,9 +224,12 @@
                   google-cloud-sdk
                   rustToolchainWithRustAnalyzer
                 ]
-                ++ (lib.optionals pkgs.stdenv.isLinux [
-                  cargo-llvm-cov
-                ]);
+                ++ (
+                  lib.optionals pkgs.stdenv.isLinux [
+                    cargo-llvm-cov
+                  ]
+                )
+                ++ [packages.bencher];
             });
         };
       }
