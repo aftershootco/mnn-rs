@@ -310,7 +310,7 @@ pub fn main() -> Result<()> {
         Subcommand::Bench(cli) => bench_main(cli)?,
         Subcommand::Generate(cli) => generate_main(cli)?,
         Subcommand::Completions(cli) => {
-            use clap_complete::aot::{generate, Generator, Shell};
+            use clap_complete::aot::generate;
 
             let shell = cli.shell;
             let mut cmd = Cli::command();
@@ -358,7 +358,7 @@ pub fn generate_main(cli: Generate) -> Result<()> {
         }
         drop(inputs);
 
-        net.run_session(&session);
+        net.run_session(&session).cc(BenchError)?;
 
         let outputs = net.outputs(&session);
         for output in &outputs {
@@ -588,6 +588,15 @@ pub fn bench(
         not_terminal.then(|| eprintln!("Warming up {c}"));
         net.run_session(&session).cc(BenchError)?;
     }
+    let (_, inference_time) = timeit(|| -> Result<()> {
+        for c in 0..5 {
+            bar.set_message(format!("Running inference {c}"));
+            not_terminal.then(|| eprintln!("Running inference {c}"));
+            net.run_session(&session).cc(BenchError)?;
+        }
+        Ok(())
+    })?;
+    let inference_time = inference_time / 5;
     let config = Config::find(&model).cc(BenchError).unwrap_or_default();
     for (name, path) in config.inputs.iter() {
         let input = std::fs::read(path).cc(BenchError)?;
@@ -601,7 +610,7 @@ pub fn bench(
                 .copy_from_slice(&input);
         }
     }
-    let (_, inference_time) = timeit(|| -> Result<()> {
+    let (_, _) = timeit(|| -> Result<()> {
         bar.set_message("Running session");
         not_terminal.then(|| eprintln!("Running session"));
         net.run_session(&session).cc(BenchError)?;
@@ -611,7 +620,7 @@ pub fn bench(
     .cc(BenchError)?;
 
     let mut outputs = BTreeMap::new();
-    for (name, path) in config.outputs.iter() {
+    for (name, _path) in config.outputs.iter() {
         bar.set_message(format!("Checking output {name}"));
         not_terminal.then(|| eprintln!("Checking output {name}"));
         let output = unsafe {
