@@ -124,13 +124,16 @@ impl DataType {
             + Copy
             + core::ops::Add<Output = T>
             + num::cast::AsPrimitive<f64>
-            + bytemuck::Pod,
+            + bytemuck::Pod
+            + core::fmt::Debug,
     >(
         lhs: &[u8],
         rhs: &[u8],
     ) -> f64 {
         let lhs = bytemuck::cast_slice(lhs);
         let rhs = bytemuck::cast_slice(rhs);
+
+        assert_eq!(lhs.len(), rhs.len(), "lhs and rhs have different lengths");
         Self::mean_absolute_error::<T>(lhs, rhs)
     }
 
@@ -346,10 +349,12 @@ pub fn generate_main(cli: Generate) -> Result<()> {
                 .to_string_lossy();
             let name = format!("{}_input_{}.bin", model_name, input.name());
             let path = model.with_file_name(name);
-            let tensor = input.raw_tensor().create_host_tensor_from_device(false);
+            let mut tensor = input.raw_tensor().create_host_tensor_from_device(false);
             unsafe {
-                tensor.unchecked_host_bytes().fill(1);
-                std::fs::write(&path, tensor.unchecked_host_bytes()).cc(BenchError)?;
+                let host = tensor.create_host_tensor_from_device(false);
+                host.unchecked_host_bytes().fill(1);
+                tensor.copy_from_host_tensor(&host);
+                std::fs::write(&path, host.unchecked_host_bytes()).cc(BenchError)?;
             }
             cfg.inputs.insert(
                 input.name().to_string(),
@@ -603,11 +608,11 @@ pub fn bench(
         bar.set_message(format!("Setting input {name}"));
         not_terminal.then(|| eprintln!("Setting input {name}"));
         unsafe {
-            net.raw_input(&session, name)
-                .cc(BenchError)?
-                .create_host_tensor_from_device(false)
-                .unchecked_host_bytes()
-                .copy_from_slice(&input);
+            let mut tensor = net.raw_input(&session, name).cc(BenchError)?;
+            let host = tensor.create_host_tensor_from_device(false);
+            host.unchecked_host_bytes().copy_from_slice(&input);
+            tensor.copy_from_host_tensor(&host);
+            drop(host);
         }
     }
     let (_, _) = timeit(|| -> Result<()> {
@@ -632,9 +637,15 @@ pub fn bench(
         };
         if let Some(cd) = config.outputs.get(name) {
             let expected = std::fs::read(&cd.path).cc(BenchError)?;
+            assert_eq!(
+                output.len(),
+                expected.len(),
+                "Failed to compare sizes of output and expected"
+            );
             let mas = cd.data_type.mas(&output, &expected);
             outputs.insert(name.clone(), mas);
         }
+        drop(output);
     }
     let memory = net.memory(&session).cc(BenchError)?;
     let flops = net.flops(&session).cc(BenchError)?;
