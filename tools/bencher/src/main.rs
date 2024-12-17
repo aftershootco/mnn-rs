@@ -349,7 +349,7 @@ pub fn generate_main(cli: Generate) -> Result<()> {
                 .to_string_lossy();
             let name = format!("{}_input_{}.bin", model_name, input.name());
             let path = model.with_file_name(name);
-            let mut tensor = input.raw_tensor().create_host_tensor_from_device(false);
+            let mut tensor = input.raw_tensor();
             unsafe {
                 let host = tensor.create_host_tensor_from_device(false);
                 host.unchecked_host_bytes().fill(1);
