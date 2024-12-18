@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/3.0.0";
+      url = "github:alibaba/MNN/3.0.1";
       flake = false;
     };
   };
@@ -47,11 +47,9 @@
             rust-overlay.overlays.default
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
-                version = "3.0.0";
                 src = mnn-src;
                 buildConverter = true;
-                enableVulkan = false;
-                # enableMetal = true;
+                enableMetal = true;
                 enableOpencl = true;
               };
             })
@@ -66,7 +64,7 @@
           extensions = ["rust-src" "llvm-tools"];
         };
         rustToolchainWithRustAnalyzer = pkgs.rust-bin.stable.${version}.default.override ({
-            extensions = ["rust-src" "rust-analyzer"];
+            extensions = ["rust-docs" "rust-src" "rust-analyzer"];
           }
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
             targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
@@ -92,21 +90,19 @@
             pkg-config
           ];
           buildInputs = with pkgs;
-            []
+            [
+              mnn
+            ]
             ++ (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
-                darwin.apple_sdk.frameworks.OpenCL
-              ]
-              ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                darwin.apple_sdk.frameworks.Metal
-                darwin.apple_sdk.frameworks.CoreML
-              ]));
+              apple-sdk_13
+            ]);
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
-      in {
+      in rec {
         checks =
           {
             mnn-clippy = craneLib.cargoClippy (commonArgs
@@ -193,8 +189,14 @@
               cargoExtraArgs =
                 "--example inspect"
                 + (
-                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
+                  lib.optionalString pkgs.stdenv.isDarwin " --features opencl,metal,coreml" # + lib.optionalString pkgs.stdenv.isAarch64 ",metal,coreml"
                 );
+            });
+          bencher = craneLib.buildPackage (commonArgs
+            // {
+              inherit cargoArtifacts;
+              pname = "bencher";
+              cargoExtraArgs = "--package bencher";
             });
           default = mnn;
         };
@@ -203,6 +205,7 @@
           default = pkgs.mkShell (commonArgs
             // {
               MNN_SRC = null;
+              LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
               packages = with pkgs;
                 [
                   cargo-audit
@@ -214,21 +217,19 @@
                   git
                   git-lfs
                   llvm
-                  # mnn
+                  llvmPackages.lldb
+                  mnn
                   nushell
                   rust-bindgen
+                  google-cloud-sdk
                   rustToolchainWithRustAnalyzer
                 ]
-                ++ (lib.optionals pkgs.stdenv.isDarwin [
-                    darwin.apple_sdk.frameworks.OpenCL
+                ++ (
+                  lib.optionals pkgs.stdenv.isLinux [
+                    cargo-llvm-cov
                   ]
-                  ++ (lib.optionals pkgs.stdenv.isAarch64 [
-                    darwin.apple_sdk.frameworks.Metal
-                    darwin.apple_sdk.frameworks.CoreML
-                  ]))
-                ++ (lib.optionals pkgs.stdenv.isLinux [
-                  cargo-llvm-cov
-                ]);
+                );
+              # ++ (with packages; [bencher inspect]);
             });
         };
       }

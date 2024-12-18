@@ -654,6 +654,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         Ok(tensor)
     }
 
+    /// This function return's the raw tensor without any sort of type-checking or shape-checking
     pub fn raw_tensor(&self) -> RawTensor<'t> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };

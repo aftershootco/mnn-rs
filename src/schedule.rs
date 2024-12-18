@@ -67,6 +67,25 @@ impl ForwardType {
         }
     }
 
+    fn from_mnn_sys(mode: MNNForwardType) -> Self {
+        match mode {
+            MNNForwardType::MNN_FORWARD_AUTO => ForwardType::Auto,
+            MNNForwardType::MNN_FORWARD_ALL => ForwardType::All,
+            MNNForwardType::MNN_FORWARD_CPU => ForwardType::CPU,
+            #[cfg(feature = "metal")]
+            MNNForwardType::MNN_FORWARD_METAL => ForwardType::Metal,
+            #[cfg(feature = "opencl")]
+            MNNForwardType::MNN_FORWARD_OPENCL => ForwardType::OpenCL,
+            #[cfg(feature = "opengl")]
+            MNNForwardType::MNN_FORWARD_OPENGL => ForwardType::OpenGL,
+            #[cfg(feature = "vulkan")]
+            MNNForwardType::MNN_FORWARD_VULKAN => ForwardType::Vulkan,
+            #[cfg(feature = "coreml")]
+            MNNForwardType::MNN_FORWARD_NN => ForwardType::CoreML,
+            _ => ForwardType::Auto,
+        }
+    }
+
     fn list() -> Vec<&'static str> {
         vec![
             "auto",
@@ -81,6 +100,24 @@ impl ForwardType {
             #[cfg(feature = "coreml")]
             "coreml",
         ]
+    }
+
+    pub fn to_str(self) -> &'static str {
+        match self {
+            ForwardType::Auto => "auto",
+            ForwardType::All => "all",
+            ForwardType::CPU => "cpu",
+            #[cfg(feature = "metal")]
+            ForwardType::Metal => "metal",
+            #[cfg(feature = "opencl")]
+            ForwardType::OpenCL => "opencl",
+            #[cfg(feature = "opengl")]
+            ForwardType::OpenGL => "opengl",
+            #[cfg(feature = "vulkan")]
+            ForwardType::Vulkan => "vulkan",
+            #[cfg(feature = "coreml")]
+            ForwardType::CoreML => "coreml",
+        }
     }
 }
 
@@ -155,11 +192,32 @@ impl core::str::FromStr for ForwardType {
 ///
 /// **Warning:** The `Drop` implementation for `ScheduleConfig` ensures that the underlying `MNNScheduleConfig`
 /// is properly destroyed when the struct goes out of scope. Users should not manually free the `inner` pointer.
-#[derive(Debug)]
 pub struct ScheduleConfig {
     pub(crate) inner: *mut MNNScheduleConfig,
     pub(crate) backend_config: Option<BackendConfig>,
     pub(crate) __marker: core::marker::PhantomData<()>,
+}
+
+impl core::fmt::Debug for ScheduleConfig {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ScheduleConfig")
+            .field("type", &self.get_type())
+            .field("backup_type", &self.get_backup_type())
+            .field("backend_config", &self.backend_config)
+            .finish()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ScheduleConfig {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ScheduleConfig", 3)?;
+        state.serialize_field("type", &self.get_type())?;
+        state.serialize_field("backup_type", &self.get_backup_type())?;
+        state.serialize_field("backend_config", &self.backend_config)?;
+        state.end()
+    }
 }
 
 impl Clone for ScheduleConfig {
@@ -243,6 +301,16 @@ impl ScheduleConfig {
         self
     }
 
+    pub fn with_type(mut self, forward_type: ForwardType) -> Self {
+        self.set_type(forward_type);
+        self
+    }
+
+    /// Gets the type of backend to be used for computation.
+    pub fn get_type(&self) -> ForwardType {
+        unsafe { ForwardType::from_mnn_sys(mnnsc_get_type(self.inner)) }
+    }
+
     /// Sets the number of threads to be used for computation.
     ///
     /// # Arguments
@@ -252,6 +320,11 @@ impl ScheduleConfig {
         unsafe {
             mnnsc_set_num_threads(self.inner, num_threads);
         }
+        self
+    }
+
+    pub fn with_num_threads(mut self, num_threads: i32) -> Self {
+        self.set_num_threads(num_threads);
         self
     }
 
@@ -267,6 +340,11 @@ impl ScheduleConfig {
         self
     }
 
+    pub fn with_mode(mut self, mode: i32) -> Self {
+        self.set_mode(mode);
+        self
+    }
+
     /// Sets the backup type of backend to be used if the primary backend fails.
     ///
     /// # Arguments
@@ -277,6 +355,16 @@ impl ScheduleConfig {
             mnnsc_set_backup_type(self.inner, backup_type.to_mnn_sys());
         }
         self
+    }
+
+    pub fn with_backup_type(mut self, backup_type: ForwardType) -> Self {
+        self.set_backup_type(backup_type);
+        self
+    }
+
+    /// Gets the backup type of backend to be used if the primary backend fails.
+    pub fn get_backup_type(&self) -> ForwardType {
+        unsafe { ForwardType::from_mnn_sys(mnnsc_get_backup_type(self.inner)) }
     }
 
     /// Sets the backend-specific configuration.
@@ -297,6 +385,11 @@ impl ScheduleConfig {
         unsafe {
             mnnsc_set_backend_config(self.inner, ptr);
         }
+        self
+    }
+
+    pub fn with_backend_config(mut self, backend_config: impl Into<Option<BackendConfig>>) -> Self {
+        self.set_backend_config(backend_config);
         self
     }
 }
