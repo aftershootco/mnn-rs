@@ -43,3 +43,16 @@ void mnnbc_reset(MNNBackendConfig *config) {
       MNN::BackendConfig::Precision_Normal;
   reinterpret_cast<MNN::BackendConfig *>(config)->sharedContext = nullptr;
 }
+
+MemoryMode mnnbc_get_memory_mode(MNNBackendConfig *config) {
+  return static_cast<MemoryMode>(
+      reinterpret_cast<MNN::BackendConfig *>(config)->memory);
+}
+PowerMode mnnbc_get_power_mode(MNNBackendConfig *config) {
+  return static_cast<PowerMode>(
+      reinterpret_cast<MNN::BackendConfig *>(config)->power);
+}
+PrecisionMode mnnbc_get_precision_mode(MNNBackendConfig *config) {
+  return static_cast<PrecisionMode>(
+      reinterpret_cast<MNN::BackendConfig *>(config)->precision);
+}

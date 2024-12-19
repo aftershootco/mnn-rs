@@ -21,7 +21,7 @@ impl Default for TensorCallback {
 }
 
 impl TensorCallback {
-    pub fn from_ptr(f: *mut libc::c_void) -> Self {
+    pub fn from_ptr(f: *mut core::ffi::c_void) -> Self {
         debug_assert!(!f.is_null());
         unsafe {
             Self {
@@ -30,8 +30,8 @@ impl TensorCallback {
         }
     }
 
-    pub fn into_ptr(self) -> *mut libc::c_void {
-        Arc::into_raw(self.inner) as *mut libc::c_void
+    pub fn into_ptr(self) -> *mut core::ffi::c_void {
+        Arc::into_raw(self.inner) as *mut core::ffi::c_void
     }
 
     pub fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
@@ -126,7 +126,7 @@ impl SessionMode {
 #[derive(Debug)]
 pub struct Interpreter {
     pub(crate) inner: *mut mnn_sys::Interpreter,
-    pub(crate) __marker: PhantomData<()>,
+    pub(crate) __marker: PhantomData<Arc<*mut ()>>,
 }
 
 unsafe impl Send for Interpreter {}
@@ -179,7 +179,7 @@ impl Interpreter {
     ///
     /// **Warning:**
     /// It should be called before create session!
-    pub fn set_session_mode(&mut self, mode: SessionMode) {
+    pub fn set_session_mode(&self, mode: SessionMode) {
         unsafe { mnn_sys::Interpreter_setSessionMode(self.inner, mode.to_mnn_sys()) }
     }
 
@@ -241,9 +241,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_session(
-        &mut self,
+        &self,
         schedule: crate::ScheduleConfig,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating session"; {
             let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
             assert!(!session.is_null());
@@ -260,7 +260,7 @@ impl Interpreter {
     /// # Safety
     /// This function is marked unsafe since it's not clear what the safety guarantees are right
     /// now. With a simple test it caused a segfault so it's marked unsafe
-    pub unsafe fn release_model(&mut self) {
+    pub unsafe fn release_model(&self) {
         unsafe { mnn_sys::Interpreter_releaseModel(self.inner) }
     }
 
@@ -270,7 +270,7 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_multipath_session(
-        &mut self,
+        &self,
         schedule: impl IntoIterator<Item = ScheduleConfig>,
     ) -> Result<crate::session::Session> {
         profile!("Creating multipath session"; {
@@ -436,7 +436,7 @@ impl Interpreter {
     }
 
     /// Run a session
-    pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
+    pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
             let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
             ensure!(
@@ -457,13 +457,13 @@ impl Interpreter {
     ///
     /// `sync` : synchronously wait for finish of execution or not.
     pub fn run_session_with_callback(
-        &mut self,
+        &self,
         session: &crate::session::Session,
         before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         sync: bool,
     ) -> Result<()> {
-        let sync = sync as libc::c_int;
+        let sync = sync as core::ffi::c_int;
         let before = TensorCallback::from(before).into_ptr();
         let end = TensorCallback::from(end).into_ptr();
         let ret = unsafe {
@@ -500,7 +500,7 @@ impl Interpreter {
     /// The API should be called before create session.
     ///
     /// Key Depercerate, keeping for future use!
-    pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
+    pub fn set_cache_file(&self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
         let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -510,7 +510,7 @@ impl Interpreter {
     }
 
     /// Update cache file
-    pub fn update_cache_file(&mut self, session: &mut crate::session::Session) -> Result<()> {
+    pub fn update_cache_file(&self, session: &mut crate::session::Session) -> Result<()> {
         MNNError::from_error_code(unsafe {
             mnn_sys::Interpreter_updateCacheFile(self.inner, session.inner)
         });
@@ -555,7 +555,7 @@ impl Interpreter {
                 self.inner,
                 session.inner,
                 mnn_sys::cpp::MNN_Interpreter_SessionInfoCode_FLOPS as _,
-                flop_ptr.cast::<libc::c_void>(),
+                flop_ptr.cast::<core::ffi::c_void>(),
             )
         };
         ensure!(
@@ -654,6 +654,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
         Ok(tensor)
     }
 
+    /// This function return's the raw tensor without any sort of type-checking or shape-checking
     pub fn raw_tensor(&self) -> RawTensor<'t> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
@@ -742,15 +743,15 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
 
 // #[no_mangle]
 // extern "C" fn rust_closure_callback_runner(
-//     f: *mut libc::c_void,
+//     f: *mut core::ffi::c_void,
 //     tensors: *const *mut mnn_sys::Tensor,
 //     tensor_count: usize,
-//     name: *const libc::c_char,
-// ) -> libc::c_int {
+//     name: *const core::ffi::c_char,
+// ) -> core::ffi::c_int {
 //     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
 //     let name = unsafe { std::ffi::CStr::from_ptr(name) };
 //     let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
-//     let ret = f(tensors, name) as libc::c_int;
+//     let ret = f(tensors, name) as core::ffi::c_int;
 //     core::mem::forget(f);
 //     ret
 // }
@@ -766,24 +767,24 @@ impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
 //     let tensors = [std::ptr::null_mut()];
 //     let name = std::ffi::CString::new("Test").unwrap();
 //     let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr())
-//         as libc::c_int;
+//         as core::ffi::c_int;
 //     assert_eq!(ret, 0);
 // }
 
 #[no_mangle]
 extern "C" fn rust_closure_callback_runner_op(
-    f: *mut libc::c_void,
+    f: *mut core::ffi::c_void,
     tensors: *const *mut mnn_sys::Tensor,
     tensor_count: usize,
-    op: *mut libc::c_void,
-) -> libc::c_int {
+    op: *mut core::ffi::c_void,
+) -> core::ffi::c_int {
     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
     let f: TensorCallback = TensorCallback::from_ptr(f);
     let op = OperatorInfo {
         inner: op.cast(),
         __marker: PhantomData,
     };
-    let ret = f(tensors, op) as libc::c_int;
+    let ret = f(tensors, op) as core::ffi::c_int;
 
     core::mem::forget(f);
     ret
@@ -791,7 +792,7 @@ extern "C" fn rust_closure_callback_runner_op(
 
 #[repr(transparent)]
 pub struct OperatorInfo<'op> {
-    pub(crate) inner: *mut libc::c_void,
+    pub(crate) inner: *mut core::ffi::c_void,
     pub(crate) __marker: PhantomData<&'op ()>,
 }
 
@@ -820,12 +821,11 @@ impl OperatorInfo<'_> {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
 fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
         .run_session_with_callback(
@@ -838,12 +838,11 @@ fn test_run_session_with_callback_info_api() {
 }
 
 #[test]
-#[ignore = "This test doesn't work in CI"]
 fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     let time = std::time::Instant::now();
     interpreter
@@ -868,14 +867,14 @@ fn check_whether_sync_actually_works() {
     assert!((time - time2) > std::time::Duration::from_millis(50));
 }
 
-#[test]
-#[ignore = "Fails on CI"]
-fn try_to_drop_interpreter_before_session() {
-    let file = Path::new("tests/assets/realesr.mnn")
-        .canonicalize()
-        .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
-    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-    drop(interpreter);
-    drop(session);
-}
+// Impossible to compile
+// #[test]
+// fn try_to_drop_interpreter_before_session() {
+//     let file = Path::new("tests/assets/realesr.mnn")
+//         .canonicalize()
+//         .unwrap();
+//     let mut interpreter = Interpreter::from_file(&file).unwrap();
+//     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+//     drop(interpreter);
+//     drop(session);
+// }

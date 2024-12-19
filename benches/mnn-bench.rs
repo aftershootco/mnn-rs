@@ -4,8 +4,8 @@ mod mnn_realesr_bench_with_ones {
     use divan::*;
     use mnn::*;
     #[divan::bench]
-    pub fn mnn_benchmark_cpu(bencher: Bencher) {
-        let mut net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
+    pub fn mnn_realesr_benchmark_cpu(bencher: Bencher) {
+        let net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
         let mut config = ScheduleConfig::new();
         config.set_type(ForwardType::CPU);
         let session = net.create_session(config).unwrap();
@@ -18,8 +18,8 @@ mod mnn_realesr_bench_with_ones {
 
     #[cfg(feature = "opencl")]
     #[divan::bench]
-    pub fn mnn_benchmark_opencl(bencher: Bencher) {
-        let mut net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
+    pub fn mnn_realesr_benchmark_opencl(bencher: Bencher) {
+        let net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
         let mut config = ScheduleConfig::new();
         config.set_type(ForwardType::OpenCL);
         let session = net.create_session(config).unwrap();

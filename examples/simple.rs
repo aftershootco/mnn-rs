@@ -17,7 +17,7 @@ pub struct Cli {
 pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let cli = Cli::parse();
-    let mut interpreter = Interpreter::from_file(cli.model)?;
+    let net = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
@@ -27,10 +27,10 @@ pub fn main() -> anyhow::Result<()> {
     config.set_backend_config(backend_config);
 
     let now = std::time::Instant::now();
-    let session = interpreter.create_session(config)?;
+    let session = net.create_session(config)?;
     println!("create session time: {:?}", now.elapsed());
-    let mut image = interpreter.input(&session, "image")?;
-    let mut mask = interpreter.input(&session, "mask")?;
+    let mut image = net.input(&session, "image")?;
+    let mut mask = net.input(&session, "mask")?;
     let mut image_tensor = image.create_host_tensor_from_device(false);
     image_tensor.host_mut().fill(1.0f32);
     image.copy_from_host_tensor(&image_tensor)?;
@@ -40,11 +40,11 @@ pub fn main() -> anyhow::Result<()> {
     mask.copy_from_host_tensor(&mask_tensor)?;
     println!("copy time: {:?}", now.elapsed());
 
-    let output = interpreter.output(&session, "output")?;
+    let output = net.output(&session, "output")?;
     // image.copy_from_host_tensor(&unit_tensor)?;
 
     let now = std::time::Instant::now();
-    interpreter.run_session(&session)?;
+    net.run_session(&session)?;
     output.wait(ffi::MapType::MAP_TENSOR_READ, true);
     println!("run time: {:?}", now.elapsed());
 

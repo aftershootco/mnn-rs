@@ -54,3 +54,10 @@ void mnnsc_set_backend_config(MNNScheduleConfig *config,
   mnn_config->backendConfig =
       reinterpret_cast<MNN::BackendConfig *>(backendConfig);
 }
+
+MNNForwardType mnnsc_get_type(MNNScheduleConfig *config) {
+  return reinterpret_cast<MNN::ScheduleConfig *>(config)->type;
+}
+MNNForwardType mnnsc_get_backup_type(MNNScheduleConfig *config) {
+  return reinterpret_cast<MNN::ScheduleConfig *>(config)->backupType;
+}
