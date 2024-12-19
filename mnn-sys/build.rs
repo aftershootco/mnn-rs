@@ -12,7 +12,12 @@ use std::{
     sync::LazyLock,
 };
 
-const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
+const VENDOR: LazyLock<PathBuf> = LazyLock::new(|| {
+    std::env::var("MNN_SRC")
+        .map(PathBuf::from)
+        .ok()
+        .unwrap_or_else(|| PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/vendor")))
+});
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static TARGET_POINTER_WIDTH: LazyLock<usize> = LazyLock::new(|| {
     std::env::var("CARGO_CFG_TARGET_POINTER_WIDTH")
@@ -126,16 +131,12 @@ fn main() {
 }
 
 fn _main() -> Result<()> {
-    #[cfg(any(feature = "vulkan", feature = "metal", feature = "coreml"))]
+    #[cfg(any(feature = "vulkan", feature = "coreml"))]
     compile_error!("Vulkan, Metal and CoreML are not supported currently");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").change_context(Error)?);
-    let source = PathBuf::from(
-        std::env::var("MNN_SRC")
-            .ok()
-            .unwrap_or_else(|| VENDOR.into()),
-    );
+    let source = (*VENDOR).clone();
 
     ensure_vendor_exists(&source)?;
 
@@ -703,6 +704,9 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         build.files(opencl_files.chain([opencl_files_dir.join("execution/cl/opencl_program.cc")]));
     }
 
+    #[cfg(feature = "metal")]
+    metal(&vendor);
+
     build
         .try_compile("mnn")
         .change_context(Error)
@@ -945,4 +949,63 @@ fn cpp_filter(path: impl AsRef<Path>) -> bool {
 fn asm_filter(path: impl AsRef<Path>) -> bool {
     path.as_ref().extension() == Some(OsStr::new("S"))
         || path.as_ref().extension() == Some(OsStr::new("s"))
+}
+
+pub trait HasExtension {
+    fn has_extension<I: AsRef<OsStr>>(&self, extensions: impl IntoIterator<Item = I>) -> bool;
+    fn has_extension_ignore_case<I: AsRef<OsStr>>(
+        &self,
+        extension: impl IntoIterator<Item = I>,
+    ) -> bool;
+}
+
+impl<P: AsRef<Path>> HasExtension for P {
+    fn has_extension<I: AsRef<OsStr>>(&self, extensions: impl IntoIterator<Item = I>) -> bool {
+        let path_ext = self.as_ref().extension();
+        extensions
+            .into_iter()
+            .any(|ext| path_ext == Some(ext.as_ref()))
+    }
+    fn has_extension_ignore_case<I: AsRef<OsStr>>(
+        &self,
+        extension: impl IntoIterator<Item = I>,
+    ) -> bool {
+        let path_ext = self.as_ref().extension().map(|ext| ext.as_encoded_bytes());
+        extension.into_iter().any(|ext| {
+            let ext = ext.as_ref().as_encoded_bytes();
+            path_ext
+                .map(|p| p.eq_ignore_ascii_case(ext))
+                .unwrap_or_default()
+        })
+    }
+}
+
+pub fn metal(source: impl AsRef<Path>) {
+    let metal_source_dir = source.as_ref().join("source/backend/metal");
+    let metal_files = ignore::Walk::new(&metal_source_dir)
+        .flatten()
+        .filter(|e| e.path().has_extension(["mm", "cpp"]))
+        .map(ignore::DirEntry::into_path)
+        .chain(core::iter::once(
+            metal_source_dir.join("MetalOPRegister.mm"),
+        ));
+
+    // if cfg!(feature = "support_render") {
+    //     let render_dir = current_list_dir.join("render");
+    //     for entry in fs::read_dir(render_dir).unwrap() {
+    //         let path = entry.unwrap().path();
+    //         if let Some(ext) = path.extension() {
+    //             if ext == "mm" || ext == "hpp" || ext == "cpp" {
+    //                 metal_files.push(path);
+    //             }
+    //         }
+    //     }
+    // }
+
+    cc::Build::new()
+        .files(metal_files)
+        .include(source.as_ref().join("source"))
+        .flag("-fobjc-arc")
+        .flag("-DMNN_METAL_ENABLED=1")
+        .compile("MNNMetal");
 }
