@@ -353,7 +353,7 @@ const char *OperatorInfo_name(const void *op) {
 const char *OperatorInfo_type(const void *op) {
   return reinterpret_cast<const MNN::OperatorInfo *>(op)->type().c_str();
 }
-const float OperatorInfo_flops(const void *op) {
+float OperatorInfo_flops(const void *op) {
   return reinterpret_cast<const MNN::OperatorInfo *>(op)->flops();
 }
 } // extern "C"

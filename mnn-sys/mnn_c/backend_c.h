@@ -37,6 +37,10 @@ void mnnbc_set_shared_context(MNNBackendConfig *config, void *shared_context);
 void mnnbc_set_flags(MNNBackendConfig *config, size_t flags);
 void mnnbc_reset(MNNBackendConfig *config);
 
+MemoryMode mnnbc_get_memory_mode(MNNBackendConfig *config);
+PowerMode mnnbc_get_power_mode(MNNBackendConfig *config);
+PrecisionMode mnnbc_get_precision_mode(MNNBackendConfig *config);
+
 #ifdef __cplusplus
 }
 #endif

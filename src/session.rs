@@ -30,17 +30,7 @@ pub enum SessionInternals {
 }
 
 impl Session {
-    // pub unsafe fn from_ptr(session: *mut mnn_sys::Session) -> Self {
-    //     Self {
-    //         session,
-    //         __marker: PhantomData,
-    //     }
-    // }
-
-    // pub fn as_ptr_mut(&self) -> *mut mnn_sys::Session {
-    //     self.session
-    // }
-    //
+    /// Calls the destroy function on the underlying MNN session.
     pub fn destroy(&mut self) {
         unsafe {
             mnn_sys::Interpreter_releaseSession(self.net, self.inner);
