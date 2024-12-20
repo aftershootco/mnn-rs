@@ -36,18 +36,23 @@ use crate::{prelude::*, BackendConfig};
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ForwardType {
+    /// Use all available backends.
     All,
     #[default]
+    /// Try to automatically select the best backend based on the current environment and hardware.
     Auto,
+    /// Use the CPU for computation.
     CPU,
     #[cfg(feature = "metal")]
+    /// Use the Metal backend for computation.
     Metal,
     #[cfg(feature = "opencl")]
+    /// Use the OpenCL backend for computation.
     OpenCL,
-    #[cfg(feature = "opengl")]
-    OpenGL,
+    /// Use the Vulkan backend for computation.
     #[cfg(feature = "vulkan")]
     Vulkan,
+    /// Use the CoreML backend for computation.
     #[cfg(feature = "coreml")]
     CoreML,
 }
@@ -91,6 +96,7 @@ impl ForwardType {
         }
     }
 
+    /// List all available `ForwardType` variants as string slices.
     fn list() -> Vec<&'static str> {
         vec![
             "auto",
@@ -109,6 +115,7 @@ impl ForwardType {
         ]
     }
 
+    /// Convert the `ForwardType` enum to a string slice.
     pub fn to_str(self) -> &'static str {
         match self {
             ForwardType::Auto => "auto",
@@ -310,6 +317,7 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets the type of backend to be used for computation.
     pub fn with_type(mut self, forward_type: ForwardType) -> Self {
         self.set_type(forward_type);
         self
@@ -332,6 +340,7 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets the number of threads to be used for computation.
     pub fn with_num_threads(mut self, num_threads: i32) -> Self {
         self.set_num_threads(num_threads);
         self
@@ -349,6 +358,7 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets the mode of computation.
     pub fn with_mode(mut self, mode: i32) -> Self {
         self.set_mode(mode);
         self
@@ -366,6 +376,7 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets the backup type of backend to be used if the primary backend fails.
     pub fn with_backup_type(mut self, backup_type: ForwardType) -> Self {
         self.set_backup_type(backup_type);
         self
@@ -397,12 +408,14 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets the backend-specific configuration.
     pub fn with_backend_config(mut self, backend_config: impl Into<Option<BackendConfig>>) -> Self {
         self.set_backend_config(backend_config);
         self
     }
 }
 
+/// A list of `ScheduleConfig` objects to be used for scheduling the forward computation in MNN.
 #[derive(Debug)]
 pub struct ScheduleConfigs {
     pub(crate) inner: Vec<*const MNNScheduleConfig>,
@@ -420,12 +433,14 @@ impl Drop for ScheduleConfigs {
 }
 
 impl ScheduleConfigs {
+    /// Pushed a new `ScheduleConfig` to the list of configurations.
     pub fn push(&mut self, config: ScheduleConfig) {
         let mut config = ManuallyDrop::new(config);
         self.inner.push(config.inner);
         self.backend_configs.push(config.backend_config.take());
     }
 
+    /// Creates a new (empty) `ScheduleConfigs` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
@@ -433,6 +448,7 @@ impl ScheduleConfigs {
         }
     }
 
+    /// Creates a new (empty) `ScheduleConfigs` with default settings.
     pub const fn new() -> Self {
         Self {
             inner: Vec::new(),

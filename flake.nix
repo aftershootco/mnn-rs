@@ -218,7 +218,7 @@
                   git-lfs
                   llvm
                   llvmPackages.lldb
-                  mnn
+                  # mnn
                   nushell
                   rust-bindgen
                   google-cloud-sdk
@@ -228,8 +228,8 @@
                   lib.optionals pkgs.stdenv.isLinux [
                     cargo-llvm-cov
                   ]
-                )
-                ++ (with packages; [bencher inspect]);
+                );
+              # ++ (with packages; [bencher inspect]);
             });
         };
       }

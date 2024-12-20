@@ -1,3 +1,5 @@
+//! The interpreter module provides the `Interpreter` struct which is used to load and run models.
+use crate::tensor::list::TensorList;
 use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
@@ -5,10 +7,10 @@ use crate::{
 };
 use mnn_sys::HalideType;
 
-pub type TensorCallbackT = Box<dyn Fn(&[RawTensor], OperatorInfo) -> bool>;
+pub(crate) type TensorCallbackT = Box<dyn Fn(&[RawTensor], OperatorInfo) -> bool>;
 
 #[repr(transparent)]
-pub struct TensorCallback {
+pub(crate) struct TensorCallback {
     inner: Arc<TensorCallbackT>,
 }
 
@@ -21,7 +23,7 @@ impl Default for TensorCallback {
 }
 
 impl TensorCallback {
-    pub fn from_ptr(f: *mut libc::c_void) -> Self {
+    pub(crate) fn from_ptr(f: *mut libc::c_void) -> Self {
         debug_assert!(!f.is_null());
         unsafe {
             Self {
@@ -30,11 +32,12 @@ impl TensorCallback {
         }
     }
 
-    pub fn into_ptr(self) -> *mut libc::c_void {
+    pub(crate) fn into_ptr(self) -> *mut libc::c_void {
         Arc::into_raw(self.inner) as *mut libc::c_void
     }
 
-    pub fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
+    #[cfg(test)]
+    pub(crate) fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
         |_, _| true
     }
 }
@@ -72,6 +75,12 @@ impl core::ops::Deref for TensorCallback {
     }
 }
 
+/// The session mode to be used
+/// The items are mostly untested and are only documented 1:1 to the C++ codebase
+/// The only two items tested are
+/// - `Debug`
+/// - `Release`
+/// Which work fine
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]
 #[cfg_attr(unix, repr(u32))]
@@ -202,6 +211,7 @@ impl Interpreter {
         unsafe { mnn_sys::Interpreter_resizeSessionWithFlag(self.inner, session.inner, 1i32) }
     }
 
+    /// Resize the tensor using the given shape
     pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
@@ -215,22 +225,27 @@ impl Interpreter {
         }
     }
 
+    /// Resize tensor by
+    /// - N -> batch
+    /// - C -> channel
+    /// - H -> height
+    /// - W -> width
     pub fn resize_tensor_by_nchw<T: TensorType>(
         &self,
         tensor: &mut Tensor<T>,
-        batch: i32,
-        channel: i32,
-        height: i32,
-        width: i32,
+        batch: u16,
+        channel: u16,
+        height: u16,
+        width: u16,
     ) {
         unsafe {
             mnn_sys::Interpreter_resizeTensorByNCHW(
                 self.inner,
                 tensor.tensor,
-                batch,
-                channel,
-                height,
-                width,
+                batch.into(),
+                channel.into(),
+                height.into(),
+                width.into(),
             )
         }
     }
@@ -302,7 +317,7 @@ impl Interpreter {
     /// `session`: the session to get input tensor
     ///
     /// return: List of input tensors
-    pub fn inputs(&self, session: &crate::Session) -> TensorList {
+    pub fn inputs<'i>(&self, session: &'i crate::Session) -> TensorList<'i> {
         let inputs = unsafe { mnn_sys::Interpreter_getSessionInputAll(self.inner, session.inner) };
         TensorList::from_ptr(inputs)
     }
@@ -338,6 +353,7 @@ impl Interpreter {
         Ok(tensor)
     }
 
+    /// Get the raw input tensor of a session by name
     pub fn raw_input<'s>(
         &self,
         session: &'s crate::Session,
@@ -421,6 +437,7 @@ impl Interpreter {
         Ok(tensor)
     }
 
+    /// Get the raw output tensor of a session by name
     pub fn raw_output<'s>(
         &self,
         session: &'s crate::Session,
@@ -483,7 +500,7 @@ impl Interpreter {
     }
 
     /// Get all output tensors of a session
-    pub fn outputs(&self, session: &crate::session::Session) -> TensorList {
+    pub fn outputs<'o>(&self, session: &'o crate::session::Session) -> TensorList<'o> {
         let outputs =
             unsafe { mnn_sys::Interpreter_getSessionOutputAll(self.inner, session.inner) };
         TensorList::from_ptr(outputs)
@@ -566,6 +583,7 @@ impl Interpreter {
         Ok(flop)
     }
 
+    /// Get the resize status
     pub fn resize_status(&self, session: &crate::Session) -> Result<ResizeStatus> {
         let mut resize_status = 0i32;
         let ptr = &mut resize_status as *mut i32;
@@ -591,185 +609,17 @@ impl Interpreter {
     }
 }
 
+/// The status of the resize operation
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub enum ResizeStatus {
+    /// No resize needed
     None = 0,
+    /// Need to malloc memory
     NeedMalloc = 1,
+    /// Need to resize memory
     NeedResize = 2,
 }
-
-#[repr(transparent)]
-pub struct TensorInfo<'t, 'tl> {
-    pub(crate) tensor_info: *mut mnn_sys::TensorInfo,
-    pub(crate) __marker: PhantomData<&'tl TensorList<'t>>,
-}
-
-impl core::fmt::Debug for TensorInfo<'_, '_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let tensor = self.raw_tensor();
-        let shape = tensor.shape();
-        f.debug_struct("TensorInfo")
-            .field("name", &self.name())
-            .field("tensor", &shape)
-            .finish()
-    }
-}
-
-impl<'t, 'tl> TensorInfo<'t, 'tl> {
-    pub fn name(&self) -> &'tl str {
-        debug_assert!(!self.tensor_info.is_null());
-        unsafe { (*self.tensor_info).name.to_cstr() }
-            .to_str()
-            .expect("Tensor name is not utf-8")
-    }
-
-    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>> {
-        debug_assert!(!self.tensor_info.is_null());
-        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
-        let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
-        let shape = tensor.shape();
-        ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
-        ensure!(
-            tensor.is_type_of::<H>(),
-            ErrorKind::HalideTypeMismatch {
-                got: std::any::type_name::<H>(),
-            }
-        );
-        Ok(tensor)
-    }
-
-    /// # Safety
-    /// The shape is not checked so it's marked unsafe since futher calls to interpreter might be **unsafe** with this
-    pub unsafe fn tensor_unresized<H: HalideType>(&self) -> Result<Tensor<RefMut<'t, Device<H>>>> {
-        debug_assert!(!self.tensor_info.is_null());
-        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
-        let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
-        ensure!(
-            tensor.is_type_of::<H>(),
-            ErrorKind::HalideTypeMismatch {
-                got: std::any::type_name::<H>(),
-            }
-        );
-        Ok(tensor)
-    }
-
-    /// This function return's the raw tensor without any sort of type-checking or shape-checking
-    pub fn raw_tensor(&self) -> RawTensor<'t> {
-        debug_assert!(!self.tensor_info.is_null());
-        unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
-        RawTensor::from_ptr(unsafe { (*self.tensor_info).tensor.cast() })
-    }
-}
-
-#[repr(transparent)]
-pub struct TensorList<'t> {
-    pub(crate) inner: *const mnn_sys::TensorInfoArray,
-    pub(crate) __marker: PhantomData<&'t Interpreter>,
-}
-
-impl core::fmt::Debug for TensorList<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_list().entries(self.iter()).finish()
-    }
-}
-
-impl Drop for TensorList<'_> {
-    fn drop(&mut self) {
-        unsafe { mnn_sys::destroyTensorInfoArray(self.inner.cast_mut()) }
-    }
-}
-
-impl<'t> TensorList<'t> {
-    pub fn from_ptr(inner: *const mnn_sys::TensorInfoArray) -> Self {
-        Self {
-            inner,
-            __marker: PhantomData,
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        unsafe { (*self.inner).size }
-    }
-
-    pub fn get(&self, index: usize) -> Option<TensorInfo<'t, '_>> {
-        if index >= self.size() {
-            None
-        } else {
-            let gtinfo = unsafe { mnn_sys::getTensorInfoArray(self.inner, index) };
-            if !gtinfo.is_null() {
-                Some(TensorInfo {
-                    tensor_info: gtinfo,
-                    __marker: PhantomData,
-                })
-            } else {
-                None
-            }
-        }
-    }
-
-    pub fn iter(&self) -> TensorListIter {
-        TensorListIter {
-            tensor_list: self,
-            idx: 0,
-        }
-    }
-}
-
-impl<'t, 'tl: 't> IntoIterator for &'tl TensorList<'t> {
-    type Item = TensorInfo<'t, 'tl>;
-    type IntoIter = TensorListIter<'t, 'tl>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        TensorListIter {
-            tensor_list: self,
-            idx: 0,
-        }
-    }
-}
-
-pub struct TensorListIter<'t, 'tl> {
-    tensor_list: &'tl TensorList<'t>,
-    idx: usize,
-}
-impl<'t, 'tl> Iterator for TensorListIter<'t, 'tl> {
-    type Item = TensorInfo<'t, 'tl>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.idx;
-        self.idx += 1;
-        self.tensor_list.get(idx)
-    }
-}
-
-// #[no_mangle]
-// extern "C" fn rust_closure_callback_runner(
-//     f: *mut libc::c_void,
-//     tensors: *const *mut mnn_sys::Tensor,
-//     tensor_count: usize,
-//     name: *const libc::c_char,
-// ) -> libc::c_int {
-//     let tensors = unsafe { std::slice::from_raw_parts(tensors.cast(), tensor_count) };
-//     let name = unsafe { std::ffi::CStr::from_ptr(name) };
-//     let f: TensorCallback = unsafe { Box::from_raw(f.cast::<TensorCallback>()) };
-//     let ret = f(tensors, name) as libc::c_int;
-//     core::mem::forget(f);
-//     ret
-// }
-
-// #[test]
-// fn test_extern_c_rust_closure_callback_runner() {
-//     let f = |_tensors: &[RawTensor], name: &CStr| -> bool {
-//         println!("Callback: {:?}", name);
-//         true
-//     };
-//     let f: Box<TensorCallback> = Box::new(Box::new(f));
-//     let f = Box::into_raw(f).cast();
-//     let tensors = [std::ptr::null_mut()];
-//     let name = std::ffi::CString::new("Test").unwrap();
-//     let ret = rust_closure_callback_runner(f, tensors.as_ptr(), tensors.len(), name.as_ptr())
-//         as libc::c_int;
-//     assert_eq!(ret, 0);
-// }
 
 #[no_mangle]
 extern "C" fn rust_closure_callback_runner_op(
@@ -790,6 +640,7 @@ extern "C" fn rust_closure_callback_runner_op(
     ret
 }
 
+/// A struct that holds information about an operator
 #[repr(transparent)]
 pub struct OperatorInfo<'op> {
     pub(crate) inner: *mut libc::c_void,
@@ -807,14 +658,17 @@ impl core::fmt::Debug for OperatorInfo<'_> {
 }
 
 impl OperatorInfo<'_> {
+    /// Get the name of the operator
     pub fn name(&self) -> &CStr {
         unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_name(self.inner)) }
     }
 
+    /// Get the type of the operator
     pub fn type_name(&self) -> &CStr {
         unsafe { CStr::from_ptr(mnn_sys::OperatorInfo_type(self.inner)) }
     }
 
+    /// Get the number of flops of the operator
     pub fn flops(&self) -> f32 {
         unsafe { mnn_sys::OperatorInfo_flops(self.inner) }
     }

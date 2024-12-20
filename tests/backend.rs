@@ -3,6 +3,7 @@ use common::*;
 use mnn::ForwardType;
 use tracing_test::traced_test;
 
+#[cfg(feature = "coreml")]
 #[test]
 #[traced_test]
 fn compare_cpu_and_coreml_outputs() {
