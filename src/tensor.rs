@@ -176,7 +176,7 @@ impl DimensionType {
     pub const NCHW: Self = Self::Caffe;
     /// Caffe style dimensions with channel packed in 4 bytes or NC4HW4
     pub const NC4HW4: Self = Self::CaffeC4;
-    pub(crate) fn to_mnn_sys(&self) -> mnn_sys::DimensionType {
+    pub(crate) fn to_mnn_sys(self) -> mnn_sys::DimensionType {
         match self {
             DimensionType::Caffe => mnn_sys::DimensionType::CAFFE,
             DimensionType::CaffeC4 => mnn_sys::DimensionType::CAFFE_C4,
@@ -646,7 +646,7 @@ where
 }
 
 #[test]
-pub fn test_tensor_borrowed() {
+fn test_tensor_borrowed() {
     let shape = [1, 2, 3];
     let data = vec![1, 2, 3, 4, 5, 6];
     let tensor = Tensor::<Ref<Host<i32>>>::borrowed(&shape, &data);
@@ -655,7 +655,7 @@ pub fn test_tensor_borrowed() {
 }
 
 #[test]
-pub fn test_tensor_borrow_mut() {
+fn test_tensor_borrow_mut() {
     let shape = [1, 2, 3];
     let mut data = vec![1, 2, 3, 4, 5, 6];
     let mut tensor = Tensor::<RefMut<Host<i32>>>::borrowed_mut(&shape, &mut data);

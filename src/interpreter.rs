@@ -80,7 +80,6 @@ impl core::ops::Deref for TensorCallback {
 /// The only two items tested are
 /// - `Debug`
 /// - `Release`
-/// Which work fine
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(windows, repr(i32))]
 #[cfg_attr(unix, repr(u32))]
