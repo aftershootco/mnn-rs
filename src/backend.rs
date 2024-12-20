@@ -67,7 +67,7 @@ impl Default for BackendConfig {
 }
 
 /// PowerModes depend on if the specific backend has support for it
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PowerMode {
     /// Low power mode
@@ -151,7 +151,7 @@ impl FromStr for PrecisionMode {
 }
 
 /// MemoryModes depend on if the specific backend has support for it
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MemoryMode {
     /// Low memory mode
@@ -191,7 +191,7 @@ impl MemoryMode {
 }
 
 /// PrecisionModes depend on if the specific backend has support for it
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PrecisionMode {
     /// Normal precision mode
@@ -330,4 +330,23 @@ impl BackendConfig {
         self.set_shared_context(shared_context);
         self
     }
+}
+
+#[test]
+fn test_backend_config() {
+    let mut config = BackendConfig::new();
+    config.set_memory_mode(MemoryMode::Low);
+    config.set_power_mode(PowerMode::Low);
+    config.set_precision_mode(PrecisionMode::Low);
+    let config = std::hint::black_box(config.clone());
+    assert_eq!(config.get_memory_mode(), MemoryMode::Low);
+    assert_eq!(config.get_power_mode(), PowerMode::Low);
+    assert_eq!(config.get_precision_mode(), PrecisionMode::Low);
+    let config = config
+        .with_memory_mode(MemoryMode::Normal)
+        .with_power_mode(PowerMode::Normal)
+        .with_precision_mode(PrecisionMode::Normal);
+    assert_eq!(config.get_memory_mode(), MemoryMode::Normal);
+    assert_eq!(config.get_power_mode(), PowerMode::Normal);
+    assert_eq!(config.get_precision_mode(), PrecisionMode::Normal);
 }
