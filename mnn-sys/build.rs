@@ -708,8 +708,7 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     }
 
     #[cfg(feature = "metal")]
-    // metal(&vendor, &includes);
-    let build = metal_builder(build, vendor).change_context(Error)?;
+    let build = metal(build, vendor).change_context(Error)?;
 
     build
         .try_compile("mnn")
@@ -984,38 +983,7 @@ impl<P: AsRef<Path>> HasExtension for P {
     }
 }
 
-pub fn metal<P: AsRef<Path>>(source: impl AsRef<Path>, includes: impl AsRef<[P]>) {
-    let metal_source_dir = source.as_ref().join("source/backend/metal");
-    let metal_files = ignore::Walk::new(&metal_source_dir)
-        .flatten()
-        .filter(|e| e.path().has_extension(["cpp"]))
-        .map(ignore::DirEntry::into_path);
-    // .chain(core::iter::once(
-    //     metal_source_dir.join("MetalOPRegister.mm"),
-    // ));
-
-    // if cfg!(feature = "support_render") {
-    //     let render_dir = current_list_dir.join("render");
-    //     for entry in fs::read_dir(render_dir).unwrap() {
-    //         let path = entry.unwrap().path();
-    //         if let Some(ext) = path.extension() {
-    //             if ext == "mm" || ext == "hpp" || ext == "cpp" {
-    //                 metal_files.push(path);
-    //             }
-    //         }
-    //     }
-    // }
-
-    cc::Build::new()
-        .files(metal_files)
-        .include(source.as_ref().join("source"))
-        .includes(includes.as_ref())
-        .flag("-fobjc-arc")
-        .flag("-DMNN_METAL_ENABLED=1")
-        .compile("MNNMetal");
-}
-
-pub fn metal_builder(mut build: cc::Build, source: impl AsRef<Path>) -> Result<cc::Build> {
+pub fn metal(build: cc::Build, source: impl AsRef<Path>) -> Result<cc::Build> {
     let metal_source_dir = source.as_ref().join("source/backend/metal");
     let metal_files = ignore::Walk::new(&metal_source_dir)
         .flatten()
