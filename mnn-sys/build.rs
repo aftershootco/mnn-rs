@@ -12,7 +12,7 @@ use std::{
     sync::LazyLock,
 };
 
-const VENDOR: LazyLock<PathBuf> = LazyLock::new(|| {
+static VENDOR: LazyLock<PathBuf> = LazyLock::new(|| {
     std::env::var("MNN_SRC")
         .map(PathBuf::from)
         .ok()
@@ -132,7 +132,7 @@ fn main() {
 
 fn _main() -> Result<()> {
     #[cfg(any(feature = "vulkan", feature = "coreml"))]
-    compile_error!("Vulkan, Metal and CoreML are not supported currently");
+    compile_error!("Vulkan, CoreML are not supported currently");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").change_context(Error)?);
@@ -151,14 +151,12 @@ fn _main() -> Result<()> {
         )
         .change_context(Error)
         .attach_printable("Failed to copy vendor")?;
-        let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
+        let halide_runtime_h = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
-        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))
+        std::fs::set_permissions(&halide_runtime_h, std::fs::Permissions::from_mode(0o644))
             .change_context(Error)?;
-        // try_patch_file("patches/halide_type_t_64.patch", intptr)
-        //     .attach_printable("Failed to patch vendor")?;
 
-        let intptr_contents = std::fs::read_to_string(&intptr).change_context(Error)?;
+        let intptr_contents = std::fs::read_to_string(&halide_runtime_h).change_context(Error)?;
         let patched = intptr_contents.lines().collect::<Vec<_>>();
         if let Some(idx) = patched.iter().position(|line| line.contains(HALIDE_SEARCH)) {
             // remove the last line and the next 3 lines
@@ -169,12 +167,17 @@ fn _main() -> Result<()> {
                 .map(|(_, c)| c)
                 .collect::<Vec<_>>();
 
-            std::fs::write(
-                intptr,
-                patched.join("\n").replace(TRACING_SEARCH, TRACING_REPLACE),
-            )
-            .change_context(Error)?;
+            std::fs::write(halide_runtime_h, patched.join("\n")).change_context(Error)?;
         }
+
+        let mnn_define = vendor.join("include").join("MNN").join("MNNDefine.h");
+        let patched = std::fs::read_to_string(&mnn_define)
+            .change_context(Error)?
+            .replace(TRACING_SEARCH, TRACING_REPLACE);
+        #[cfg(unix)]
+        std::fs::set_permissions(&mnn_define, std::fs::Permissions::from_mode(0o644))
+            .change_context(Error)?;
+        std::fs::write(mnn_define, patched).change_context(Error)?;
     }
 
     if *MNN_COMPILE {

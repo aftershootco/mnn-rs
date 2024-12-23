@@ -47,7 +47,7 @@ macro_rules! time {
 pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let cli = Cli::parse();
-    let mut net = Interpreter::from_file(&cli.model)?;
+    let net = Interpreter::from_file(&cli.model)?;
     if !cli.no_cache {
         net.set_cache_file(cli.model.with_extension("cache"), 128)?;
     }

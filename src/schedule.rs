@@ -83,8 +83,6 @@ impl ForwardType {
             MNNForwardType::MNN_FORWARD_METAL => ForwardType::Metal,
             #[cfg(feature = "opencl")]
             MNNForwardType::MNN_FORWARD_OPENCL => ForwardType::OpenCL,
-            #[cfg(feature = "opengl")]
-            MNNForwardType::MNN_FORWARD_OPENGL => ForwardType::OpenGL,
             #[cfg(feature = "vulkan")]
             MNNForwardType::MNN_FORWARD_VULKAN => ForwardType::Vulkan,
             #[cfg(feature = "coreml")]
@@ -120,8 +118,6 @@ impl ForwardType {
             ForwardType::Metal => "metal",
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => "opencl",
-            #[cfg(feature = "opengl")]
-            ForwardType::OpenGL => "opengl",
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => "vulkan",
             #[cfg(feature = "coreml")]
