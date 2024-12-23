@@ -90,9 +90,7 @@
             pkg-config
           ];
           buildInputs = with pkgs;
-            [
-              mnn
-            ]
+            []
             ++ (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
@@ -218,7 +216,6 @@
                   git-lfs
                   llvm
                   llvmPackages.lldb
-                  mnn
                   nushell
                   rust-bindgen
                   google-cloud-sdk

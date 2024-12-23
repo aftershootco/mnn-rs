@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //!
 //! Ergonomic rust bindings for [MNN](https://github.com/alibaba/MNN)  
 //!
@@ -59,16 +60,23 @@
 //! - 🚸 - Some models work  
 //! - ❌ - Doesn't work
 
+/// Re-export of whole mnn-sys
 pub mod ffi {
     pub use mnn_sys::*;
 }
 
+mod profile;
+
 pub mod backend;
+/// Error handling
 pub mod error;
+/// MNN::Interpreter related items
 pub mod interpreter;
-pub mod profile;
+/// Schedule configuration
 pub mod schedule;
+/// MNN::Session related items
 pub mod session;
+/// MNN::Tensor related items
 pub mod tensor;
 
 pub use backend::*;
@@ -81,10 +89,12 @@ pub use tensor::*;
 pub use ffi::HalideType;
 pub use ffi::MapType;
 
+/// Re-export of commonly used items
 pub mod prelude {
     pub use crate::error::*;
     pub(crate) use crate::profile::profile;
     pub use core::ffi::*;
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
+    pub use mnn_sys::{HalideType, MapType};
 }

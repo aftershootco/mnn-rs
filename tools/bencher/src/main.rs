@@ -349,11 +349,11 @@ pub fn generate_main(cli: Generate) -> Result<()> {
                 .to_string_lossy();
             let name = format!("{}_input_{}.bin", model_name, input.name());
             let path = model.with_file_name(name);
-            let mut tensor = input.raw_tensor().create_host_tensor_from_device(false);
+            let mut tensor = input.raw_tensor();
             unsafe {
-                let host = tensor.create_host_tensor_from_device(false);
+                let mut host = tensor.create_host_tensor_from_device(false);
                 host.unchecked_host_bytes().fill(1);
-                tensor.copy_from_host_tensor(&host);
+                tensor.copy_from_host_tensor(&host).cc(BenchError)?;
                 std::fs::write(&path, host.unchecked_host_bytes()).cc(BenchError)?;
             }
             cfg.inputs.insert(
@@ -609,9 +609,9 @@ pub fn bench(
         not_terminal.then(|| eprintln!("Setting input {name}"));
         unsafe {
             let mut tensor = net.raw_input(&session, name).cc(BenchError)?;
-            let host = tensor.create_host_tensor_from_device(false);
+            let mut host = tensor.create_host_tensor_from_device(false);
             host.unchecked_host_bytes().copy_from_slice(&input);
-            tensor.copy_from_host_tensor(&host);
+            tensor.copy_from_host_tensor(&host).cc(BenchError)?;
             drop(host);
         }
     }

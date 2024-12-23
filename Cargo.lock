@@ -619,7 +619,6 @@ dependencies = [
  "error-stack",
  "fs_extra",
  "ignore",
- "libc",
  "once_cell",
  "pkg-config",
  "tap",
