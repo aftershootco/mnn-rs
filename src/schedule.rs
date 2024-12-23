@@ -45,6 +45,9 @@ pub enum ForwardType {
     #[cfg(feature = "metal")]
     /// Use the Metal backend for computation.
     Metal,
+    #[cfg(feature = "cuda")]
+    /// Use the Metal backend for computation.
+    Cuda,
     #[cfg(feature = "opencl")]
     /// Use the OpenCL backend for computation.
     OpenCL,
@@ -65,6 +68,8 @@ impl ForwardType {
             ForwardType::CPU => MNNForwardType::MNN_FORWARD_CPU,
             #[cfg(feature = "metal")]
             ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
+            #[cfg(feature = "cuda")]
+            ForwardType::Cuda => MNNForwardType::MNN_FORWARD_CUDA,
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => MNNForwardType::MNN_FORWARD_OPENCL,
             #[cfg(feature = "vulkan")]
@@ -81,6 +86,8 @@ impl ForwardType {
             MNNForwardType::MNN_FORWARD_CPU => ForwardType::CPU,
             #[cfg(feature = "metal")]
             MNNForwardType::MNN_FORWARD_METAL => ForwardType::Metal,
+            #[cfg(feature = "cuda")]
+            MNNForwardType::MNN_FORWARD_CUDA => ForwardType::Cuda,
             #[cfg(feature = "opencl")]
             MNNForwardType::MNN_FORWARD_OPENCL => ForwardType::OpenCL,
             #[cfg(feature = "vulkan")]
@@ -99,6 +106,8 @@ impl ForwardType {
             "cpu",
             #[cfg(feature = "metal")]
             "metal",
+            #[cfg(feature = "cuda")]
+            "cuda",
             #[cfg(feature = "opencl")]
             "opencl",
             #[cfg(feature = "vulkan")]
@@ -116,6 +125,8 @@ impl ForwardType {
             ForwardType::CPU => "cpu",
             #[cfg(feature = "metal")]
             ForwardType::Metal => "metal",
+            #[cfg(feature = "cuda")]
+            ForwardType::Cuda => "cuda",
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => "opencl",
             #[cfg(feature = "vulkan")]
@@ -136,6 +147,8 @@ impl core::str::FromStr for ForwardType {
             "cpu" => Ok(ForwardType::CPU),
             #[cfg(feature = "metal")]
             "metal" => Ok(ForwardType::Metal),
+            #[cfg(feature = "cuda")]
+            "cuda" => Ok(ForwardType::Cuda),
             #[cfg(feature = "opencl")]
             "opencl" => Ok(ForwardType::OpenCL),
             #[cfg(feature = "vulkan")]

@@ -1052,8 +1052,28 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
     cc::Build::new()
         .cuda(true)
         .cudart("static")
-        .includes(mnn_includes(vendor))
+        .std("c++17")
+        .flag("-O3")
+        .includes(mnn_includes(vendor.as_ref()))
+        .include(vendor.as_ref().join("3rd_party/cutlass/v3_4_0/include"))
+        .include(&cuda_dir)
+        .pipe(|b| {
+            if *TARGET_OS == "windows" {
+                b.flag("-Xcompiler").flag("/FS");
+            }
+            b
+        })
+        .pipe(cuda_compute(60, false))
+        .pipe(cuda_compute(61, false))
+        .pipe(cuda_compute(62, false))
+        .pipe(cuda_compute(70, false))
+        .pipe(cuda_compute(72, false))
+        .pipe(cuda_compute(75, true))
+        .pipe(cuda_compute(80, true))
+        .pipe(cuda_compute(86, true))
+        .pipe(cuda_compute(89, true))
         .files(cuda_files)
+        .file(cuda_dir.join("Register.cpp"))
         .try_compile("MNNCuda")
         .change_context(Error)
         .attach_printable("Failed to compile MNNCuda")?;
@@ -1061,8 +1081,13 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
     Ok(build)
 }
 
-pub fn find_cuda() -> Result<PathBuf> {
-    std::env::var("CUDA_PATH")
-        .change_context(Error)
-        .map(PathBuf::from)
+pub fn cuda_compute(version: u8, enable: bool) -> impl FnOnce(&mut cc::Build) -> &mut cc::Build {
+    move |build: &mut cc::Build| {
+        if enable {
+            build.define(&format!("MNN_CUDA_ENABLE_SM{version}"), None);
+        }
+        build.flag(&format!(
+            "-gencode=arch=compute_{version},code=sm_{version}",
+        ))
+    }
 }

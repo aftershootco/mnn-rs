@@ -42,6 +42,7 @@
     flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
+          config.allowUnfree = true;
           inherit system;
           overlays = [
             rust-overlay.overlays.default
@@ -204,8 +205,10 @@
             // {
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
+              CUDA_PATH = "${pkgs.cudatoolkit}";
               packages = with pkgs;
                 [
+                  cudatoolkit
                   cargo-audit
                   cargo-deny
                   cargo-hakari
