@@ -306,7 +306,7 @@ pub fn main() -> Result<()> {
     // let indicatif_layer = IndicatifLayer::new();
     tracing_subscriber::registry()
         .with(cli.verbose.tracing_level_filter())
-        // .with(tracing_subscriber::fmt::layer().with_writer(Term::stderr))
+        .with(tracing_subscriber::fmt::layer().with_writer(Term::stderr))
         .init();
 
     match cli.subcommand {
@@ -598,6 +598,7 @@ pub fn bench(
             bar.set_message(format!("Running inference {c}"));
             not_terminal.then(|| eprintln!("Running inference {c}"));
             net.run_session(&session).cc(BenchError)?;
+            net.wait(&session);
         }
         Ok(())
     })?;

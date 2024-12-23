@@ -619,9 +619,9 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
         build.flag_if_supported("/source-charset:utf-8");
     }
 
-    CxxOption::VULKAN.define(&mut build);
+    // CxxOption::VULKAN.define(&mut build);
+    // CxxOption::COREML.define(&mut build);
     CxxOption::METAL.define(&mut build);
-    CxxOption::COREML.define(&mut build);
     CxxOption::OPENCL.define(&mut build);
     CxxOption::CRT_STATIC.define(&mut build);
     CxxOption::SPARSE_COMPUTE.define(&mut build);
@@ -694,19 +694,7 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     }
 
     #[cfg(feature = "opencl")]
-    {
-        let opencl_files_dir = vendor.join("source").join("backend").join("opencl");
-        let opencl_files = ignore::Walk::new(&opencl_files_dir)
-            .flatten()
-            .filter(|e| e.path().extension() == Some(OsStr::new("cpp")))
-            .map(|e| e.into_path());
-        let ocl_includes = opencl_files_dir.join("schema").join("current");
-        build.include(ocl_includes.clone());
-        includes.push(ocl_includes);
-        build.define("MNN_OPENCL_ENABLED", "1");
-        build.files(opencl_files.chain([opencl_files_dir.join("execution/cl/opencl_program.cc")]));
-    }
-
+    let build = opencl(build, vendor).change_context(Error)?;
     #[cfg(feature = "metal")]
     let build = metal(build, vendor).change_context(Error)?;
 
@@ -983,8 +971,8 @@ impl<P: AsRef<Path>> HasExtension for P {
     }
 }
 
-pub fn metal(build: cc::Build, source: impl AsRef<Path>) -> Result<cc::Build> {
-    let metal_source_dir = source.as_ref().join("source/backend/metal");
+pub fn metal(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build> {
+    let metal_source_dir = vendor.as_ref().join("source/backend/metal");
     let metal_files = ignore::Walk::new(&metal_source_dir)
         .flatten()
         .filter(|e| e.path().has_extension(["mm", "cpp"]))
@@ -993,24 +981,59 @@ pub fn metal(build: cc::Build, source: impl AsRef<Path>) -> Result<cc::Build> {
             metal_source_dir.join("MetalOPRegister.mm"),
         ));
 
-    // if cfg!(feature = "support_render") {
-    //     let render_dir = current_list_dir.join("render");
-    //     for entry in fs::read_dir(render_dir).unwrap() {
-    //         let path = entry.unwrap().path();
-    //         if let Some(ext) = path.extension() {
-    //             if ext == "mm" || ext == "hpp" || ext == "cpp" {
-    //                 metal_files.push(path);
-    //             }
-    //         }
-    //     }
-    // }
-
-    build
-        .clone()
+    cc_builder()
+        .define(CxxOption::METAL.name, CxxOption::METAL.cc())
         .files(metal_files)
-        .include(source.as_ref().join("source"))
+        .includes(mnn_includes(vendor))
         .flag("-fobjc-arc")
-        .flag("-DMNN_METAL_ENABLED=1")
-        .compile("MNNMetal");
+        .define("MNN_METAL_ENABLED", "1")
+        .try_compile("MNNMetal")
+        .change_context(Error)
+        .attach_printable("Failed to compile MNNMetal")?;
+    build.define("MNN_METAL_ENABLED", "1");
     Ok(build)
+}
+
+pub fn opencl(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build> {
+    let source = vendor.as_ref().join("source");
+    let backend = source.join("backend");
+    let opencl_files_dir = backend.join("opencl");
+    let opencl_files = ignore::Walk::new(&opencl_files_dir)
+        .flatten()
+        .filter(|e| e.path().has_extension(["cpp"]))
+        .map(|e| e.into_path());
+    let ocl_includes = opencl_files_dir.join("schema").join("current");
+    cc_builder()
+        .define(CxxOption::OPENCL.name, CxxOption::OPENCL.cc())
+        .includes(mnn_includes(vendor))
+        .include(ocl_includes.clone())
+        .define("MNN_OPENCL_ENABLED", "1")
+        .files(opencl_files.chain([opencl_files_dir.join("execution/cl/opencl_program.cc")]))
+        .try_compile("MNNOpenCL")
+        .change_context(Error)
+        .attach_printable("Failed to build MNNOpenCL")?;
+    build.define("MNN_OPENCL_ENABLED", "1");
+    Ok(build)
+}
+
+pub fn mnn_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
+    let vendor = vendor.as_ref();
+    vec![
+        vendor.join("include/"),
+        vendor.join("source/"),
+        vendor.join("schema/current/"),
+        vendor.join("3rd_party/"),
+        vendor.join("3rd_party/flatbuffers/include"),
+        vendor.join("3rd_party/half"),
+        vendor.join("3rd_party/OpenCLHeaders/"),
+    ]
+}
+
+pub fn cc_builder() -> cc::Build {
+    cc::Build::new()
+        .cpp(true)
+        .static_crt(STATIC_CRT)
+        .static_flag(true)
+        .std("c++11")
+        .to_owned()
 }
