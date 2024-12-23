@@ -463,6 +463,7 @@ impl CxxOption {
     cxx_option_from_features! {
         VULKAN => "vulkan", "MNN_VULKAN",
         METAL => "metal", "MNN_METAL",
+        CUDA => "cuda", "MNN_CUDA",
         COREML => "coreml", "MNN_COREML",
         OPENCL => "opencl", "MNN_OPENCL",
         CRT_STATIC => "crt_static", "MNN_WIN_RUNTIME_MT",
@@ -697,6 +698,8 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let build = opencl(build, vendor).change_context(Error)?;
     #[cfg(feature = "metal")]
     let build = metal(build, vendor).change_context(Error)?;
+    #[cfg(feature = "cuda")]
+    let build = cuda(build, vendor).change_context(Error)?;
 
     build
         .try_compile("mnn")
@@ -1036,4 +1039,30 @@ pub fn cc_builder() -> cc::Build {
         .static_flag(true)
         .std("c++11")
         .to_owned()
+}
+
+pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build> {
+    let cuda_dir = vendor.as_ref().join("source/backend/cuda");
+    let cuda_files = ignore::WalkBuilder::new(cuda_dir.join("core"))
+        .add(cuda_dir.join("execution"))
+        .build()
+        .flatten()
+        .filter(|p| p.path().has_extension(["cpp", "cu"]))
+        .map(|e| e.into_path());
+    cc::Build::new()
+        .cuda(true)
+        .cudart("static")
+        .includes(mnn_includes(vendor))
+        .files(cuda_files)
+        .try_compile("MNNCuda")
+        .change_context(Error)
+        .attach_printable("Failed to compile MNNCuda")?;
+    build.define("MNN_CUDA_ENABLED", "1");
+    Ok(build)
+}
+
+pub fn find_cuda() -> Result<PathBuf> {
+    std::env::var("CUDA_PATH")
+        .change_context(Error)
+        .map(PathBuf::from)
 }
