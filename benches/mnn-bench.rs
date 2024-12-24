@@ -48,7 +48,7 @@ mod mnn_realesr_bench_with_ones {
 
     #[cfg(feature = "cuda")]
     #[divan::bench]
-    pub fn mnn_realesr_benchmark_metal(bencher: Bencher) {
+    pub fn mnn_realesr_benchmark_cuda(bencher: Bencher) {
         let net = Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
         let mut config = ScheduleConfig::new();
         config.set_type(ForwardType::Cuda);
