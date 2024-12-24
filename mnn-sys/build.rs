@@ -1048,14 +1048,16 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
         .build()
         .flatten()
         .filter(|p| p.path().has_extension(["cpp", "cu"]))
-        .map(|e| e.into_path());
+        .map(|e| e.into_path())
+        .filter(|p| !p.components().any(|component| component.as_os_str().eq("plugin")))
+        .filter(|p| !p.components().any(|component| component.as_os_str().eq("weight_only_quant")));
     cc::Build::new()
         .cuda(true)
         .cudart("static")
-        .std("c++17")
+        .flag("--std=c++17")
         .flag("-O3")
         .includes(mnn_includes(vendor.as_ref()))
-        .include(vendor.as_ref().join("3rd_party/cutlass/v3_4_0/include"))
+        .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
         .include(&cuda_dir)
         .pipe(|b| {
             if *TARGET_OS == "windows" {
