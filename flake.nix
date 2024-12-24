@@ -205,10 +205,8 @@
             // {
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
-              CUDA_PATH = "${pkgs.cudatoolkit}";
               packages = with pkgs;
                 [
-                  cudatoolkit
                   cargo-audit
                   cargo-deny
                   cargo-hakari
@@ -226,10 +224,14 @@
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
+                    cudatoolkit
                     cargo-llvm-cov
                   ]
                 );
               # ++ (with packages; [bencher inspect]);
+            }
+            // lib.optionalAttrs pkgs.stdenv.isLinux {
+              CUDA_PATH = "${pkgs.cudatoolkit}";
             });
         };
       }
