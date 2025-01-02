@@ -87,11 +87,14 @@
           doCheck = false;
           nativeBuildInputs = with pkgs; [
             pkg-config
+            libclang.lib
           ];
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           buildInputs = with pkgs;
             (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
+              cudatoolkit
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
               apple-sdk_13
@@ -199,6 +202,7 @@
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
               nativeBuildInputs = commonArgs.nativeBuildInputs;
               buildINputs = commonArgs.buildInputs;
+              LIBCLANG_PATH = commonArgs.LIBCLANG_PATH;
               packages = with pkgs;
                 [
                   cargo-audit

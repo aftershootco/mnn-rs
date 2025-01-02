@@ -10,7 +10,7 @@ mnn = { workspace = true, features = ["opencl", "serde", "metal"] }
 [target."x86_64-apple-darwin".dependencies]
 mnn = { workspace = true, features = ["opencl", "serde"] }
 
-[target."cfg(windows)".dependencies]
+[target."cfg(not(target_os = \"macos\"))".dependencies]
 mnn = { workspace = true, features = [
   "cuda",
   "serde",
