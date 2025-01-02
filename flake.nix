@@ -53,7 +53,6 @@
                 enableMetal = true;
                 enableOpencl = true;
               };
-              # stdenv = final.clangStdenv;
             })
           ];
         };
@@ -71,10 +70,11 @@
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
             targets = ["aarch64-apple-darwin" "x86_64-apple-darwin" "wasm32-unknown-unknown"];
           }));
+        nightlyToolchain = pkgs.rust-bin.nightly.latest.default;
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
 
-        src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
+        src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" ".lock"];
         MNN_SRC = pkgs.applyPatches {
           name = "mnn-src";
           src = mnn-src;
@@ -82,18 +82,14 @@
         };
         commonArgs = {
           inherit src MNN_SRC;
+          stdenv = pkgs.clangStdenv;
           pname = "mnn";
           doCheck = false;
-          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           nativeBuildInputs = with pkgs; [
-            cmake
-            llvmPackages.libclang.lib
-            clang
             pkg-config
           ];
           buildInputs = with pkgs;
-            []
-            ++ (lib.optionals pkgs.stdenv.isLinux [
+            (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
             ])
@@ -159,13 +155,10 @@
             #       name = "mnn-leaks";
             #       cargoLock = {
             #         lockFile = ./Cargo.lock;
-            #         outputHashes = {
-            #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
-            #         };
             #       };
             #
             #       buildPhase = ''
-            #         cargo test --target aarch64-apple-darwin
+            #         cargo test --profile rwd --target aarch64-apple-darwin
             #       '';
             #       RUSTFLAGS = "-Zsanitizer=address";
             #       ASAN_OPTIONS = "detect_leaks=1";
@@ -202,11 +195,10 @@
         };
 
         devShells = {
-          default = pkgs.mkShell (
+          default = pkgs.mkShell.override {stdenv = pkgs.clangStdenv;} (
             {
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
-              LIBCLANG_PATH = commonArgs.LIBCLANG_PATH;
               nativeBuildInputs = commonArgs.nativeBuildInputs;
               buildINputs = commonArgs.buildInputs;
               packages = with pkgs;
@@ -237,13 +229,6 @@
               CUDA_PATH = "${pkgs.cudatoolkit}";
             }
           );
-          wasm32 = pkgs.mkShell.override {stdenv = pkgs.clangStdenv;} {
-            MNN_SRC = null;
-            packages = with pkgs; [
-              llvmPackages.lldb
-              rustToolchainWithRustAnalyzer
-            ];
-          };
         };
       }
     )
