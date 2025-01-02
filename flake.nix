@@ -162,8 +162,6 @@
             #       '';
             #       RUSTFLAGS = "-Zsanitizer=address";
             #       ASAN_OPTIONS = "detect_leaks=1";
-            #       # MNN_COMPILE = "NO";
-            #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
             #     }
             #   );
           }

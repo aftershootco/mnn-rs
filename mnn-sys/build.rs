@@ -1067,7 +1067,7 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
         .cuda(true)
         .cudart("static")
         .flag("--std=c++17")
-        .flag("-O3")
+        // .flag("-O3")
         .includes(mnn_includes(vendor.as_ref()))
         .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
         .include(&cuda_dir)
