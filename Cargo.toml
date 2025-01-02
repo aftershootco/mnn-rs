@@ -45,7 +45,7 @@ serde = ["dep:serde"]
 
 simd = ["mnn-sys/simd"]
 
-default = ["simd"]
+# default = ["simd"]
 
 
 [dev-dependencies]
