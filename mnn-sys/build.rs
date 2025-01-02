@@ -257,6 +257,7 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
+        .clang_arg(CxxOption::CUDA.cxx())
         .pipe(|builder| {
             if is_emscripten() {
                 println!("cargo:rustc-cdylib-link-arg=-fvisibility=default");
@@ -314,6 +315,7 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
+        .clang_arg(CxxOption::CUDA.cxx())
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
         .generate_cstr(true)
         .generate_inline_functions(true)
@@ -351,19 +353,17 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     let vendor = vendor.as_ref();
     cc::Build::new()
         .include(vendor.join("include"))
-        // .includes(vulkan_includes(vendor))
         .pipe(|config| {
-            #[cfg(feature = "vulkan")]
-            config.define("MNN_VULKAN", "1");
-            #[cfg(feature = "metal")]
-            config.define("MNN_METAL", "1");
-            #[cfg(feature = "coreml")]
-            config.define("MNN_COREML", "1");
-            #[cfg(feature = "opencl")]
-            config.define("MNN_OPENCL", "ON");
+            CxxOption::COREML.define(config);
+            CxxOption::CUDA.define(config);
+            CxxOption::METAL.define(config);
+            CxxOption::OPENCL.define(config);
+            CxxOption::VULKAN.define(config);
             if is_emscripten() {
                 config.compiler("emcc");
                 // We can't compile wasm32-unknown-unknown with emscripten
+                // emscripten works with cpu backend only so we are not sure if it would work with
+                // others at all
                 config.target("wasm32-unknown-emscripten");
                 config.cpp_link_stdlib("c++-noexcept");
             }
@@ -1051,6 +1051,18 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
         .map(|e| e.into_path())
         .filter(|p| !p.components().any(|component| component.as_os_str().eq("plugin")))
         .filter(|p| !p.components().any(|component| component.as_os_str().eq("weight_only_quant")));
+
+    fn cuda_compute(version: u8, enable: bool) -> impl FnOnce(&mut cc::Build) -> &mut cc::Build {
+        move |build: &mut cc::Build| {
+            if enable {
+                build.define(&format!("MNN_CUDA_ENABLE_SM{version}"), None);
+            }
+            build.flag(&format!(
+                "-gencode=arch=compute_{version},code=sm_{version}",
+            ))
+        }
+    }
+
     cc::Build::new()
         .cuda(true)
         .cudart("static")
@@ -1080,16 +1092,6 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
         .change_context(Error)
         .attach_printable("Failed to compile MNNCuda")?;
     build.define("MNN_CUDA_ENABLED", "1");
+    CxxOption::CUDA.define(&mut build);
     Ok(build)
-}
-
-pub fn cuda_compute(version: u8, enable: bool) -> impl FnOnce(&mut cc::Build) -> &mut cc::Build {
-    move |build: &mut cc::Build| {
-        if enable {
-            build.define(&format!("MNN_CUDA_ENABLE_SM{version}"), None);
-        }
-        build.flag(&format!(
-            "-gencode=arch=compute_{version},code=sm_{version}",
-        ))
-    }
 }

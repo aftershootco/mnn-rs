@@ -53,6 +53,7 @@
                 enableMetal = true;
                 enableOpencl = true;
               };
+              # stdenv = final.clangStdenv;
             })
           ];
         };
@@ -68,7 +69,7 @@
             extensions = ["rust-docs" "rust-src" "rust-analyzer"];
           }
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
-            targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
+            targets = ["aarch64-apple-darwin" "x86_64-apple-darwin" "wasm32-unknown-unknown"];
           }));
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
@@ -201,10 +202,13 @@
         };
 
         devShells = {
-          default = pkgs.mkShell (commonArgs
-            // {
+          default = pkgs.mkShell (
+            {
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
+              LIBCLANG_PATH = commonArgs.LIBCLANG_PATH;
+              nativeBuildInputs = commonArgs.nativeBuildInputs;
+              buildINputs = commonArgs.buildInputs;
               packages = with pkgs;
                 [
                   cargo-audit
@@ -228,11 +232,18 @@
                     cargo-llvm-cov
                   ]
                 );
-              # ++ (with packages; [bencher inspect]);
             }
             // lib.optionalAttrs pkgs.stdenv.isLinux {
               CUDA_PATH = "${pkgs.cudatoolkit}";
-            });
+            }
+          );
+          wasm32 = pkgs.mkShell.override {stdenv = pkgs.clangStdenv;} {
+            MNN_SRC = null;
+            packages = with pkgs; [
+              llvmPackages.lldb
+              rustToolchainWithRustAnalyzer
+            ];
+          };
         };
       }
     )
