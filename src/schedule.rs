@@ -477,3 +477,22 @@ impl FromIterator<ScheduleConfig> for ScheduleConfigs {
 }
 
 unsafe impl Send for ScheduleConfigs {}
+//
+// #[derive(Debug, Clone)]
+// pub enum UserDeviceContext {
+//     OpenCL(OpenCLContext),
+//     Cuda(CudaContext),
+// }
+//
+// #[derive(Debug, Clone)]
+// pub struct OpenCLContext {
+//     pub device_id: u32,
+//     pub platform_id: u32,
+//     pub context_ptr: *mut core::ffi::c_void,
+//     pub gl_shared: *mut core::ffi::c_void,
+// }
+//
+// #[derive(Debug, Clone)]
+// pub struct CudaContext {
+//     pub device_id: u32,
+// }

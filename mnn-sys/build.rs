@@ -329,9 +329,12 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
                 .join("Interpreter.hpp")
                 .to_string_lossy(),
         )
+        // .header(
+        //     vendor
+        //         .join("include/MNN/MNNSharedContext.h")
+        //         .to_string_lossy(),
+        // )
         .allowlist_item(".*SessionInfoCode.*");
-    // let cmd = bindings.command_line_flags().join(" ");
-    // println!("cargo:warn=bindgen: {}", cmd);
     let bindings = bindings.generate().change_context(Error)?;
     bindings
         .write_to_file(out.as_ref().join("mnn_cpp.rs"))
@@ -622,6 +625,7 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
 
     // CxxOption::VULKAN.define(&mut build);
     // CxxOption::COREML.define(&mut build);
+    CxxOption::CUDA.define(&mut build);
     CxxOption::METAL.define(&mut build);
     CxxOption::OPENCL.define(&mut build);
     CxxOption::CRT_STATIC.define(&mut build);
@@ -1043,30 +1047,44 @@ pub fn cc_builder() -> cc::Build {
 
 pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build> {
     let cuda_dir = vendor.as_ref().join("source/backend/cuda");
-    let cuda_files = ignore::WalkBuilder::new(cuda_dir.join("core"))
-        .add(cuda_dir.join("execution"))
-        .build()
-        .flatten()
-        .filter(|p| p.path().has_extension(["cpp", "cu"]))
-        .map(|e| e.into_path())
-        .filter(|p| !p.components().any(|component| component.as_os_str().eq("plugin")))
-        .filter(|p| !p.components().any(|component| component.as_os_str().eq("weight_only_quant")));
+    let (cuda_files_cu, cuda_files_cpp): (Vec<_>, Vec<_>) =
+        ignore::WalkBuilder::new(cuda_dir.join("core"))
+            .add(cuda_dir.join("execution"))
+            .build()
+            .flatten()
+            .filter(|p| p.path().has_extension(["cpp", "cu"]))
+            .map(|e| e.into_path())
+            .filter(|p| {
+                !p.components()
+                    .any(|component| component.as_os_str().eq("plugin"))
+            })
+            .filter(|p| {
+                !p.components()
+                    .any(|component| component.as_os_str().eq("weight_only_quant"))
+            })
+            .partition(|p| p.has_extension(["cu"]));
 
     fn cuda_compute(version: u8, enable: bool) -> impl FnOnce(&mut cc::Build) -> &mut cc::Build {
         move |build: &mut cc::Build| {
             if enable {
                 build.define(&format!("MNN_CUDA_ENABLE_SM{version}"), None);
             }
-            build.flag(&format!(
-                "-gencode=arch=compute_{version},code=sm_{version}",
-            ))
+            build.flag("-gencode");
+            build.flag(&format!("arch=compute_{version},code=sm_{version}",))
         }
     }
 
-    cc::Build::new()
+    let cuda_objects = cc::Build::new()
         .cuda(true)
         .cudart("static")
-        .flag("--std=c++17")
+        .flag("-m64")
+        .flag("--std")
+        .flag("c++11")
+        .flag("-w")
+        .flag("-O3")
+        .flag("-g")
+        .define("MNN_Cuda_Main_EXPORTS", None)
+        // .flag("--std=c++17")
         // .flag("-O3")
         .includes(mnn_includes(vendor.as_ref()))
         .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
@@ -1086,12 +1104,23 @@ pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build>
         .pipe(cuda_compute(80, true))
         .pipe(cuda_compute(86, true))
         .pipe(cuda_compute(89, true))
-        .files(cuda_files)
-        .file(cuda_dir.join("Register.cpp"))
-        .try_compile("MNNCuda")
+        .files(cuda_files_cu)
+        .try_compile_intermediates()
         .change_context(Error)
         .attach_printable("Failed to compile MNNCuda")?;
-    build.define("MNN_CUDA_ENABLED", "1");
+
+    cc_builder()
+        .includes(mnn_includes(vendor.as_ref()))
+        .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
+        .include(&cuda_dir)
+        .file(cuda_dir.join("Register.cpp"))
+        .files(cuda_files_cpp)
+        .objects(cuda_objects)
+        .cargo_debug(true)
+        .try_compile("MNNCuda")
+        .change_context(Error)
+        .attach_printable("Failed to compile cuda/Register.cpp")?;
+
     CxxOption::CUDA.define(&mut build);
     Ok(build)
 }

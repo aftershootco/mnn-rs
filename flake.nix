@@ -85,16 +85,22 @@
           stdenv = pkgs.clangStdenv;
           pname = "mnn";
           doCheck = false;
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            libclang.lib
-          ];
+          nativeBuildInputs = with pkgs;
+            [
+              pkg-config
+              libclang.lib
+            ]
+            ++ (lib.optionals pkgs.stdenv.isLinux [
+              cudatoolkit
+            ]);
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           buildInputs = with pkgs;
             (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
-              cudatoolkit
+              (lib.getDev cudaPackages.cuda_cudart)
+              (lib.getLib cudaPackages.cuda_cudart)
+              (lib.getStatic cudaPackages.cuda_cudart)
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
               apple-sdk_13
@@ -201,7 +207,7 @@
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
               nativeBuildInputs = commonArgs.nativeBuildInputs;
-              buildINputs = commonArgs.buildInputs;
+              buildInputs = commonArgs.buildInputs;
               LIBCLANG_PATH = commonArgs.LIBCLANG_PATH;
               packages = with pkgs;
                 [
@@ -219,6 +225,7 @@
                   rust-bindgen
                   google-cloud-sdk
                   rustToolchainWithRustAnalyzer
+                  cppcheck
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
