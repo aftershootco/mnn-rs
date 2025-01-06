@@ -257,6 +257,7 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
+        .clang_arg(CxxOption::CUDA.cxx())
         .pipe(|builder| {
             if is_emscripten() {
                 println!("cargo:rustc-cdylib-link-arg=-fvisibility=default");
@@ -314,6 +315,7 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
+        .clang_arg(CxxOption::CUDA.cxx())
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
         .generate_cstr(true)
         .generate_inline_functions(true)
@@ -327,9 +329,12 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
                 .join("Interpreter.hpp")
                 .to_string_lossy(),
         )
+        // .header(
+        //     vendor
+        //         .join("include/MNN/MNNSharedContext.h")
+        //         .to_string_lossy(),
+        // )
         .allowlist_item(".*SessionInfoCode.*");
-    // let cmd = bindings.command_line_flags().join(" ");
-    // println!("cargo:warn=bindgen: {}", cmd);
     let bindings = bindings.generate().change_context(Error)?;
     bindings
         .write_to_file(out.as_ref().join("mnn_cpp.rs"))
@@ -351,19 +356,17 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     let vendor = vendor.as_ref();
     cc::Build::new()
         .include(vendor.join("include"))
-        // .includes(vulkan_includes(vendor))
         .pipe(|config| {
-            #[cfg(feature = "vulkan")]
-            config.define("MNN_VULKAN", "1");
-            #[cfg(feature = "metal")]
-            config.define("MNN_METAL", "1");
-            #[cfg(feature = "coreml")]
-            config.define("MNN_COREML", "1");
-            #[cfg(feature = "opencl")]
-            config.define("MNN_OPENCL", "ON");
+            CxxOption::COREML.define(config);
+            CxxOption::CUDA.define(config);
+            CxxOption::METAL.define(config);
+            CxxOption::OPENCL.define(config);
+            CxxOption::VULKAN.define(config);
             if is_emscripten() {
                 config.compiler("emcc");
                 // We can't compile wasm32-unknown-unknown with emscripten
+                // emscripten works with cpu backend only so we are not sure if it would work with
+                // others at all
                 config.target("wasm32-unknown-emscripten");
                 config.cpp_link_stdlib("c++-noexcept");
             }
@@ -463,6 +466,7 @@ impl CxxOption {
     cxx_option_from_features! {
         VULKAN => "vulkan", "MNN_VULKAN",
         METAL => "metal", "MNN_METAL",
+        CUDA => "cuda", "MNN_CUDA",
         COREML => "coreml", "MNN_COREML",
         OPENCL => "opencl", "MNN_OPENCL",
         CRT_STATIC => "crt_static", "MNN_WIN_RUNTIME_MT",
@@ -621,6 +625,7 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
 
     // CxxOption::VULKAN.define(&mut build);
     // CxxOption::COREML.define(&mut build);
+    CxxOption::CUDA.define(&mut build);
     CxxOption::METAL.define(&mut build);
     CxxOption::OPENCL.define(&mut build);
     CxxOption::CRT_STATIC.define(&mut build);
@@ -697,6 +702,8 @@ pub fn mnn_cpp_build(vendor: impl AsRef<Path>) -> Result<()> {
     let build = opencl(build, vendor).change_context(Error)?;
     #[cfg(feature = "metal")]
     let build = metal(build, vendor).change_context(Error)?;
+    #[cfg(feature = "cuda")]
+    let build = cuda(build, vendor).change_context(Error)?;
 
     build
         .try_compile("mnn")
@@ -1036,4 +1043,84 @@ pub fn cc_builder() -> cc::Build {
         .static_flag(true)
         .std("c++11")
         .to_owned()
+}
+
+pub fn cuda(mut build: cc::Build, vendor: impl AsRef<Path>) -> Result<cc::Build> {
+    let cuda_dir = vendor.as_ref().join("source/backend/cuda");
+    let (cuda_files_cu, cuda_files_cpp): (Vec<_>, Vec<_>) =
+        ignore::WalkBuilder::new(cuda_dir.join("core"))
+            .add(cuda_dir.join("execution"))
+            .build()
+            .flatten()
+            .filter(|p| p.path().has_extension(["cpp", "cu"]))
+            .map(|e| e.into_path())
+            .filter(|p| {
+                !p.components()
+                    .any(|component| component.as_os_str().eq("plugin"))
+            })
+            .filter(|p| {
+                !p.components()
+                    .any(|component| component.as_os_str().eq("weight_only_quant"))
+            })
+            .partition(|p| p.has_extension(["cu"]));
+
+    fn cuda_compute(version: u8, enable: bool) -> impl FnOnce(&mut cc::Build) -> &mut cc::Build {
+        move |build: &mut cc::Build| {
+            if enable {
+                build.define(&format!("MNN_CUDA_ENABLE_SM{version}"), None);
+            }
+            build.flag("-gencode");
+            build.flag(&format!("arch=compute_{version},code=sm_{version}",))
+        }
+    }
+
+    let cuda_objects = cc::Build::new()
+        .cuda(true)
+        .cudart("static")
+        .flag("-m64")
+        .flag("--std")
+        .flag("c++11")
+        .flag("-w")
+        .flag("-O3")
+        .flag("-g")
+        .define("MNN_Cuda_Main_EXPORTS", None)
+        // .flag("--std=c++17")
+        // .flag("-O3")
+        .includes(mnn_includes(vendor.as_ref()))
+        .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
+        .include(&cuda_dir)
+        .pipe(|b| {
+            if *TARGET_OS == "windows" {
+                b.flag("-Xcompiler").flag("/FS");
+            }
+            b
+        })
+        .pipe(cuda_compute(60, false))
+        .pipe(cuda_compute(61, false))
+        .pipe(cuda_compute(62, false))
+        .pipe(cuda_compute(70, false))
+        .pipe(cuda_compute(72, false))
+        .pipe(cuda_compute(75, true))
+        .pipe(cuda_compute(80, true))
+        .pipe(cuda_compute(86, true))
+        .pipe(cuda_compute(89, true))
+        .files(cuda_files_cu)
+        .try_compile_intermediates()
+        .change_context(Error)
+        .attach_printable("Failed to compile MNNCuda")?;
+
+    cc_builder()
+        .includes(mnn_includes(vendor.as_ref()))
+        .include(vendor.as_ref().join("3rd_party/cutlass/v2_9_0/include"))
+        .include(&cuda_dir)
+        .file(cuda_dir.join("Register.cpp"))
+        .files(cuda_files_cpp)
+        .objects(cuda_objects)
+        .cargo_debug(true)
+        .try_compile("MNNCuda")
+        .change_context(Error)
+        .attach_printable("Failed to compile cuda/Register.cpp")?;
+
+    CxxOption::CUDA.define(&mut build);
+    Ok(build)
 }

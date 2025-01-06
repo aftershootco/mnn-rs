@@ -30,6 +30,7 @@ thiserror = "2.0.3"
 [features]
 opencl = []
 
+cuda = []
 metal = []
 coreml = ["metal"]
 vulkan = []

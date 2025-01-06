@@ -211,7 +211,9 @@ impl ScheduleConfigItem {
         bc.set_power_mode(self.power);
         bc.set_precision_mode(self.precision);
         bc.set_memory_mode(self.memory);
-        sc.set_type(self.forward).set_backend_config(bc);
+        sc.set_type(self.forward)
+            .set_backup_type(self.forward)
+            .set_backend_config(bc);
         sc
     }
 }
@@ -306,7 +308,16 @@ pub fn main() -> Result<()> {
     // let indicatif_layer = IndicatifLayer::new();
     tracing_subscriber::registry()
         .with(cli.verbose.tracing_level_filter())
-        .with(tracing_subscriber::fmt::layer().with_writer(Term::stderr))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .event_format(
+                    tracing_subscriber::fmt::format()
+                        .with_line_number(true)
+                        .with_ansi(true)
+                        .with_file(true),
+                )
+                .with_writer(Term::stderr),
+        )
         .init();
 
     match cli.subcommand {
