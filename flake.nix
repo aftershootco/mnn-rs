@@ -225,7 +225,7 @@
                   rust-bindgen
                   google-cloud-sdk
                   rustToolchainWithRustAnalyzer
-                  cppcheck
+                  mnn
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
