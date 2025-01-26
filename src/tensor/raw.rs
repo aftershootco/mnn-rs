@@ -111,7 +111,7 @@ impl RawTensor<'_> {
     pub unsafe fn unchecked_host_ptr(&self) -> *mut c_void {
         debug_assert!(!self.inner.is_null());
         let data = mnn_sys::Tensor_host_mut(self.inner);
-        debug_assert!(data.is_null());
+        debug_assert!(!data.is_null());
         data
     }
 
