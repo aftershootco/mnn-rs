@@ -4,11 +4,13 @@ use common::*;
 #[test]
 pub fn test_resizing() -> Result<()> {
     let model = std::fs::read("tests/assets/resizing.mnn").expect("No resizing model");
-    let mut net = Interpreter::from_bytes(&model).unwrap();
+    let net = Interpreter::from_bytes(&model).unwrap();
     net.set_cache_file("resizing.cache", 128)?;
-    let config = ScheduleConfig::default();
+    let mut config = ScheduleConfig::default();
     #[cfg(feature = "opencl")]
     config.set_type(ForwardType::OpenCL);
+    #[cfg(not(feature = "opencl"))]
+    config.set_type(ForwardType::CPU);
     let mut session = net.create_session(config).unwrap();
     net.update_cache_file(&mut session)?;
 

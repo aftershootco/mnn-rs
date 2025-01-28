@@ -4,7 +4,7 @@ use crate::prelude::*;
 ///
 /// Inference unit. multiple sessions could share one net/interpreter.
 #[derive(Debug)]
-pub struct Session {
+pub struct Session<'i> {
     /// Pointer to the underlying MNN session.
     pub(crate) inner: *mut mnn_sys::Session,
     /// Pointer to the underlying MNN interpreter
@@ -17,7 +17,7 @@ pub struct Session {
     /// Internal session configurations.
     pub(crate) __session_internals: crate::SessionInternals,
     /// Marker to ensure the struct is not Send or Sync.
-    pub(crate) __marker: PhantomData<()>,
+    pub(crate) __marker: PhantomData<&'i ()>,
 }
 
 /// Enum representing the internal configurations of a session.
@@ -29,8 +29,8 @@ pub enum SessionInternals {
     MultiSession(crate::ScheduleConfigs),
 }
 
-impl Session {
-    /// Calls the destroy function on the underlying MNN session.
+impl Session<'_> {
+    /// Calls the destructor for the underlying MNN session.
     pub fn destroy(&mut self) {
         unsafe {
             mnn_sys::Interpreter_releaseSession(self.net, self.inner);
@@ -39,7 +39,7 @@ impl Session {
     }
 }
 
-impl Drop for Session {
+impl Drop for Session<'_> {
     /// Custom drop implementation to ensure the underlying MNN session is properly destroyed.
     fn drop(&mut self) {
         self.destroy();

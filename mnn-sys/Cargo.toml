@@ -1,35 +1,57 @@
 [package]
 name = "mnn-sys"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 links = "mnn"
 license = { workspace = true }
+repository = { workspace = true }
+description = "Low-level bindings to MNN"
+include = [
+  "/src",
+  "/vendor/source",
+  "/vendor/3rd_party/flatbuffers",
+  "/vendor/3rd_party/half",
+  "/vendor/3rd_party/OpenCLHeaders",
+  "/vendor/include",
+  "/vendor/schema",
+  "/build.rs",
+]
 
 [build-dependencies]
-anyhow = "1.0.86"
 bindgen = { version = "0.70", features = ["experimental"] }
-cc = { version = "1.1.5", features = [] }
-cmake = { git = "https://github.com/blonteractor/cmake-rs", features = [
-  "parallel",
-] }
-diffy = "0.4.0"
-dunce = "1.0.4"
+cc = { version = "1.1.5", features = ["parallel"] }
+error-stack.workspace = true
 fs_extra = "1.3.0"
-itertools = "0.13.0"
+ignore = "0.4.23"
+pkg-config = "0.3.31"
 tap = "1.0.1"
+thiserror = "2.0.3"
 
 [features]
-vulkan = []
+opencl = []
+
 metal = []
 coreml = ["metal"]
-opencl = []
-openmp = []
-opengl = []
-mnn-threadpool = []
-default = ["mnn-threadpool"]
-crt_static = []
+vulkan = []
 
+mnn-threadpool = []
+
+crt_static = []
+mini-build = []
+sparse-compute = []
+arm82 = []
+bf16 = []
+cpu-weight-dequant-gemm = []
+
+# Disable if you don't plan to use cpu backend and want quicker compilation
+sse = []
+avx512 = []
+neon = []
+simd = ["sse", "avx512", "neon"]
+
+low-memory = []
+
+default = ["mnn-threadpool", "sparse-compute", "opencl", "simd"]
 [dependencies]
-libc = "0.2.155"
 once_cell = "1.20.2"
 tracing-core = "0.1.33"

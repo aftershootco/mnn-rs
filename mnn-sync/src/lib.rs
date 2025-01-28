@@ -128,7 +128,7 @@ impl SessionRunnerState {
         tracing::trace!("Unloading session");
         match core::mem::take(self) {
             Self::Loaded(sr) => {
-                let net = sr.unload()?;
+                let net = sr.unload();
                 *self = Self::Unloaded(net);
                 Ok(())
             }
@@ -200,23 +200,25 @@ impl SessionState {
 #[derive(Debug)]
 pub struct SessionRunner {
     pub interpreter: Interpreter,
-    pub session: Session,
+    pub session: Session<'static>,
 }
 
-impl SessionRunner {
-    pub fn new(interpreter: Interpreter, session: Session) -> Self {
-        Self {
-            interpreter,
-            session,
-        }
-    }
+// impl Drop for SessionRunner {
+//     fn drop(&mut self) {
+//         drop(self.session);
+//         drop(self.interpreter);
+//     }
+// }
 
-    pub fn create(mut net: Interpreter, config: ScheduleConfig) -> Result<Self> {
+impl SessionRunner {
+    pub fn create(net: Interpreter, config: ScheduleConfig) -> Result<Self> {
         #[cfg(feature = "tracing")]
         tracing::trace!("Creating session");
         #[cfg(feature = "tracing")]
         let now = std::time::Instant::now();
-        let mut session = net.create_session(config)?;
+        let mut session = unsafe {
+            core::mem::transmute::<Session<'_>, Session<'static>>(net.create_session(config)?)
+        };
         net.update_cache_file(&mut session)?;
         #[cfg(feature = "tracing")]
         tracing::trace!("Session created in {:?}", now.elapsed());
@@ -226,20 +228,20 @@ impl SessionRunner {
         })
     }
 
-    pub fn unload(self) -> Result<mnn::Interpreter> {
+    pub fn unload(self) -> mnn::Interpreter {
         let session = self.session;
         let net = self.interpreter;
         drop(session);
-        Ok(net)
+        net
     }
 
     pub fn run_session(&mut self) -> Result<()> {
         self.interpreter.run_session(&self.session)
     }
 
-    pub fn both_mut(&mut self) -> (&mut Interpreter, &mut Session) {
-        (&mut self.interpreter, &mut self.session)
-    }
+    // pub fn both_mut(&mut self) -> (&mut Interpreter, &mut Session) {
+    //     (&mut self.interpreter, &mut self.session)
+    // }
 
     pub fn resize_session(&mut self) -> Result<()> {
         self.interpreter.resize_session(&mut self.session);
@@ -258,7 +260,7 @@ impl SessionRunner {
         &self.session
     }
 
-    pub fn session_mut(&mut self) -> &mut Session {
+    pub fn session_mut(&mut self) -> &mut Session<'static> {
         &mut self.session
     }
 
@@ -504,7 +506,6 @@ pub fn test_sync_api() {
 }
 
 #[test]
-#[ignore = "This test is not reliable on CI"]
 pub fn test_sync_api_race() {
     let interpreter = Interpreter::from_file("../tests/assets/realesr.mnn")
         .expect("Failed to create interpreter");

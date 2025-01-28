@@ -16,7 +16,6 @@ use crate::{prelude::*, BackendConfig};
 /// - `CPU`: Use the CPU for computation.
 /// - `Metal`: Use the Metal backend for computation (requires the `metal` feature).
 /// - `OpenCL`: Use the OpenCL backend for computation (requires the `opencl` feature).
-/// - `OpenGL`: Use the OpenGL backend for computation (requires the `opengl` feature).
 /// - `Vulkan`: Use the Vulkan backend for computation (requires the `vulkan` feature).
 /// - `CoreML`: Use the CoreML backend for computation (requires the `coreml` feature).
 ///
@@ -68,8 +67,6 @@ impl ForwardType {
             ForwardType::Metal => MNNForwardType::MNN_FORWARD_METAL,
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => MNNForwardType::MNN_FORWARD_OPENCL,
-            #[cfg(feature = "opengl")]
-            ForwardType::OpenGL => MNNForwardType::MNN_FORWARD_OPENGL,
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => MNNForwardType::MNN_FORWARD_VULKAN,
             #[cfg(feature = "coreml")]
@@ -86,8 +83,6 @@ impl ForwardType {
             MNNForwardType::MNN_FORWARD_METAL => ForwardType::Metal,
             #[cfg(feature = "opencl")]
             MNNForwardType::MNN_FORWARD_OPENCL => ForwardType::OpenCL,
-            #[cfg(feature = "opengl")]
-            MNNForwardType::MNN_FORWARD_OPENGL => ForwardType::OpenGL,
             #[cfg(feature = "vulkan")]
             MNNForwardType::MNN_FORWARD_VULKAN => ForwardType::Vulkan,
             #[cfg(feature = "coreml")]
@@ -106,8 +101,6 @@ impl ForwardType {
             "metal",
             #[cfg(feature = "opencl")]
             "opencl",
-            #[cfg(feature = "opengl")]
-            "opengl",
             #[cfg(feature = "vulkan")]
             "vulkan",
             #[cfg(feature = "coreml")]
@@ -125,8 +118,6 @@ impl ForwardType {
             ForwardType::Metal => "metal",
             #[cfg(feature = "opencl")]
             ForwardType::OpenCL => "opencl",
-            #[cfg(feature = "opengl")]
-            ForwardType::OpenGL => "opengl",
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => "vulkan",
             #[cfg(feature = "coreml")]
@@ -147,8 +138,6 @@ impl core::str::FromStr for ForwardType {
             "metal" => Ok(ForwardType::Metal),
             #[cfg(feature = "opencl")]
             "opencl" => Ok(ForwardType::OpenCL),
-            #[cfg(feature = "opengl")]
-            "opengl" => Ok(ForwardType::OpenGL),
             #[cfg(feature = "vulkan")]
             "vulkan" => Ok(ForwardType::Vulkan),
             #[cfg(feature = "coreml")]

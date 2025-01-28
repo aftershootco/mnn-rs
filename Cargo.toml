@@ -2,42 +2,49 @@
 members = [".", "mnn-bridge", "mnn-sync", "mnn-sys", "tools/bencher"]
 [workspace.package]
 license = "Apache-2.0"
+repository = "https://github.com/aftershootco/mnn-rs"
 
 [package]
 name = "mnn"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = { workspace = true }
+repository = { workspace = true }
+documentation = "https://docs.rs/mnn"
+description = "High level MNN to Rust bindings"
 
 [workspace.dependencies]
-mnn = { version = "0.2.0", path = "." }
+mnn = { version = "0.3.0", path = "." }
 error-stack = { version = "0.5" }
 
 [dependencies]
-libc = "0.2"
-mnn-sys = { version = "0.1", path = "mnn-sys", features = [] }
-thiserror = "2.0"
+mnn-sys = { version = "0.2", path = "mnn-sys", default-features = false, features = [
+  "mnn-threadpool",
+  "sparse-compute",
+] }
+thiserror = "2"
 error-stack.workspace = true
-oneshot = "0.1"
 tracing = { version = "0.1.40", optional = true }
 dunce = "1.0.5"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
+opencl = ["mnn-sys/opencl"]
+
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
-vulkan = ["mnn-sys/vulkan"]
-opencl = ["mnn-sys/opencl"]
-opengl = ["mnn-sys/opengl"]
+
+vulkan = [] # This is currently unimplemented
+
 crt_static = ["mnn-sys/crt_static"]
-# Disable mnn-threadpool to enable this
-openmp = ["mnn-sys/openmp"]
-mnn-threadpool = ["mnn-sys/mnn-threadpool"]
+
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 serde = ["dep:serde"]
 
-default = ["mnn-threadpool"]
+simd = ["mnn-sys/simd"]
+
+default = ["simd"]
 
 
 [dev-dependencies]

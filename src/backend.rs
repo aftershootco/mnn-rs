@@ -317,7 +317,7 @@ impl BackendConfig {
     /// # Safety
     /// This just binds to the underlying unsafe api and should be used only if you know what you
     /// are doing
-    pub unsafe fn set_shared_context(&mut self, shared_context: *mut libc::c_void) {
+    pub unsafe fn set_shared_context(&mut self, shared_context: *mut core::ffi::c_void) {
         unsafe {
             mnn_sys::mnnbc_set_shared_context(self.inner, shared_context);
         }
@@ -326,7 +326,7 @@ impl BackendConfig {
     /// # Safety
     /// This just binds to the underlying unsafe api and should be used only if you know what you
     /// are doing
-    pub unsafe fn with_shared_context(mut self, shared_context: *mut libc::c_void) -> Self {
+    pub unsafe fn with_shared_context(mut self, shared_context: *mut core::ffi::c_void) -> Self {
         self.set_shared_context(shared_context);
         self
     }

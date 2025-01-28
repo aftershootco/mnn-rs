@@ -7,6 +7,7 @@ use tracing_test::traced_test;
 #[cfg(feature = "coreml")]
 #[test]
 #[traced_test]
+#[cfg(feature = "coreml")]
 fn compare_cpu_and_coreml_outputs() {
     let mut net = mnn::Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
     let cpu_config = ScheduleConfig::new();

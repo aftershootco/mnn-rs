@@ -131,12 +131,7 @@ impl MnnCallsite {
 }
 
 #[no_mangle]
-extern "C" fn mnn_ffi_emit(
-    file: *const c_char,
-    line: libc::size_t,
-    level: Level,
-    message: *const c_char,
-) {
+extern "C" fn mnn_ffi_emit(file: *const c_char, line: usize, level: Level, message: *const c_char) {
     std::panic::catch_unwind(|| {
         let file: &'static str = unsafe {
             core::ffi::CStr::from_ptr(file)

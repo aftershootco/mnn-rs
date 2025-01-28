@@ -93,8 +93,8 @@ pub use ffi::MapType;
 pub mod prelude {
     pub use crate::error::*;
     pub(crate) use crate::profile::profile;
+    pub use core::ffi::*;
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
-    pub use libc::*;
     pub use mnn_sys::{HalideType, MapType};
 }
