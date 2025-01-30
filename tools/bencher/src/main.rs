@@ -598,6 +598,7 @@ pub fn bench(
             bar.set_message(format!("Running inference {c}"));
             not_terminal.then(|| eprintln!("Running inference {c}"));
             net.run_session(&session).cc(BenchError)?;
+            net.wait(&session);
         }
         Ok(())
     })?;

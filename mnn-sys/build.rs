@@ -356,7 +356,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_COREML", CxxOption::COREML.cmake_value());
             config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
             config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
-            config.define("CMAKE_CXX_FLAGS", "-O0");
+            // config.define("CMAKE_CXX_FLAGS", "-O0");
             // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
