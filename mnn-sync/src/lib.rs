@@ -390,7 +390,7 @@ impl SessionHandle {
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
-            let result = f(sr)?;
+            let result = f(sr);
             tx.send(result)
                 .change_context(ErrorKind::SyncError)
                 .attach_printable("Internal Error: Failed to send result via oneshot channel")?;

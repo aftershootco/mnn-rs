@@ -220,6 +220,7 @@
                   rust-bindgen
                   google-cloud-sdk
                   rustToolchainWithRustAnalyzer
+                  mnn
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
