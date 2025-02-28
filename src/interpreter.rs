@@ -3,7 +3,7 @@ use crate::tensor::list::TensorList;
 use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
-    prelude::*, AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType,
+    AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType, prelude::*,
 };
 use mnn_sys::HalideType;
 
@@ -403,9 +403,11 @@ impl Interpreter {
     ) -> Tensor<RefMut<'s, Device<H>>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).expect("Input tensor name is not ascii");
-        let input =
-            mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
-        Tensor::from_ptr(input)
+        unsafe {
+            let input =
+                mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
+            Tensor::from_ptr(input)
+        }
     }
 
     /// Get the output tensor of a session by name
