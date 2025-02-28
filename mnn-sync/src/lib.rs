@@ -365,9 +365,13 @@ impl SessionHandle {
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
         self.ensure_running()?;
+        #[cfg(features = "tracing")]
+        let span = tracing::Span::current();
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
+            #[cfg(features = "tracing")]
+            let _guard = span.enter();
             let result = f(sr);
             tx.send(result)
                 .change_context(ErrorKind::SyncError)
@@ -387,9 +391,13 @@ impl SessionHandle {
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
         self.ensure_running()?;
+        #[cfg(features = "tracing")]
+        let span = tracing::Span::current();
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
+            #[cfg(features = "tracing")]
+            let _guard = span.enter();
             let result = f(sr);
             tx.send(result)
                 .change_context(ErrorKind::SyncError)
