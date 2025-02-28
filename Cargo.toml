@@ -6,7 +6,7 @@ license = "Apache-2.0"
 [package]
 name = "mnn"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 
 [workspace.dependencies]

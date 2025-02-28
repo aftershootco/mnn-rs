@@ -365,12 +365,12 @@ impl SessionHandle {
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
         self.ensure_running()?;
-        #[cfg(features = "tracing")]
+        #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
-            #[cfg(features = "tracing")]
+            #[cfg(feature = "tracing")]
             let _guard = span.enter();
             let result = f(sr);
             tx.send(result)
@@ -391,12 +391,12 @@ impl SessionHandle {
         f: impl FnOnce(&mut SessionRunner) -> Result<R> + Send + Sync + 'static,
     ) -> Result<R> {
         self.ensure_running()?;
-        #[cfg(features = "tracing")]
+        #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
         let f = f;
         let (tx, rx) = oneshot::channel();
         let wrapped_f = move |sr: &mut SessionRunner| -> Result<()> {
-            #[cfg(features = "tracing")]
+            #[cfg(feature = "tracing")]
             let _guard = span.enter();
             let result = f(sr);
             tx.send(result)
@@ -407,10 +407,9 @@ impl SessionHandle {
         self.sender
             .send(CallbackEnum::Callback(Box::new(wrapped_f)))
             .map_err(|e| Report::new(ErrorKind::SyncError).attach_printable(e.to_string()))?;
-        Ok(rx
-            .await
+        rx.await
             .change_context(ErrorKind::SyncError)
-            .attach_printable("Internal Error: Unable to recv message")?)
+            .attach_printable("Internal Error: Unable to recv message")?
     }
 
     pub fn unload(&self) -> Result<()> {

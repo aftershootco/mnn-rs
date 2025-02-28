@@ -620,7 +620,7 @@ pub enum ResizeStatus {
     NeedResize = 2,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn rust_closure_callback_runner_op(
     f: *mut libc::c_void,
     tensors: *const *mut mnn_sys::Tensor,

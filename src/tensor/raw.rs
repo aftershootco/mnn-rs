@@ -119,7 +119,7 @@ impl RawTensor<'_> {
     /// This is very unsafe do not use this unless you know what you are doing
     /// Gives a mutable byte slice to the tensor's data
     pub unsafe fn unchecked_host_bytes(&mut self) -> &mut [u8] {
-        core::slice::from_raw_parts_mut(self.unchecked_host_ptr().cast(), self.size())
+        unsafe { core::slice::from_raw_parts_mut(self.unchecked_host_ptr().cast(), self.size()) }
     }
 
     /// # Safety
@@ -128,7 +128,7 @@ impl RawTensor<'_> {
     where
         T::H: HalideType,
     {
-        super::Tensor::from_ptr(self.inner)
+        unsafe { super::Tensor::from_ptr(self.inner) }
     }
 
     pub(crate) fn from_ptr(inner: *mut mnn_sys::Tensor) -> Self {
