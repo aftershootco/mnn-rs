@@ -292,14 +292,14 @@ where
     /// # Safety
     /// This is just provided as a 1:1 compat mostly for possible later use
     pub unsafe fn halide_buffer(&self) -> *const halide_buffer_t {
-        Tensor_buffer(self.tensor)
+        unsafe { Tensor_buffer(self.tensor) }
     }
 
     /// Do not use this function directly
     /// # Safety
     /// This is just provided as a 1:1 compat mostly for possible later use
     pub unsafe fn halide_buffer_mut(&self) -> *mut halide_buffer_t {
-        Tensor_buffer_mut(self.tensor)
+        unsafe { Tensor_buffer_mut(self.tensor) }
     }
 
     /// Get the dimension type of the tensor

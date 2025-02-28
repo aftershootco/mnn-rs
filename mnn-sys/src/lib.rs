@@ -12,6 +12,7 @@ mod sys {
     #![allow(non_camel_case_types)]
     #![allow(non_snake_case)]
     #![allow(clippy::manual_c_str_literals)]
+    #![allow(clippy::suspicious_doc_comments)]
     include!(concat!(env!("OUT_DIR"), "/mnn_c.rs"));
 }
 pub use sys::*;

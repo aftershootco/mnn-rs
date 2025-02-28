@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-use crate::{prelude::*, Device, RawTensor, RefMut, Tensor};
+use crate::{Device, RawTensor, RefMut, Tensor, prelude::*};
 use mnn_sys::HalideType;
 
 #[repr(transparent)]

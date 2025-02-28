@@ -327,7 +327,9 @@ impl BackendConfig {
     /// This just binds to the underlying unsafe api and should be used only if you know what you
     /// are doing
     pub unsafe fn with_shared_context(mut self, shared_context: *mut libc::c_void) -> Self {
-        self.set_shared_context(shared_context);
+        unsafe {
+            self.set_shared_context(shared_context);
+        }
         self
     }
 }
