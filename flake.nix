@@ -42,6 +42,7 @@
     flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
+          config.allowUnfree = true;
           inherit system;
           overlays = [
             rust-overlay.overlays.default
@@ -67,12 +68,13 @@
             extensions = ["rust-docs" "rust-src" "rust-analyzer"];
           }
           // (lib.optionalAttrs pkgs.stdenv.isDarwin {
-            targets = ["aarch64-apple-darwin" "x86_64-apple-darwin"];
+            targets = ["aarch64-apple-darwin" "x86_64-apple-darwin" "wasm32-unknown-unknown"];
           }));
+        nightlyToolchain = pkgs.rust-bin.nightly.latest.default;
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibLLvmTools = (crane.mkLib pkgs).overrideToolchain rustToolchainWithLLvmTools;
 
-        src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" "lock"];
+        src = lib.sources.sourceFilesBySuffices ./. [".rs" ".toml" ".patch" ".mnn" ".h" ".cpp" ".svg" ".lock"];
         MNN_SRC = pkgs.applyPatches {
           name = "mnn-src";
           src = mnn-src;
@@ -80,20 +82,25 @@
         };
         commonArgs = {
           inherit src MNN_SRC;
+          stdenv = pkgs.clangStdenv;
           pname = "mnn";
           doCheck = false;
-          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          nativeBuildInputs = with pkgs; [
-            cmake
-            llvmPackages.libclang.lib
-            clang
-            pkg-config
-          ];
-          buildInputs = with pkgs;
-            []
+          nativeBuildInputs = with pkgs;
+            [
+              pkg-config
+              libclang.lib
+            ]
             ++ (lib.optionals pkgs.stdenv.isLinux [
+              cudatoolkit
+            ]);
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+          buildInputs = with pkgs;
+            (lib.optionals pkgs.stdenv.isLinux [
               ocl-icd
               opencl-headers
+              (lib.getDev cudaPackages.cuda_cudart)
+              (lib.getLib cudaPackages.cuda_cudart)
+              (lib.getStatic cudaPackages.cuda_cudart)
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
               apple-sdk_13
@@ -157,18 +164,13 @@
             #       name = "mnn-leaks";
             #       cargoLock = {
             #         lockFile = ./Cargo.lock;
-            #         outputHashes = {
-            #           "cmake-0.1.50" = "sha256-GM2D7dpb2i2S6qYVM4HYk5B40TwKCmGQnUPfXksyf0M=";
-            #         };
             #       };
             #
             #       buildPhase = ''
-            #         cargo test --target aarch64-apple-darwin
+            #         cargo test --profile rwd --target aarch64-apple-darwin
             #       '';
             #       RUSTFLAGS = "-Zsanitizer=address";
             #       ASAN_OPTIONS = "detect_leaks=1";
-            #       # MNN_COMPILE = "NO";
-            #       # MNN_LIB_DIR = "${pkgs.mnn}/lib";
             #     }
             #   );
           }
@@ -200,10 +202,13 @@
         };
 
         devShells = {
-          default = pkgs.mkShell (commonArgs
-            // {
+          default = pkgs.mkShell.override {stdenv = pkgs.clangStdenv;} (
+            {
               MNN_SRC = null;
               LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
+              nativeBuildInputs = commonArgs.nativeBuildInputs;
+              buildInputs = commonArgs.buildInputs;
+              LIBCLANG_PATH = commonArgs.LIBCLANG_PATH;
               packages = with pkgs;
                 [
                   cargo-audit
@@ -220,14 +225,19 @@
                   rust-bindgen
                   google-cloud-sdk
                   rustToolchainWithRustAnalyzer
+                  mnn
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
+                    cudatoolkit
                     cargo-llvm-cov
                   ]
                 );
-              # ++ (with packages; [bencher inspect]);
-            });
+            }
+            // lib.optionalAttrs pkgs.stdenv.isLinux {
+              CUDA_PATH = "${pkgs.cudatoolkit}";
+            }
+          );
         };
       }
     )

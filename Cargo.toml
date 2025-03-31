@@ -33,6 +33,7 @@ opencl = ["mnn-sys/opencl"]
 
 metal = ["mnn-sys/metal"]
 coreml = ["mnn-sys/coreml"]
+cuda = ["mnn-sys/cuda"]
 
 vulkan = [] # This is currently unimplemented
 
@@ -44,7 +45,7 @@ serde = ["dep:serde"]
 
 simd = ["mnn-sys/simd"]
 
-default = ["simd"]
+# default = ["simd"]
 
 
 [dev-dependencies]
