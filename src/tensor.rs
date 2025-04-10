@@ -456,7 +456,7 @@ where
                     shape.size,
                     halide_type_of::<T::H>(),
                     core::ptr::null_mut(),
-                    DimensionType::Caffe.to_mnn_sys(),
+                    dm_type.to_mnn_sys(),
                 )
             }
         };
