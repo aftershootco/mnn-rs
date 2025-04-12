@@ -6,6 +6,9 @@ use std::{
     path::{Path, PathBuf},
     sync::LazyLock,
 };
+
+use std::result::Result::Ok;
+
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static TARGET_OS: LazyLock<String> =
@@ -37,6 +40,11 @@ static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
         .unwrap_or(true)
 });
 
+// MNN GitHub repository URL for auto-download
+static MNN_REPO_URL: &str = "https://github.com/alibaba/MNN.git";
+// Default MNN version/tag/branch to use when downloading
+static MNN_DEFAULT_VERSION: &str = "3.1.2";
+
 const HALIDE_SEARCH: &str =
     r#"HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t"#;
 const TRACING_SEARCH: &str = "#define MNN_PRINT(format, ...) printf(format, ##__VA_ARGS__)\n#define MNN_ERROR(format, ...) printf(format, ##__VA_ARGS__)";
@@ -65,23 +73,362 @@ void mnn_ffi_emit(const char *file, size_t line, Level level,
 "#;
 
 fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
-    if vendor
-        .as_ref()
-        .read_dir()
-        .with_context(|| format!("Vendor directory missing: {}", vendor.as_ref().display()))?
-        .flatten()
-        .count()
-        == 0
-    {
-        anyhow::bail!("Vendor not found maybe you need to run \"git submodule update --init\"")
+    let vendor_path = vendor.as_ref();
+    println!(
+        "cargo:warning=Checking vendor directory: {}",
+        vendor_path.display()
+    );
+
+    // Force download if MNN_FORCE_DOWNLOAD is set
+    let force_download = std::env::var("MNN_FORCE_DOWNLOAD")
+        .ok()
+        .and_then(|v| match v.as_str() {
+            "1" | "true" | "yes" => Some(true),
+            _ => None,
+        })
+        .unwrap_or(false);
+
+    if force_download {
+        println!("cargo:warning=MNN_FORCE_DOWNLOAD is set, forcing download");
+        if vendor_path.exists() {
+            println!("cargo:warning=Removing existing vendor directory");
+            std::fs::remove_dir_all(vendor_path)
+                .context("Failed to remove existing vendor directory")?;
+        }
     }
+
+    // Check if the vendor directory exists and is not empty
+    let vendor_empty = !vendor_path.exists()
+        || vendor_path
+            .read_dir()
+            .map(|rd| rd.count() == 0)
+            .unwrap_or(true);
+
+    // Check if MNN_SRC is set
+    if let Ok(mnn_src) = std::env::var("MNN_SRC") {
+        let mnn_src_path = PathBuf::from(mnn_src);
+        if mnn_src_path.exists() && mnn_src_path.is_dir() {
+            println!(
+                "cargo:warning=Using MNN source from MNN_SRC environment variable: {}",
+                mnn_src_path.display()
+            );
+            return Ok(());
+        } else {
+            println!(
+                "cargo:warning=MNN_SRC is set but points to an invalid directory: {}",
+                mnn_src_path.display()
+            );
+        }
+    }
+
+    if vendor_empty {
+        // Auto-download MNN source code
+        println!("cargo:warning=Vendor directory missing or empty. Attempting to download MNN...");
+
+        // Get version from environment variable or use default
+        let version =
+            std::env::var("MNN_VERSION").unwrap_or_else(|_| MNN_DEFAULT_VERSION.to_string());
+
+        // Create parent directory if it doesn't exist
+        if !vendor_path.parent().unwrap().exists() {
+            println!(
+                "cargo:warning=Creating parent directory: {}",
+                vendor_path.parent().unwrap().display()
+            );
+            std::fs::create_dir_all(vendor_path.parent().unwrap())?;
+        }
+
+        // Try using git first
+        println!(
+            "cargo:warning=Cloning MNN repository from {} branch {}",
+            MNN_REPO_URL, version
+        );
+
+        // Check for CMakeLists.txt in the cloned repo
+        let validate_repo = |path: &Path| -> bool {
+            let cmake_file = path.join("CMakeLists.txt");
+            if cmake_file.exists() {
+                println!("cargo:warning=Found CMakeLists.txt, repository looks valid");
+                true
+            } else {
+                println!("cargo:warning=CMakeLists.txt not found in repository, it may be incomplete or have a different structure");
+                false
+            }
+        };
+
+        // Delete the directory if it exists but doesn't contain CMakeLists.txt
+        if vendor_path.exists() && !validate_repo(vendor_path) {
+            println!("cargo:warning=Removing invalid vendor directory");
+            std::fs::remove_dir_all(vendor_path)?;
+        }
+
+        let git_result = std::process::Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                &version,
+                MNN_REPO_URL,
+                &vendor_path.to_string_lossy(),
+            ])
+            .status();
+
+        match git_result {
+            Ok(status) if status.success() => {
+                if validate_repo(vendor_path) {
+                    println!(
+                        "cargo:warning=Successfully downloaded MNN version {}",
+                        version
+                    );
+                    return Ok(());
+                } else {
+                    println!(
+                        "cargo:warning=Downloaded repository is invalid, will try alternate method"
+                    );
+                    std::fs::remove_dir_all(vendor_path)?;
+                }
+            }
+            Ok(_) => {
+                println!("cargo:warning=Git clone failed, will try alternate download method");
+            }
+            Err(e) => {
+                println!(
+                    "cargo:warning=Git not available ({}), will try alternate download method",
+                    e
+                );
+            }
+        }
+
+        // Directly download a specific release version that we know works
+        println!("cargo:warning=Trying direct download of a known working version");
+
+        let known_working_version = "3.0.5"; // This version is known to have a correct structure
+
+        let git_result = std::process::Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                known_working_version,
+                MNN_REPO_URL,
+                &vendor_path.to_string_lossy(),
+            ])
+            .status();
+
+        match git_result {
+            Ok(status) if status.success() => {
+                if validate_repo(vendor_path) {
+                    println!(
+                        "cargo:warning=Successfully downloaded MNN version {}",
+                        known_working_version
+                    );
+                    return Ok(());
+                }
+            }
+            _ => {
+                println!("cargo:warning=Failed to download known working version");
+            }
+        }
+
+        // If we get here, try the ZIP download approach
+        // Fallback to curl/wget + unzip if git is not available
+        // Create a temporary directory
+        let temp_dir = std::env::temp_dir().join("mnn_download");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let archive_path = temp_dir.join("mnn.zip");
+
+        // Download URL for the zip archive
+        let download_url = format!(
+            "https://github.com/alibaba/MNN/archive/refs/tags/{}.zip",
+            known_working_version // Use the known working version
+        );
+        println!("cargo:warning=Downloading MNN from {}", download_url);
+
+        // Try to download with curl
+        let curl_result = std::process::Command::new("curl")
+            .args(["-L", "-o", &archive_path.to_string_lossy(), &download_url])
+            .status();
+
+        let download_success = match curl_result {
+            Ok(status) if status.success() => true,
+            _ => {
+                // Try wget if curl fails
+                println!("cargo:warning=curl failed, trying wget");
+                let wget_result = std::process::Command::new("wget")
+                    .args(["-O", &archive_path.to_string_lossy(), &download_url])
+                    .status();
+
+                match wget_result {
+                    Ok(status) => status.success(),
+                    Err(e) => {
+                        println!("cargo:warning=Both curl and wget failed: {}", e);
+                        false
+                    }
+                }
+            }
+        };
+
+        if !download_success {
+            anyhow::bail!("Failed to download MNN. Please manually run 'git submodule update --init' or set MNN_SRC environment variable.");
+        }
+
+        // Extract the archive
+        println!("cargo:warning=Extracting archive");
+
+        #[cfg(unix)]
+        {
+            let unzip_result = std::process::Command::new("unzip")
+                .args([
+                    "-q",
+                    &archive_path.to_string_lossy(),
+                    "-d",
+                    &temp_dir.to_string_lossy(),
+                ])
+                .status();
+
+            if let Ok(status) = unzip_result {
+                if status.success() {
+                    // Move the extracted directory
+                    let extract_dir = temp_dir.join(format!("MNN-{}", known_working_version));
+                    if extract_dir.exists() {
+                        println!("cargo:warning=Moving extracted files to vendor directory");
+                        if vendor_path.exists() {
+                            std::fs::remove_dir_all(vendor_path)?;
+                        }
+                        std::fs::rename(&extract_dir, vendor_path)
+                            .context("Failed to move extracted directory")?;
+
+                        if validate_repo(vendor_path) {
+                            // Clean up
+                            let _ = std::fs::remove_dir_all(&temp_dir);
+                            println!(
+                                "cargo:warning=Successfully downloaded and extracted MNN version {}",
+                                known_working_version
+                            );
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+
+            println!("cargo:warning=All download methods failed. Falling back to git submodule");
+
+            // Last resort: try to run the git submodule command
+            let submodule_result = std::process::Command::new("git")
+                .args(["submodule", "update", "--init", "--recursive"])
+                .current_dir(
+                    PathBuf::from(MANIFEST_DIR)
+                        .parent()
+                        .unwrap_or(Path::new(".")),
+                )
+                .status();
+
+            match submodule_result {
+                Ok(status) if status.success() => {
+                    if validate_repo(vendor_path) {
+                        println!("cargo:warning=Successfully initialized MNN via git submodule");
+                        return Ok(());
+                    }
+                }
+                _ => {
+                    println!("cargo:warning=Git submodule update failed");
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            // Windows fallback logic remains the same
+        }
+
+        // Final error message if all methods failed
+        anyhow::bail!("All download methods failed. Please manually run 'git submodule update --init' or set MNN_SRC environment variable pointing to a valid MNN source directory.");
+    } else {
+        // Ensure the existing vendor directory contains CMakeLists.txt
+        let cmake_file = vendor_path.join("CMakeLists.txt");
+        if !cmake_file.exists() {
+            println!("cargo:warning=Existing vendor directory does not contain CMakeLists.txt");
+            println!("cargo:warning=Attempting to use git submodule update");
+
+            let submodule_result = std::process::Command::new("git")
+                .args(["submodule", "update", "--init", "--recursive"])
+                .current_dir(
+                    PathBuf::from(MANIFEST_DIR)
+                        .parent()
+                        .unwrap_or(Path::new(".")),
+                )
+                .status();
+
+            match submodule_result {
+                Ok(status) if status.success() => {
+                    if cmake_file.exists() {
+                        println!("cargo:warning=Successfully initialized MNN via git submodule");
+                        return Ok(());
+                    } else {
+                        anyhow::bail!(
+                            "Git submodule initialized but CMakeLists.txt still missing. Please check your submodule setup."
+                        );
+                    }
+                }
+                _ => {
+                    anyhow::bail!(
+                        "Existing vendor directory is invalid and git submodule update failed. Please manually run 'git submodule update --init'."
+                    );
+                }
+            }
+        }
+
+        println!(
+            "cargo:warning=Using existing vendor directory: {}",
+            vendor_path.display()
+        );
+    }
+
     Ok(())
 }
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
+    println!("cargo:rerun-if-env-changed=MNN_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=MNN_COMPILE");
+    println!("cargo:rerun-if-env-changed=MNN_VERSION");
+    println!("cargo:rerun-if-env-changed=MNN_SYSTEM");
+    println!("cargo:rerun-if-env-changed=MNN_FORCE_DOWNLOAD");
+
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+
+    // Check if we should use system MNN library
+    let use_system_mnn = std::env::var("MNN_SYSTEM")
+        .ok()
+        .and_then(|v| match v.as_str() {
+            "1" | "true" | "yes" => Some(true),
+            _ => None,
+        })
+        .unwrap_or(false);
+
+    if use_system_mnn {
+        println!("cargo:warning=Using system MNN library as requested by MNN_SYSTEM environment variable");
+        println!("cargo:rustc-link-lib=MNN");
+        // We still need the headers for binding generation
+        let source = PathBuf::from(
+            std::env::var("MNN_SRC")
+                .ok()
+                .unwrap_or_else(|| VENDOR.into()),
+        );
+        ensure_vendor_exists(&source)?;
+
+        mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &source)
+            .with_context(|| "Failed to build mnn_c")?;
+        mnn_c_bindgen(&source, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
+        mnn_cpp_bindgen(&source, &out_dir)
+            .with_context(|| "Failed to generate mnn_cpp bindings")?;
+        return Ok(());
+    }
+
+    // Use source specified in MNN_SRC or default to vendor directory
     let source = PathBuf::from(
         std::env::var("MNN_SRC")
             .ok()
@@ -93,6 +440,20 @@ fn main() -> Result<()> {
     let vendor = out_dir.join("vendor");
     // std::fs::remove_dir_all(&vendor).ok();
     if !vendor.exists() {
+        // Make sure source path exists and has a CMakeLists.txt before copying
+        let cmake_path = source.join("CMakeLists.txt");
+        if !cmake_path.exists() {
+            anyhow::bail!(
+                "Source directory '{}' does not contain CMakeLists.txt. Cannot proceed with build.",
+                source.display()
+            );
+        }
+
+        println!(
+            "cargo:warning=Copying source to build directory: {} -> {}",
+            source.display(),
+            vendor.display()
+        );
         fs_extra::dir::copy(
             &source,
             &vendor,
@@ -101,11 +462,12 @@ fn main() -> Result<()> {
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
+
+        use itertools::Itertools;
         let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
         #[cfg(unix)]
         std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
 
-        use itertools::Itertools;
         let intptr_contents = std::fs::read_to_string(&intptr)?;
         let patched = intptr_contents.lines().collect::<Vec<_>>();
         if let Some((idx, _)) = patched
@@ -131,6 +493,13 @@ fn main() -> Result<()> {
         std::fs::write(mnn_define, patched)?;
     }
 
+    // Verify the copied vendor directory contains CMakeLists.txt
+    if !vendor.join("CMakeLists.txt").exists() {
+        anyhow::bail!(
+            "Vendor directory in build location does not contain CMakeLists.txt. Cannot proceed with build."
+        );
+    }
+
     if *MNN_COMPILE {
         let install_dir = out_dir.join("mnn-install");
         build_cmake(&vendor, &install_dir)?;
@@ -138,7 +507,7 @@ fn main() -> Result<()> {
             "cargo:rustc-link-search=native={}",
             install_dir.join("lib").display()
         );
-    } else if let core::result::Result::Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
+    } else if let Ok(lib_dir) = std::env::var("MNN_LIB_DIR") {
         println!("cargo:rustc-link-search=native={}", lib_dir);
     } else {
         panic!("MNN_LIB_DIR not set while MNN_COMPILE is false");
@@ -169,7 +538,6 @@ fn main() -> Result<()> {
         // println!("cargo:rustc-link-lib=static=opencl");
     }
     if is_emscripten() {
-        // println!("cargo:rustc-link-lib=static=stdc++");
         let emscripten_cache = std::process::Command::new("em-config")
             .arg("CACHE")
             .output()?
@@ -201,7 +569,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
     ];
 
     let bindings = bindgen::Builder::default()
-        // .clang_args(["-x", "c++"])
         .clang_arg(CxxOption::VULKAN.cxx())
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
@@ -242,10 +609,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .emit_diagnostics()
         .detect_include_paths(std::env::var("TARGET") == std::env::var("HOST"))
         .ctypes_prefix("core::ffi")
-        // .tap(|d| {
-        //     // eprintln!("Full bindgen: {}", d.command_line_flags().join(" "));
-        //     std::fs::write("bindgen.txt", d.command_line_flags().join(" ")).ok();
-        // })
         .generate()?;
     bindings.write_to_file(out.as_ref().join("mnn_c.rs"))?;
     Ok(())
@@ -274,8 +637,6 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
                 .to_string_lossy(),
         )
         .allowlist_item(".*SessionInfoCode.*");
-    // let cmd = bindings.command_line_flags().join(" ");
-    // println!("cargo:warn=bindgen: {}", cmd);
     let bindings = bindings.generate()?;
     bindings.write_to_file(out.as_ref().join("mnn_cpp.rs"))?;
     Ok(())
@@ -290,7 +651,6 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
     let vendor = vendor.as_ref();
     cc::Build::new()
         .include(vendor.join("include"))
-        // .includes(vulkan_includes(vendor))
         .pipe(|config| {
             #[cfg(feature = "vulkan")]
             config.define("MNN_VULKAN", "1");
@@ -304,7 +664,6 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             config.define("MNN_OPENCL", "ON");
             if is_emscripten() {
                 config.compiler("emcc");
-                // We can't compile wasm32-unknown-unknown with emscripten
                 config.target("wasm32-unknown-emscripten");
                 config.cpp_link_stdlib("c++-noexcept");
             }
@@ -316,17 +675,6 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
         .static_flag(true)
         .files(files)
         .std("c++14")
-        // .pipe(|build| {
-        //     let c = build.get_compiler();
-        //     use std::io::Write;
-        //     writeln!(
-        //         std::fs::File::create("./command.txt").unwrap(),
-        //         "{:?}",
-        //         c.to_command()
-        //     )
-        //     .unwrap();
-        //     build
-        // })
         .try_compile("mnn_c")
         .context("Failed to compile mnn_c library")?;
     Ok(())
@@ -344,9 +692,6 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         .define("MNN_BUILD_CONVERTER", "OFF")
         .define("MNN_BUILD_TOOLS", "OFF")
         .define("CMAKE_INSTALL_PREFIX", install.as_ref())
-        // https://github.com/rust-lang/rust/issues/39016
-        // https://github.com/rust-lang/cc-rs/pull/717
-        // .define("CMAKE_BUILD_TYPE", "Release")
         .pipe(|config| {
             config.define("MNN_WIN_RUNTIME_MT", CxxOption::CRT_STATIC.cmake_value());
             config.define("MNN_USE_THREAD_POOL", CxxOption::THREADPOOL.cmake_value());
@@ -356,8 +701,6 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_COREML", CxxOption::COREML.cmake_value());
             config.define("MNN_OPENCL", CxxOption::OPENCL.cmake_value());
             config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
-            // config.define("CMAKE_CXX_FLAGS", "-O0");
-            // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
             }
@@ -374,48 +717,9 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
     Ok(())
 }
 
-// pub fn try_patch_file(patch: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<()> {
-//     let patch = dunce::canonicalize(patch)?;
-//     rerun_if_changed(&patch);
-//     let patch = std::fs::read_to_string(&patch)?;
-//     let patch = diffy::Patch::from_str(&patch)?;
-//     let file_path = file.as_ref();
-//     let file = std::fs::read_to_string(file_path).context("Failed to read input file")?;
-//     let patched_file =
-//         diffy::apply(&file, &patch).context("Failed to apply patches using diffy")?;
-//     std::fs::write(file_path, patched_file)?;
-//     Ok(())
-// }
-
 pub fn rerun_if_changed(path: impl AsRef<Path>) {
     println!("cargo:rerun-if-changed={}", path.as_ref().display());
 }
-
-// pub fn vulkan_includes(vendor: impl AsRef<Path>) -> Vec<PathBuf> {
-//     let vendor = vendor.as_ref();
-//     let vulkan_dir = vendor.join("source/backend/vulkan");
-//     if cfg!(feature = "vulkan") {
-//         vec![
-//             vulkan_dir.clone(),
-//             vulkan_dir.join("runtime"),
-//             vulkan_dir.join("component"),
-//             // IDK If the order is important but the cmake file does it like this
-//             vulkan_dir.join("buffer/execution"),
-//             vulkan_dir.join("buffer/backend"),
-//             vulkan_dir.join("buffer"),
-//             vulkan_dir.join("buffer/shaders"),
-//             // vulkan_dir.join("image/execution"),
-//             // vulkan_dir.join("image/backend"),
-//             // vulkan_dir.join("image"),
-//             // vulkan_dir.join("image/shaders"),
-//             vendor.join("schema/current"),
-//             vendor.join("3rd_party/flatbuffers/include"),
-//             vendor.join("source"),
-//         ]
-//     } else {
-//         vec![]
-//     }
-// }
 
 pub fn is_emscripten() -> bool {
     *TARGET_OS == "emscripten" && *TARGET_ARCH == "wasm32"
