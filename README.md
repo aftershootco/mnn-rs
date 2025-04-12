@@ -30,7 +30,7 @@ You can also manually download MNN and specify its location:
 | Variable | Description |
 |----------|-------------|
 | `MNN_SRC` | Path to MNN source code |
-| `MNN_VERSION` | When downloading, specifies version tag (default: "3.1.0") |
+| `MNN_VERSION` | When downloading, specifies version tag (default: "3.0.5") |
 | `MNN_COMPILE` | Set to "0" to skip compilation (requires `MNN_LIB_DIR`) |
 | `MNN_LIB_DIR` | Path to pre-built MNN libraries |
 | `MNN_SYSTEM` | Set to "1" to use system-installed MNN libraries |

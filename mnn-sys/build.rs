@@ -203,7 +203,7 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
         // Directly download a specific release version that we know works
         println!("cargo:warning=Trying direct download of a known working version");
 
-        let known_working_version = "3.1.0"; // This version is known to have a correct structure
+        let known_working_version = "3.0.5"; // This version is known to have a correct structure
 
         let git_result = std::process::Command::new("git")
             .args([
