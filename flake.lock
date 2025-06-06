@@ -3,11 +3,11 @@
     "advisory-db": {
       "flake": false,
       "locked": {
-        "lastModified": 1740407442,
-        "narHash": "sha256-EGzWKm5cUDDJbwVzxSB4N/+CIVycwOG60Gh5f1Vp7JM=",
+        "lastModified": 1748950236,
+        "narHash": "sha256-kNiGMrXi5Bq/aWoQmnpK0v+ufQA4FOInhbkY56iUndc=",
         "owner": "rustsec",
         "repo": "advisory-db",
-        "rev": "2e25d9665f10de885c81a9fb9d51a289f625b05f",
+        "rev": "a1f651cba8bf224f52c5d55d8182b3bb0ebce49e",
         "type": "github"
       },
       "original": {
@@ -18,11 +18,11 @@
     },
     "crane": {
       "locked": {
-        "lastModified": 1739936662,
-        "narHash": "sha256-x4syUjNUuRblR07nDPeLDP7DpphaBVbUaSoeZkFbGSk=",
+        "lastModified": 1748970125,
+        "narHash": "sha256-UDyigbDGv8fvs9aS95yzFfOKkEjx1LO3PL3DsKopohA=",
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "19de14aaeb869287647d9461cbd389187d8ecdb7",
+        "rev": "323b5746d89e04b22554b061522dfce9e4c49b18",
         "type": "github"
       },
       "original": {
@@ -70,16 +70,16 @@
     "mnn": {
       "flake": false,
       "locked": {
-        "lastModified": 1733133656,
-        "narHash": "sha256-5DWM5nA3riAkuuhEFdq5tbOUg/mkTOPBhb/m4w4lYB4=",
+        "lastModified": 1749173738,
+        "narHash": "sha256-pNljvQ4xMZ4VmuxQyXt+boNBZD0+UZNpNLrWrj8Rtfw=",
         "owner": "alibaba",
         "repo": "MNN",
-        "rev": "98ba45b4561f68cbf6b5a39debb80eb91c64cc32",
+        "rev": "ebdada82634300956e08bd4056ecfeb1e4f23b32",
         "type": "github"
       },
       "original": {
         "owner": "alibaba",
-        "ref": "3.0.1",
+        "ref": "3.2.0",
         "repo": "MNN",
         "type": "github"
       }
@@ -93,11 +93,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1733219994,
-        "narHash": "sha256-H97GEgSR+2L8qGkSU0KpnLUreoCntjq0wSqGt1DsBqw=",
+        "lastModified": 1749204972,
+        "narHash": "sha256-ICLU408iwxZA7uETBmEBuuForBIPLvonuy1hW/fuiME=",
         "owner": "uttarayan21",
         "repo": "mnn-nix-overlay",
-        "rev": "a9947ae71989061914b0cdd4e6a4dbc8b82620d3",
+        "rev": "7b97393977689e851a6840a8e1cbea058e67363a",
         "type": "github"
       },
       "original": {
@@ -109,16 +109,16 @@
     "mnn-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1733133656,
-        "narHash": "sha256-5DWM5nA3riAkuuhEFdq5tbOUg/mkTOPBhb/m4w4lYB4=",
+        "lastModified": 1749173738,
+        "narHash": "sha256-pNljvQ4xMZ4VmuxQyXt+boNBZD0+UZNpNLrWrj8Rtfw=",
         "owner": "alibaba",
         "repo": "MNN",
-        "rev": "98ba45b4561f68cbf6b5a39debb80eb91c64cc32",
+        "rev": "ebdada82634300956e08bd4056ecfeb1e4f23b32",
         "type": "github"
       },
       "original": {
         "owner": "alibaba",
-        "ref": "3.0.1",
+        "ref": "3.2.0",
         "repo": "MNN",
         "type": "github"
       }
@@ -145,11 +145,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1740560979,
-        "narHash": "sha256-Vr3Qi346M+8CjedtbyUevIGDZW8LcA1fTG0ugPY/Hic=",
+        "lastModified": 1748929857,
+        "narHash": "sha256-lcZQ8RhsmhsK8u7LIFsJhsLh/pzR9yZ8yqpTzyGdj+Q=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "5135c59491985879812717f4c9fea69604e7f26f",
+        "rev": "c2a03962b8e24e669fb37b7df10e7c79531ff1a4",
         "type": "github"
       },
       "original": {
@@ -178,11 +178,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1740709839,
-        "narHash": "sha256-4dF++MXIXna/AwlZWDKr7bgUmY4xoEwvkF1GewjNrt0=",
+        "lastModified": 1749177458,
+        "narHash": "sha256-9HNq3EHZIvvxXQyEn0sYOywcESF1Xqw2Q8J1ZewcXuk=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "b4270835bf43c6f80285adac6f66a26d83f0f277",
+        "rev": "d58933b88cef7a05e9677e94352fd6fedba402cd",
         "type": "github"
       },
       "original": {
