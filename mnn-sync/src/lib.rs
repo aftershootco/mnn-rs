@@ -60,6 +60,7 @@ pub struct SessionHandle {
 
 impl Drop for SessionHandle {
     fn drop(&mut self) {
+        tracing::info!("Dropping SessionHandle");
         self.close().expect("Failed to close session");
         self.handle
             .take()
@@ -307,10 +308,17 @@ impl SessionHandle {
                     .attach_printable("Internal Error: Unable to recv (Sender possibly dropped without calling close)")?;
                 match cmd {
                     CallbackEnum::Callback(f) => {
-                        let sr = ss.sr()?;
+                        let sr = ss.sr().inspect_err(|e| {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error getting the session runtime :{:?}", e);
+                        })?;
                         sr.run_callback(f)
                             .map_err(|e| e.into_inner())
-                            .attach_printable("Failure running the callback")?;
+                            .attach_printable("Failure running the callback")
+                            .inspect_err(|e| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error running callback: {:?}", e);
+                            })?;
                     }
                     CallbackEnum::Unload(tx) => {
                         let res = ss.unload();
@@ -332,10 +340,29 @@ impl SessionHandle {
                             .attach_printable("Internal Error: Failed to send status message")?;
                     }
                     CallbackEnum::Close => {
+                        tracing::warn!("Closing session thread");
                         break;
                     }
                 }
             }
+
+            let SessionState {
+                sr,
+                receiver,
+                config,
+            } = ss;
+
+            if let SessionRunnerState::Loaded(sr) = sr {
+                #[cfg(feature = "tracing")]
+                tracing::trace!("Unloading session before closing thread");
+                sr.unload()
+                    .change_context(ErrorKind::SyncError)
+                    .attach_printable("Internal Error: Failed to unload session")?;
+            } else if !sr.is_unloaded() {
+                #[cfg(feature = "tracing")]
+                tracing::warn!("Session was not loaded, no need to unload");
+            }
+
             Ok(())
         };
         let handle = builder

@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use core::marker::PhantomData;
 use mnn_sys::*;
+use std::borrow::Borrow;
 pub(crate) mod list;
 mod raw;
 pub use raw::RawTensor;
@@ -153,6 +154,49 @@ impl<H: HalideType> Tensor<Device<H>> {
     }
 }
 
+impl<H: HalideType, T: TensorType<H = H>> ToOwned for Tensor<Ref<'_, T>> {
+    type Owned = Tensor<T>;
+
+    fn to_owned(&self) -> Self::Owned {
+        let tensor_ptr = unsafe { Tensor_clone(self.tensor) };
+        Tensor {
+            tensor: tensor_ptr,
+            __marker: PhantomData,
+        }
+    }
+}
+
+impl<'t, H: HalideType, T: TensorType<H = H>> Borrow<Tensor<Ref<'t, T>>> for Tensor<T> {
+    fn borrow(&self) -> &Tensor<Ref<'t, T>> {
+        unsafe { &*(self as *const Tensor<T> as *const Tensor<Ref<'t, T>>) }
+    }
+}
+
+impl<'t, H: HalideType, T: TensorType<H = H>> Borrow<Tensor<T>> for Tensor<Ref<'_, T>> {
+    fn borrow(&self) -> &Tensor<T> {
+        unsafe { &*(self as *const Tensor<Ref<'_, T>> as *const Tensor<T>) }
+    }
+}
+
+// impl<'h, H: HalideType, O> AsMut<Tensor<RefMut<'h, O>>> for Tensor<O>
+// where
+//     H: HalideType,
+//     O: OwnedTensorType + TensorType<H = H>,
+// {
+//     fn as_mut(&mut self) -> &mut Tensor<RefMut<'h, O>> {
+//
+//     }
+// }
+
+// impl<H: HalideType, O: OwnedTensorType> AsRef<Tensor<Ref<'_, O>>> for Tensor<O> {
+//     fn as_ref(&self) -> &Tensor<Ref<O>> {
+//         unsafe {
+//             // SAFETY: The tensor is guaranteed to be valid and immutable
+//             &*(self as *const Self as *const Tensor<Ref<O>>)
+//         }
+//     }
+// }
+
 /// The type of the tensor dimension  
 /// If you are manually specifying the shapes then this doesn't really matter  
 /// N -> Batch size
@@ -212,6 +256,7 @@ where
     }
     /// Copies the data from a host tensor to the self tensor
     pub fn copy_from_host_tensor(&mut self, tensor: &Tensor<Host<T::H>>) -> Result<()> {
+        assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyFromHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
         Ok(())
@@ -219,6 +264,7 @@ where
 
     /// Copies the data from the self tensor to a host tensor
     pub fn copy_to_host_tensor(&self, tensor: &mut Tensor<Host<T::H>>) -> Result<()> {
+        assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyToHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
         Ok(())
