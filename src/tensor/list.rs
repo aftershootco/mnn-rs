@@ -109,7 +109,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             .expect("Tensor name is not utf-8")
     }
 
-    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t H>, Device>> {
+    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t mut H>, Device>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
@@ -126,7 +126,9 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
 
     /// # Safety
     /// The shape is not checked so it's marked unsafe since futher calls to interpreter might be **unsafe** with this
-    pub unsafe fn tensor_unresized<H: HalideType>(&self) -> Result<Tensor<View<&'t H>, Device>> {
+    pub unsafe fn tensor_unresized<H: HalideType>(
+        &self,
+    ) -> Result<Tensor<View<&'t mut H>, Device>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };

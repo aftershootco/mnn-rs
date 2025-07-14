@@ -48,7 +48,7 @@ pub fn test_resizing() {
                 }
             });
             dbg!(&shape);
-            net.resize_tensor(&mut tensor, &shape);
+            net.resize_tensor::<View<&mut f32>>(tensor.view_mut(), &shape);
         }
         drop(inputs);
 

@@ -78,23 +78,25 @@ pub fn main() -> anyhow::Result<()> {
     time!(loop {
         println!("--------------------------------Inputs--------------------------------");
         interpreter.inputs(&session).iter().for_each(|x| {
+            unsafe {
             match cli.input_data_type {
                 DataType::F32 => {
-                    let mut tensor = x.tensor::<f32>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<f32>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1.0f32);
                 },
                 DataType::U8 => {
-                    let mut tensor = x.tensor::<u8>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<u8>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1u8);
                 },
                 DataType::I8 => {
-                    let mut tensor = x.tensor::<i8>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<i8>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1i8);
                 },
             };
+            }
         });
 
         println!("Running session");

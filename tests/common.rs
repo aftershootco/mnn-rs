@@ -34,7 +34,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
     net.inputs(&session).iter().for_each(|x| {
         let mut tensor = x.tensor::<f32>().expect("No tensor");
         println!("{}: {:?}", x.name(), tensor.shape());
-        tensor.fill(1.0f32);
+        // tensor.fill(1.0f32);
     });
     net.run_session(&session)?;
     let outputs = net.outputs(&session);

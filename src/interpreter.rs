@@ -212,9 +212,9 @@ impl Interpreter {
     }
 
     /// Resize the tensor using the given shape
-    pub fn resize_tensor<T: TensorType, M: TensorDevice>(
+    pub fn resize_tensor<T: TensorType>(
         &self,
-        tensor: TensorViewMut<'_, T::H, M>,
+        tensor: TensorViewMut<'_, T::H, impl TensorDevice>,
         dims: impl AsTensorShape,
     ) {
         let dims = dims.as_tensor_shape();

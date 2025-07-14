@@ -122,6 +122,17 @@ impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
     }
 }
 
+impl<T: TensorType<H = H>, H: HalideType> Tensor<T, Host> {
+    /// Get's a reference to an owned host tensor
+    pub fn to_owned_host(&self) -> Tensor<Owned<H>, Host> {
+        let tensor = unsafe { Tensor_clone(self.tensor) };
+        Tensor {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
 // impl<H: HalideType> ToOwned for Tensor<View<&H>, Host> {
 //     type Owned = Tensor<Owned<H>, Host>;
 //
@@ -379,7 +390,10 @@ where
     }
 
     /// Try to map the device tensor to the host memory and get the mutable slice
-    pub fn try_host_mut(&mut self) -> Result<&mut [T::H]> {
+    pub fn try_host_mut(&mut self) -> Result<&mut [T::H]>
+    where
+        T: MutableTensorType<H = H>,
+    {
         let size = self.element_size();
         ensure!(
             self.is_type_of::<T::H>(),
@@ -402,36 +416,40 @@ where
     }
 
     /// Get the mutable host memory slice of the tensor
-    pub fn host_mut(&mut self) -> &mut [T::H] {
+    pub fn host_mut(&mut self) -> &mut [T::H]
+    where
+        T: MutableTensorType<H = H>,
+    {
         self.try_host_mut().expect("Failed to get tensor host_mut")
     }
 }
 
-// impl<T: DeviceTensorType> Tensor<T>
-// where
-//     T::H: HalideType,
-// {
-//     /// Try to wait for the device tensor to finish processing
-//     pub fn wait(&self, map_type: MapType, finish: bool) {
-//         unsafe {
-//             Tensor_wait(self.tensor, map_type, finish as i32);
-//         }
-//     }
-//
-//     /// Create a host tensor from the device tensor with same dimensions and data type and
-//     /// optionally copy the data from the device tensor
-//     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Host<T::H>> {
-//         let shape = self.shape();
-//         let dm_type = self.get_dimension_type();
-//         let mut out = Tensor::new(shape, dm_type);
-//
-//         if copy_data {
-//             self.copy_to_host_tensor(&mut out)
-//                 .expect("Failed to copy data from device tensor");
-//         }
-//         out
-//     }
-// }
+impl<T, H> Tensor<T, Device>
+where
+    T: TensorType<H = H>,
+    T::H: HalideType,
+{
+    /// Try to wait for the device tensor to finish processing
+    pub fn wait(&self, map_type: MapType, finish: bool) {
+        unsafe {
+            Tensor_wait(self.tensor, map_type, finish as i32);
+        }
+    }
+
+    /// Create a host tensor from the device tensor with same dimensions and data type and
+    /// optionally copy the data from the device tensor
+    pub fn create_host_tensor_from_device(&self, copy_data: bool) -> Tensor<Owned<H>, Host> {
+        let shape = self.shape();
+        let dm_type = self.get_dimension_type();
+        let mut out = Tensor::new(shape, dm_type);
+
+        if copy_data {
+            self.copy_to_host_tensor(out.view_mut())
+                .expect("Failed to copy data from device tensor");
+        }
+        out
+    }
+}
 
 impl<H, M> Tensor<Owned<H>, M>
 where
@@ -593,70 +611,73 @@ mod tensor_tests {
     #[test]
     #[should_panic]
     fn unsafe_nullptr_tensor() {
+        use super::*;
         unsafe {
-            super::Tensor::<super::Host<i32>>::from_ptr(core::ptr::null_mut());
+            super::Tensor::<Owned<i32>, Host>::from_ptr(core::ptr::null_mut());
         }
     }
 }
 
-// impl<T> Tensor<T>
-// where
-//     T::H: HalideType,
-// // {
-//     /// Try to create a ref tensor from any array-like type
-//     pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
-//         let shape = shape.as_tensor_shape();
-//         let input = input.as_ref();
-//         let tensor = unsafe {
-//             Tensor_createWith(
-//                 shape.shape.as_ptr(),
-//                 shape.size,
-//                 halide_type_of::<T::H>(),
-//                 input.as_ptr().cast_mut().cast(),
-//                 DimensionType::Caffe.to_mnn_sys(),
-//             )
-//         };
-//         debug_assert!(!tensor.is_null());
-//         Self {
-//             tensor,
-//             __marker: PhantomData,
-//         }
-//     }
-//
-//     /// Try to create a mutable ref tensor from any array-like type
-//     pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[T::H]>) -> Self {
-//         let shape = shape.as_tensor_shape();
-//         let input = input.as_mut();
-//         let tensor = unsafe {
-//             Tensor_createWith(
-//                 shape.shape.as_ptr(),
-//                 shape.size,
-//                 halide_type_of::<T::H>(),
-//                 input.as_mut_ptr().cast(),
-//                 DimensionType::Caffe.to_mnn_sys(),
-//             )
-//         };
-//         debug_assert!(!tensor.is_null());
-//         Self {
-//             tensor,
-//             __marker: PhantomData,
-//         }
-//     }
-// }
-//
-// #[test]
-// fn test_tensor_borrowed() {
-//     let shape = [1, 2, 3];
-//     let data = vec![1, 2, 3, 4, 5, 6];
-//     let tensor = Tensor::<View<Host<i32>>>::borrowed(&shape, &data);
-//     assert_eq!(tensor.shape().as_ref(), shape);
-//     assert_eq!(tensor.host(), data.as_slice());
-// }
-// #[test]
-// fn test_tensor_borrow_mut() {
-//     let shape = [1, 2, 3];
-//     let mut data = vec![1, 2, 3, 4, 5, 6];
-//     let mut tensor = Tensor::<RefMut<Host<i32>>>::borrowed_mut(&shape, &mut data);
-//     tensor.host_mut().fill(1);
-//     assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
-// }
+impl<T, H, M> Tensor<T, M>
+where
+    T: TensorType<H = H>,
+    T::H: HalideType,
+    M: TensorDevice,
+{
+    /// Try to create a ref tensor from any array-like type
+    pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
+        let shape = shape.as_tensor_shape();
+        let input = input.as_ref();
+        let tensor = unsafe {
+            Tensor_createWith(
+                shape.shape.as_ptr(),
+                shape.size,
+                halide_type_of::<T::H>(),
+                input.as_ptr().cast_mut().cast(),
+                DimensionType::Caffe.to_mnn_sys(),
+            )
+        };
+        debug_assert!(!tensor.is_null());
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+
+    /// Try to create a mutable ref tensor from any array-like type
+    pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[T::H]>) -> Self {
+        let shape = shape.as_tensor_shape();
+        let input = input.as_mut();
+        let tensor = unsafe {
+            Tensor_createWith(
+                shape.shape.as_ptr(),
+                shape.size,
+                halide_type_of::<T::H>(),
+                input.as_mut_ptr().cast(),
+                DimensionType::Caffe.to_mnn_sys(),
+            )
+        };
+        debug_assert!(!tensor.is_null());
+        Self {
+            tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
+#[test]
+fn test_tensor_borrowed() {
+    let shape = [1, 2, 3];
+    let data = vec![1, 2, 3, 4, 5, 6];
+    let tensor = Tensor::<View<&i32>, Host>::borrowed(&shape, &data);
+    assert_eq!(tensor.shape().as_ref(), shape);
+    assert_eq!(tensor.host(), data.as_slice());
+}
+#[test]
+fn test_tensor_borrow_mut() {
+    let shape = [1, 2, 3];
+    let mut data = vec![1, 2, 3, 4, 5, 6];
+    let mut tensor = Tensor::<View<&mut i32>, Host>::borrowed_mut(&shape, &mut data);
+    tensor.host_mut().fill(1);
+    assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
+}
