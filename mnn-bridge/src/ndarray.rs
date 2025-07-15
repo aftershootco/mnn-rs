@@ -100,7 +100,11 @@ const _: () = {
         type H = T;
         fn as_mnn_tensor(&self) -> Result<TensorView<'_, T, Host>, MnnBridge> {
             let shape = self.shape().iter().map(|i| *i as i32).collect::<Vec<_>>();
-            let data = self.as_slice().ok_or(MnnBridge)?;
+            let data = self
+                .as_slice()
+                .ok_or(MnnBridge)
+                .attach_printable("Failed to get ndarray as a continuous slice")?;
+
             Ok(mnn::Tensor::borrowed(shape, data))
         }
     }
@@ -114,7 +118,10 @@ const _: () = {
         type H = T;
         fn as_mnn_tensor_mut(&mut self) -> Result<TensorViewMut<'_, T, Host>, MnnBridge> {
             let shape = self.shape().iter().map(|i| *i as i32).collect::<Vec<_>>();
-            let data = self.as_slice_mut().ok_or(MnnBridge)?;
+            let data = self
+                .as_slice_mut()
+                .ok_or(MnnBridge)
+                .attach_printable("Failed to get ndarray as a continuous slice")?;
             Ok(mnn::Tensor::borrowed_mut(shape, data))
         }
     }

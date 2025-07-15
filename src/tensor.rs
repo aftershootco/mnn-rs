@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use core::marker::PhantomData;
 use mnn_sys::*;
-use std::borrow::Borrow;
 pub(crate) mod list;
 mod raw;
 pub use raw::RawTensor;
@@ -27,6 +26,12 @@ impl<T> seal::Sealed for Owned<T> {}
 pub trait TensorType: seal::Sealed {
     /// The type of the tensor data
     type H;
+    /// Check if the tensor is owned
+    fn owned() -> bool;
+    /// Check if the tensor is borrowed
+    fn borrowed() -> bool {
+        !Self::owned()
+    }
 }
 
 /// A trait to represent a mutable tensor type
@@ -37,14 +42,23 @@ impl<H> MutableTensorType for View<&mut H> {}
 
 impl<H> TensorType for Owned<H> {
     type H = H;
+    fn owned() -> bool {
+        true
+    }
 }
 
 impl<H> TensorType for View<&H> {
     type H = H;
+    fn owned() -> bool {
+        false
+    }
 }
 
 impl<H> TensorType for View<&mut H> {
     type H = H;
+    fn owned() -> bool {
+        false
+    }
 }
 
 /// A trait to represent the device type of a tensor
@@ -97,8 +111,10 @@ where
     M: TensorDevice,
 {
     fn drop(&mut self) {
-        unsafe {
-            mnn_sys::Tensor_destroy(self.tensor);
+        if T::owned() {
+            unsafe {
+                mnn_sys::Tensor_destroy(self.tensor);
+            }
         }
     }
 }
