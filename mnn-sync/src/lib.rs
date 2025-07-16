@@ -60,6 +60,7 @@ pub struct SessionHandle {
 
 impl Drop for SessionHandle {
     fn drop(&mut self) {
+        #[cfg(feature = "tracing")]
         tracing::info!("Dropping SessionHandle");
         self.close().expect("Failed to close session");
         self.handle
@@ -340,6 +341,7 @@ impl SessionHandle {
                             .attach_printable("Internal Error: Failed to send status message")?;
                     }
                     CallbackEnum::Close => {
+                        #[cfg(feature = "tracing")]
                         tracing::warn!("Closing session thread");
                         break;
                     }
@@ -348,8 +350,8 @@ impl SessionHandle {
 
             let SessionState {
                 sr,
-                receiver,
-                config,
+                receiver: _,
+                config: _,
             } = ss;
 
             if let SessionRunnerState::Loaded(sr) = sr {

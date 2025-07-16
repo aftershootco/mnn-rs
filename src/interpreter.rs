@@ -3,8 +3,8 @@ use crate::{TensorView, tensor::list::TensorList};
 use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
-    AsTensorShape, Device, Host, RawTensor, ScheduleConfig, Tensor, TensorDevice, TensorType,
-    TensorViewMut, View, prelude::*,
+    AsTensorShape, Device, RawTensor, ScheduleConfig, Tensor, TensorDevice, TensorType,
+    TensorViewMut, prelude::*,
 };
 use mnn_sys::HalideType;
 

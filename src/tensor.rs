@@ -119,6 +119,22 @@ where
     }
 }
 
+impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorDevice> AsRef<TensorView<'a, H, M>>
+    for Tensor<T, M>
+{
+    fn as_ref(&self) -> &TensorView<'a, H, M> {
+        unsafe { &*(self as *const _ as *const TensorView<'a, H, M>) }
+    }
+}
+
+impl<'a, T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> AsMut<TensorViewMut<'a, H, M>>
+    for Tensor<T, M>
+{
+    fn as_mut(&mut self) -> &mut TensorViewMut<'a, H, M> {
+        unsafe { &mut *(self as *mut _ as *mut TensorViewMut<'a, H, M>) }
+    }
+}
+
 impl<T: TensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
     /// Get's a reference to an owned host tensor
     pub fn view(&self) -> Tensor<View<&H>, M> {
@@ -230,7 +246,14 @@ where
         }
     }
     /// Copies the data from a host tensor to the self tensor
-    pub fn copy_from_host_tensor(&mut self, tensor: TensorView<'_, H, Host>) -> Result<()> {
+    pub fn copy_from_host_tensor<'a>(
+        &mut self,
+        tensor: impl AsRef<TensorView<'a, H, Host>>,
+    ) -> Result<()>
+    where
+        H: 'a,
+    {
+        let tensor = tensor.as_ref();
         assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyFromHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
@@ -238,7 +261,14 @@ where
     }
 
     /// Copies the data from the self tensor to a host tensor
-    pub fn copy_to_host_tensor(&self, tensor: TensorViewMut<'_, H, Host>) -> Result<()> {
+    pub fn copy_to_host_tensor<'a>(
+        &self,
+        mut tensor: impl AsMut<TensorViewMut<'a, H, Host>>,
+    ) -> Result<()>
+    where
+        H: 'a,
+    {
+        let tensor = tensor.as_mut();
         assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyToHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
