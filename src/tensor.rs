@@ -91,6 +91,7 @@ pub struct Host {}
 pub struct Device {}
 
 /// A reference to a any tensor
+#[repr(transparent)]
 pub struct View<T> {
     pub(crate) __marker: PhantomData<[T]>,
 }
@@ -100,6 +101,8 @@ pub struct Owned<T> {
 }
 
 /// A generic tensor that can of host / device / owned / borrowed
+#[repr(transparent)]
+#[derive(Debug)]
 pub struct Tensor<T: TensorType, M: TensorDevice> {
     pub(crate) tensor: *mut mnn_sys::Tensor,
     __marker: PhantomData<(T, M)>,
@@ -135,22 +138,16 @@ impl<'a, T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> AsMut<Tens
     }
 }
 
-impl<T: TensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
+impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
     /// Get's a reference to an owned host tensor
-    pub fn view(&self) -> Tensor<View<&H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
-        }
+    pub fn view(&self) -> &Tensor<View<&'a H>, M> {
+        unsafe { &*(self as *const _ as *const Tensor<View<&'a H>, M>) }
     }
 }
 impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
     /// Get's a mutable reference to an owned host tensor
-    pub fn view_mut(&mut self) -> Tensor<View<&mut H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
-        }
+    pub fn view_mut(&mut self) -> &mut Tensor<View<&mut H>, M> {
+        unsafe { &mut *(self as *mut _ as *mut TensorViewMut<'_, H, M>) }
     }
 }
 
@@ -176,13 +173,13 @@ impl<T: TensorType<H = H>, H: HalideType> Tensor<T, Host> {
 //         }
 //     }
 // }
-
-// impl<H, M: TensorDevice> Borrow<Tensor<View<&H>, M>> for Tensor<Owned<H>, M>
+//
+// impl<H, M: TensorDevice> core::borrow::Borrow<Tensor<View<&'_ H>, M>> for Tensor<Owned<H>, M>
 // where
 //     H: HalideType,
 // {
 //     fn borrow(&self) -> &Tensor<View<&H>, M> {
-//         unsafe { &*(self as *const _ as *const Tensor<View<&H>, M>) }
+//         self.view()
 //     }
 // }
 
