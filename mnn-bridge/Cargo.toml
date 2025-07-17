@@ -16,4 +16,4 @@ ndarray = ["dep:ndarray"]
 ndarray_0_15 = ["dep:ndarray_0_15"]
 # opencv = ["dep:opencv"]
 
-default = []
+default = ["ndarray"]
