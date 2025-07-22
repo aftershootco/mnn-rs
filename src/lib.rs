@@ -93,6 +93,9 @@ pub use ffi::MapType;
 pub mod prelude {
     pub use crate::error::*;
     pub(crate) use crate::profile::profile;
+    pub use crate::tensor::{
+        Device, Host, Owned, TensorDevice, TensorType, TensorView, TensorViewMut, View,
+    };
     pub use core::marker::PhantomData;
     pub use error_stack::{Report, ResultExt};
     pub use libc::*;
