@@ -101,8 +101,8 @@ pub struct Owned<T> {
 }
 
 /// A generic tensor that can of host / device / owned / borrowed
-#[repr(transparent)]
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Tensor<T: TensorType, M: TensorDevice> {
     pub(crate) tensor: *mut mnn_sys::Tensor,
     __marker: PhantomData<(T, M)>,

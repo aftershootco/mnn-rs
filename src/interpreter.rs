@@ -212,11 +212,12 @@ impl Interpreter {
     }
 
     /// Resize the tensor using the given shape
-    pub fn resize_tensor<T: TensorType>(
+    pub fn resize_tensor<'a, H: HalideType + 'a, M: TensorDevice>(
         &self,
-        tensor: TensorViewMut<'_, T::H, impl TensorDevice>,
+        mut tensor: impl AsMut<TensorViewMut<'a, H, M>>,
         dims: impl AsTensorShape,
     ) {
+        let tensor = tensor.as_mut();
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
         unsafe {
@@ -236,7 +237,7 @@ impl Interpreter {
     /// - W -> width
     pub fn resize_tensor_by_nchw<T: TensorType, M: TensorDevice>(
         &self,
-        tensor: TensorViewMut<'_, T::H, M>,
+        tensor: &mut TensorViewMut<'_, T::H, M>,
         batch: u16,
         channel: u16,
         height: u16,
@@ -337,14 +338,14 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<TensorViewMut<'s, H, Device>> {
+    ) -> Result<&mut TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(input) };
+        let tensor = unsafe { Tensor::<crate::View<&mut H>, Device>::from_ptr(input) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
@@ -354,7 +355,7 @@ impl Interpreter {
             };
             format!("Input tensor \"{name}\" is not of type {}", std::any::type_name::<H>())
         );
-        Ok(tensor)
+        Ok(unsafe { core::mem::transmute(input) })
     }
 
     /// Get the raw input tensor of a session by name
@@ -378,21 +379,27 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<TensorViewMut<'s, H, Device>> {
+    ) -> Result<&'s mut TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(input) };
+        // let tensor = unsafe { Tensor::from_ptr(input) };
+        let mut tensor = unsafe { Tensor::<crate::View<&mut H>, Device>::from_ptr(input) };
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
                 got: std::any::type_name::<H>(),
             }
         );
-        Ok(tensor)
+
+        let tensor_ptr = &mut tensor;
+
+        core::mem::forget(tensor);
+
+        Ok(core::mem::transmute(tensor_ptr))
     }
 
     /// # Safety
