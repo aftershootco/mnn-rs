@@ -4,21 +4,21 @@ use std::path::PathBuf;
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cli {
     model: PathBuf,
-    #[clap(short, long)]
+    #[arg(short, long)]
     forward: ForwardType,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     power: PowerMode,
-    #[clap(short = 'P', long, default_value = "high")]
+    #[arg(short = 'P', long, default_value = "high")]
     precision: PrecisionMode,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     memory: MemoryMode,
-    #[clap(short, long, default_value = "f32")]
+    #[arg(short, long, default_value = "f32")]
     output_data_type: DataType,
-    #[clap(short, long, default_value = "f32")]
+    #[arg(short, long, default_value = "f32")]
     input_data_type: DataType,
-    #[clap(short, long, default_value = "1")]
+    #[arg(short, long, default_value = "1")]
     loops: usize,
-    #[clap(short, long)]
+    #[arg(short, long)]
     no_cache: bool,
 }
 
@@ -121,7 +121,7 @@ pub fn main() -> anyhow::Result<()> {
                     time!(tensor.wait(MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
                 },
             };
-    
+
         });
         current += 1;
         if current >= cli.loops {

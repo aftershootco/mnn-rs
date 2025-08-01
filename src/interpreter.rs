@@ -3,7 +3,7 @@ use crate::{TensorView, tensor::list::TensorList};
 use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
-    AsTensorShape, Device, RawTensor, ScheduleConfig, Tensor, TensorDevice, TensorType,
+    AsTensorShape, Device, RawTensor, ScheduleConfig, Tensor, TensorMachine, TensorType,
     TensorViewMut, prelude::*,
 };
 use mnn_sys::HalideType;
@@ -212,12 +212,11 @@ impl Interpreter {
     }
 
     /// Resize the tensor using the given shape
-    pub fn resize_tensor<'a, H: HalideType + 'a, M: TensorDevice>(
+    pub fn resize_tensor<'a, H: HalideType + 'a, M: TensorMachine>(
         &self,
-        mut tensor: impl AsMut<TensorViewMut<'a, H, M>>,
+        tensor: TensorViewMut<'a, H, M>,
         dims: impl AsTensorShape,
     ) {
-        let tensor = tensor.as_mut();
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
         unsafe {
@@ -235,9 +234,9 @@ impl Interpreter {
     /// - C -> channel
     /// - H -> height
     /// - W -> width
-    pub fn resize_tensor_by_nchw<T: TensorType, M: TensorDevice>(
+    pub fn resize_tensor_by_nchw<T: TensorType, M: TensorMachine>(
         &self,
-        tensor: &mut TensorViewMut<'_, T::H, M>,
+        tensor: TensorViewMut<'_, T::H, M>,
         batch: u16,
         channel: u16,
         height: u16,
@@ -338,7 +337,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<&mut TensorViewMut<'s, H, Device>> {
+    ) -> Result<TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -355,7 +354,7 @@ impl Interpreter {
             };
             format!("Input tensor \"{name}\" is not of type {}", std::any::type_name::<H>())
         );
-        Ok(unsafe { core::mem::transmute(input) })
+        Ok(unsafe { Tensor::from_ptr(input) })
     }
 
     /// Get the raw input tensor of a session by name
@@ -376,10 +375,10 @@ impl Interpreter {
     /// # Safety
     /// **Warning**  We Still don't know the safety guarantees of this function so it's marked unsafe
     pub unsafe fn input_unresized<'s, H: HalideType>(
-        &self,
+        &mut self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<&'s mut TensorViewMut<'s, H, Device>> {
+    ) -> Result<TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
@@ -387,19 +386,14 @@ impl Interpreter {
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
         // let tensor = unsafe { Tensor::from_ptr(input) };
-        let mut tensor = unsafe { Tensor::<crate::View<&mut H>, Device>::from_ptr(input) };
+        let tensor = unsafe { Tensor::from_ptr(input) };
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
                 got: std::any::type_name::<H>(),
             }
         );
-
-        let tensor_ptr = &mut tensor;
-
-        core::mem::forget(tensor);
-
-        Ok(core::mem::transmute(tensor_ptr))
+        Ok(tensor)
     }
 
     /// # Safety

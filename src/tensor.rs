@@ -62,7 +62,7 @@ impl<H> TensorType for View<&mut H> {
 }
 
 /// A trait to represent the device type of a tensor
-pub trait TensorDevice: seal::Sealed {
+pub trait TensorMachine: seal::Sealed {
     /// Check if the tensor is owned by the device
     fn device() -> bool;
     /// Check if the tensor is owned by the host
@@ -71,13 +71,13 @@ pub trait TensorDevice: seal::Sealed {
     }
 }
 
-impl TensorDevice for Host {
+impl TensorMachine for Host {
     fn device() -> bool {
         false
     }
 }
 
-impl TensorDevice for Device {
+impl TensorMachine for Device {
     fn device() -> bool {
         true
     }
@@ -103,7 +103,7 @@ pub struct Owned<T> {
 /// A generic tensor that can of host / device / owned / borrowed
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Tensor<T: TensorType, M: TensorDevice> {
+pub struct Tensor<T: TensorType, M: TensorMachine> {
     pub(crate) tensor: *mut mnn_sys::Tensor,
     __marker: PhantomData<(T, M)>,
 }
@@ -111,7 +111,7 @@ pub struct Tensor<T: TensorType, M: TensorDevice> {
 impl<T, M> Drop for Tensor<T, M>
 where
     T: TensorType,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     fn drop(&mut self) {
         if T::owned() {
@@ -122,32 +122,43 @@ where
     }
 }
 
-impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorDevice> AsRef<TensorView<'a, H, M>>
-    for Tensor<T, M>
-{
-    fn as_ref(&self) -> &TensorView<'a, H, M> {
-        unsafe { &*(self as *const _ as *const TensorView<'a, H, M>) }
-    }
-}
-
-impl<'a, T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> AsMut<TensorViewMut<'a, H, M>>
-    for Tensor<T, M>
-{
-    fn as_mut(&mut self) -> &mut TensorViewMut<'a, H, M> {
-        unsafe { &mut *(self as *mut _ as *mut TensorViewMut<'a, H, M>) }
-    }
-}
-
-impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
+impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
     /// Get's a reference to an owned host tensor
-    pub fn view(&self) -> &Tensor<View<&'a H>, M> {
-        unsafe { &*(self as *const _ as *const Tensor<View<&'a H>, M>) }
+    pub fn view(&'a self) -> Tensor<View<&'a H>, M> {
+        Tensor {
+            tensor: self.tensor,
+            __marker: PhantomData,
+        }
     }
 }
-impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorDevice> Tensor<T, M> {
+
+impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a H>, M> {
+    /// Reborrows the tensor to get rid of self's lifetime the tensor while using the lifetime inside of the TensorView
+    pub fn reborrow(&self) -> Tensor<View<&'a H>, M> {
+        Tensor {
+            tensor: self.tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
+impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
     /// Get's a mutable reference to an owned host tensor
-    pub fn view_mut(&mut self) -> &mut Tensor<View<&mut H>, M> {
-        unsafe { &mut *(self as *mut _ as *mut TensorViewMut<'_, H, M>) }
+    pub fn view_mut(&mut self) -> Tensor<View<&mut H>, M> {
+        Tensor {
+            tensor: self.tensor,
+            __marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a mut H>, M> {
+    /// Reborrows the tensor as mutable to get rid of self's lifetime the tensor while using the lifetime inside of the TensorView
+    pub fn reborrow_mut(&mut self) -> Tensor<View<&'a mut H>, M> {
+        Tensor {
+            tensor: self.tensor,
+            __marker: PhantomData,
+        }
     }
 }
 
@@ -183,8 +194,8 @@ impl<T: TensorType<H = H>, H: HalideType> Tensor<T, Host> {
 //     }
 // }
 
-/// The type of the tensor dimension  
-/// If you are manually specifying the shapes then this doesn't really matter  
+/// The type of the tensor dimension
+/// If you are manually specifying the shapes then this doesn't really matter
 /// N -> Batch size
 /// C -> Channel
 /// H -> Height
@@ -229,7 +240,7 @@ impl<H, T, M> Tensor<T, M>
 where
     T: TensorType<H = H>,
     H: HalideType,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     /// This function constructs a Tensor type from a raw pointer
     ///# Safety
@@ -243,14 +254,10 @@ where
         }
     }
     /// Copies the data from a host tensor to the self tensor
-    pub fn copy_from_host_tensor<'a>(
-        &mut self,
-        tensor: impl AsRef<TensorView<'a, H, Host>>,
-    ) -> Result<()>
+    pub fn copy_from_host_tensor<'a>(&mut self, tensor: TensorView<'a, H, Host>) -> Result<()>
     where
         H: 'a,
     {
-        let tensor = tensor.as_ref();
         assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyFromHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
@@ -258,14 +265,10 @@ where
     }
 
     /// Copies the data from the self tensor to a host tensor
-    pub fn copy_to_host_tensor<'a>(
-        &self,
-        mut tensor: impl AsMut<TensorViewMut<'a, H, Host>>,
-    ) -> Result<()>
+    pub fn copy_to_host_tensor<'a>(&self, tensor: TensorViewMut<'a, H, Host>) -> Result<()>
     where
         H: 'a,
     {
-        let tensor = tensor.as_mut();
         assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
         let ret = unsafe { Tensor_copyToHostTensor(self.tensor, tensor.tensor) };
         crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
@@ -382,7 +385,7 @@ impl<H, T: MutableTensorType, M> Tensor<T, M>
 where
     H: HalideType,
     T: MutableTensorType<H = H>,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     /// Fill the tensor with the specified value
     pub fn fill(&mut self, value: T::H)
@@ -414,7 +417,7 @@ impl<H, T, M> Tensor<T, M>
 where
     T: TensorType<H = H>,
     H: HalideType,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     /// Try to map the device tensor to the host memory and get the slice
     pub fn try_host(&self) -> Result<&[T::H]> {
@@ -497,7 +500,7 @@ where
 impl<H, M> Tensor<Owned<H>, M>
 where
     H: HalideType,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     /// Create a new tensor with the specified shape and dimension type
     pub fn new(shape: impl AsTensorShape, dm_type: DimensionType) -> Self {
@@ -665,7 +668,7 @@ impl<T, H, M> Tensor<T, M>
 where
     T: TensorType<H = H>,
     T::H: HalideType,
-    M: TensorDevice,
+    M: TensorMachine,
 {
     /// Try to create a ref tensor from any array-like type
     pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
