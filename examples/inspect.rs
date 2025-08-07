@@ -4,21 +4,21 @@ use std::path::PathBuf;
 #[derive(Debug, clap::Parser, Clone)]
 pub struct Cli {
     model: PathBuf,
-    #[clap(short, long)]
+    #[arg(short, long)]
     forward: ForwardType,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     power: PowerMode,
-    #[clap(short = 'P', long, default_value = "high")]
+    #[arg(short = 'P', long, default_value = "high")]
     precision: PrecisionMode,
-    #[clap(short, long, default_value = "high")]
+    #[arg(short, long, default_value = "high")]
     memory: MemoryMode,
-    #[clap(short, long, default_value = "f32")]
+    #[arg(short, long, default_value = "f32")]
     output_data_type: DataType,
-    #[clap(short, long, default_value = "f32")]
+    #[arg(short, long, default_value = "f32")]
     input_data_type: DataType,
-    #[clap(short, long, default_value = "1")]
+    #[arg(short, long, default_value = "1")]
     loops: usize,
-    #[clap(short, long)]
+    #[arg(short, long)]
     no_cache: bool,
 }
 
@@ -78,23 +78,25 @@ pub fn main() -> anyhow::Result<()> {
     time!(loop {
         println!("--------------------------------Inputs--------------------------------");
         interpreter.inputs(&session).iter().for_each(|x| {
+            unsafe {
             match cli.input_data_type {
                 DataType::F32 => {
-                    let mut tensor = x.tensor::<f32>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<f32>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1.0f32);
                 },
                 DataType::U8 => {
-                    let mut tensor = x.tensor::<u8>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<u8>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1u8);
                 },
                 DataType::I8 => {
-                    let mut tensor = x.tensor::<i8>().expect("No tensor");
+                    let mut tensor = x.tensor_unresized::<i8>().expect("No tensor");
                     println!("{}: {:?}", x.name(), tensor.shape());
                     tensor.fill(1i8);
                 },
             };
+            }
         });
 
         println!("Running session");
@@ -119,7 +121,7 @@ pub fn main() -> anyhow::Result<()> {
                     time!(tensor.wait(MapType::MAP_TENSOR_READ, true); format!("Waiting for tensor: {}", x.name()));
                 },
             };
-    
+
         });
         current += 1;
         if current >= cli.loops {
