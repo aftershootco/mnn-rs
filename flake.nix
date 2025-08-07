@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/3.2.0";
+      url = "github:alibaba/MNN/3.2.2";
       flake = false;
     };
   };
@@ -48,6 +48,7 @@
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
                 src = mnn-src;
+                version = "3.2.2";
                 buildConverter = true;
                 enableMetal = true;
                 enableOpencl = true;
