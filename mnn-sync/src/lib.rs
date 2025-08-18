@@ -28,12 +28,6 @@
 //!
 //! The [Session] is closed when the [SessionHandle] is dropped.
 //!
-//! The following is a diagram of the architecture of the sync api
-#![doc = "<div align=''>\n"]
-#![doc = include_str!("../../docs/assets/mnn-architecture.svg")]
-#![doc = "</div>\n"]
-//! When you run a closure it is sent to the thread and executed in that session and the result is
-//! sent back to the main thread via a [oneshot::Sender]
 
 use flume::{Receiver, Sender};
 
