@@ -32,7 +32,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
     config.set_type(backend);
     let session = net.create_session(config)?;
     net.inputs(&session).iter().for_each(|x| {
-        let mut tensor = x.tensor::<f32>().expect("No tensor");
+        let tensor = x.tensor::<f32>().expect("No tensor");
         println!("{}: {:?}", x.name(), tensor.shape());
         // tensor.fill(1.0f32);
     });

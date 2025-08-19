@@ -715,7 +715,7 @@ where
 fn test_tensor_borrowed() {
     let shape = [1, 2, 3];
     let data = vec![1, 2, 3, 4, 5, 6];
-    let tensor = Tensor::<View<&i32>, Host>::borrowed(&shape, &data);
+    let tensor = Tensor::<View<&i32>, Host>::borrowed(shape, &data);
     assert_eq!(tensor.shape().as_ref(), shape);
     assert_eq!(tensor.host(), data.as_slice());
 }
@@ -723,7 +723,7 @@ fn test_tensor_borrowed() {
 fn test_tensor_borrow_mut() {
     let shape = [1, 2, 3];
     let mut data = vec![1, 2, 3, 4, 5, 6];
-    let mut tensor = Tensor::<View<&mut i32>, Host>::borrowed_mut(&shape, &mut data);
+    let mut tensor = Tensor::<View<&mut i32>, Host>::borrowed_mut(shape, &mut data);
     tensor.host_mut().fill(1);
     assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
 }
