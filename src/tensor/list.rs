@@ -51,7 +51,7 @@ impl<'t> TensorList<'t> {
     }
 
     /// Get an iterator over the tensor list
-    pub fn iter(&self) -> TensorListIter {
+    pub fn iter<'tl>(&'tl self) -> TensorListIter<'t, 'tl> {
         TensorListIter {
             tensor_list: self,
             idx: 0,
