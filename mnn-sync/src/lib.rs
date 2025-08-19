@@ -1,5 +1,5 @@
 //! Synchronous API for MNN
-//! This api allows use of mnn in a thread-safe manner  
+//! This api allows use of mnn in a thread-safe manner
 //! # Example
 //! ```rust,no_run
 //! use mnn_sync::*;
@@ -22,18 +22,12 @@
 //! });
 //! ```
 //! ## Architecture
-//! This is achieved by creating a [std::thread::Thread] that creates a [Session] and takes [FnOnce] through a  
+//! This is achieved by creating a [std::thread::Thread] that creates a [Session] and takes [FnOnce] through a
 //!
 //! [std::sync::mpsc] channel and runs them in the [Session].
 //!
-//! The [Session] is closed when the [SessionHandle] is dropped.  
+//! The [Session] is closed when the [SessionHandle] is dropped.
 //!
-//! The following is a diagram of the architecture of the sync api  
-#![doc = "<div align=''>\n"]
-#![doc = include_str!("../../docs/assets/mnn-architecture.svg")]
-#![doc = "</div>\n"]
-//! When you run a closure it is sent to the thread and executed in that session and the result is  
-//! sent back to the main thread via a [oneshot::Sender]
 
 use flume::{Receiver, Sender};
 
@@ -60,6 +54,8 @@ pub struct SessionHandle {
 
 impl Drop for SessionHandle {
     fn drop(&mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::info!("Dropping SessionHandle");
         self.close().expect("Failed to close session");
         self.handle
             .take()
@@ -307,10 +303,17 @@ impl SessionHandle {
                     .attach_printable("Internal Error: Unable to recv (Sender possibly dropped without calling close)")?;
                 match cmd {
                     CallbackEnum::Callback(f) => {
-                        let sr = ss.sr()?;
+                        let sr = ss.sr().inspect_err(|e| {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error getting the session runtime :{:?}", e);
+                        })?;
                         sr.run_callback(f)
                             .map_err(|e| e.into_inner())
-                            .attach_printable("Failure running the callback")?;
+                            .attach_printable("Failure running the callback")
+                            .inspect_err(|e| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error running callback: {:?}", e);
+                            })?;
                     }
                     CallbackEnum::Unload(tx) => {
                         let res = ss.unload();
@@ -332,10 +335,30 @@ impl SessionHandle {
                             .attach_printable("Internal Error: Failed to send status message")?;
                     }
                     CallbackEnum::Close => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!("Closing session thread");
                         break;
                     }
                 }
             }
+
+            let SessionState {
+                sr,
+                receiver: _,
+                config: _,
+            } = ss;
+
+            if let SessionRunnerState::Loaded(sr) = sr {
+                #[cfg(feature = "tracing")]
+                tracing::trace!("Unloading session before closing thread");
+                sr.unload()
+                    .change_context(ErrorKind::SyncError)
+                    .attach_printable("Internal Error: Failed to unload session")?;
+            } else if !sr.is_unloaded() {
+                #[cfg(feature = "tracing")]
+                tracing::warn!("Session was not loaded, no need to unload");
+            }
+
             Ok(())
         };
         let handle = builder
@@ -488,7 +511,7 @@ pub fn test_sync_api() {
             let mut input = interpreter.input::<f32>(session, "input")?;
             let mut cpu_input = input.create_host_tensor_from_device(false);
             cpu_input.host_mut().copy_from_slice(&my_arr);
-            input.copy_from_host_tensor(&cpu_input)?;
+            input.copy_from_host_tensor(cpu_input.view())?;
             Ok(())
         })
         .expect("Failed to run");
@@ -528,7 +551,7 @@ pub fn test_sync_api_race() {
                 let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
                 cpu_tensor.host_mut().fill(1.0f32);
                 tensor
-                    .copy_from_host_tensor(&cpu_tensor)
+                    .copy_from_host_tensor(cpu_tensor.view())
                     .expect("Could not copy tensor");
             });
             Ok(())
@@ -552,7 +575,7 @@ pub fn test_sync_api_race() {
                 let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
                 cpu_tensor.host_mut().fill(1.0f32);
                 tensor
-                    .copy_from_host_tensor(&cpu_tensor)
+                    .copy_from_host_tensor(cpu_tensor.view())
                     .expect("Could not copy tensor");
             });
             Ok(())
@@ -569,7 +592,7 @@ pub fn test_sync_api_race() {
                 let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
                 cpu_tensor.host_mut().fill(1.0f32);
                 tensor
-                    .copy_from_host_tensor(&cpu_tensor)
+                    .copy_from_host_tensor(cpu_tensor.view())
                     .expect("Could not copy tensor");
             });
             Ok(())

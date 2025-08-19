@@ -124,7 +124,9 @@ impl RawTensor<'_> {
 
     /// # Safety
     /// This is very unsafe do not use this unless you know what you are doing
-    pub unsafe fn to_concrete<T: super::TensorType>(self) -> super::Tensor<T>
+    pub unsafe fn to_concrete<T: super::TensorType, M: super::TensorMachine>(
+        self,
+    ) -> super::Tensor<T, M>
     where
         T::H: HalideType,
     {

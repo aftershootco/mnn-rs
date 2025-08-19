@@ -1,9 +1,10 @@
 //! The interpreter module provides the `Interpreter` struct which is used to load and run models.
-use crate::tensor::list::TensorList;
+use crate::{TensorView, tensor::list::TensorList};
 use std::{ffi::CStr, path::Path, sync::Arc};
 
 use crate::{
-    AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType, prelude::*,
+    AsTensorShape, Device, RawTensor, ScheduleConfig, Tensor, TensorMachine, TensorType,
+    TensorViewMut, prelude::*,
 };
 use mnn_sys::HalideType;
 
@@ -211,7 +212,11 @@ impl Interpreter {
     }
 
     /// Resize the tensor using the given shape
-    pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
+    pub fn resize_tensor<'a, H: HalideType + 'a, M: TensorMachine>(
+        &self,
+        tensor: TensorViewMut<'a, H, M>,
+        dims: impl AsTensorShape,
+    ) {
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
         unsafe {
@@ -229,9 +234,9 @@ impl Interpreter {
     /// - C -> channel
     /// - H -> height
     /// - W -> width
-    pub fn resize_tensor_by_nchw<T: TensorType>(
+    pub fn resize_tensor_by_nchw<T: TensorType, M: TensorMachine>(
         &self,
-        tensor: &mut Tensor<T>,
+        tensor: TensorViewMut<'_, T::H, M>,
         batch: u16,
         channel: u16,
         height: u16,
@@ -332,14 +337,14 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
+    ) -> Result<TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(input) };
+        let tensor = unsafe { Tensor::<crate::View<&mut H>, Device>::from_ptr(input) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
@@ -349,7 +354,7 @@ impl Interpreter {
             };
             format!("Input tensor \"{name}\" is not of type {}", std::any::type_name::<H>())
         );
-        Ok(tensor)
+        Ok(unsafe { Tensor::from_ptr(input) })
     }
 
     /// Get the raw input tensor of a session by name
@@ -370,16 +375,17 @@ impl Interpreter {
     /// # Safety
     /// **Warning**  We Still don't know the safety guarantees of this function so it's marked unsafe
     pub unsafe fn input_unresized<'s, H: HalideType>(
-        &self,
+        &mut self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
+    ) -> Result<TensorViewMut<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
+        // let tensor = unsafe { Tensor::from_ptr(input) };
         let tensor = unsafe { Tensor::from_ptr(input) };
         ensure!(
             tensor.is_type_of::<H>(),
@@ -400,7 +406,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Tensor<RefMut<'s, Device<H>>> {
+    ) -> TensorViewMut<'s, H, Device> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).expect("Input tensor name is not ascii");
         unsafe {
@@ -419,7 +425,7 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<Ref<'s, Device<H>>>> {
+    ) -> Result<TensorView<'s, H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
