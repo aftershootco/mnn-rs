@@ -581,10 +581,32 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
                     .clang_arg("--target=wasm32-emscripten")
                     .clang_arg(format!("-I{}/sysroot/include", emscripten_cache()))
             } else {
+                // Add system include paths for macOS/Unix
+                let mut builder = builder;
+                if cfg!(target_os = "macos") {
+                    // Add Xcode SDK include path
+                    if let Ok(output) = std::process::Command::new("xcrun")
+                        .args(&["--sdk", "macosx", "--show-sdk-path"])
+                        .output()
+                    {
+                        if output.status.success() {
+                            let sdk_path_raw = String::from_utf8_lossy(&output.stdout);
+                            let sdk_path = sdk_path_raw.trim();
+                            builder = builder.clang_arg(format!("-I{}/usr/include", sdk_path));
+                        }
+                    }
+                }
+                // Add standard system include paths
+                builder = builder
+                    .clang_arg("-I/usr/include")
+                    .clang_arg("-I/usr/local/include");
                 builder
             }
         })
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
+        // Ensure stdint.h types are available
+        .clang_arg("-include")
+        .clang_arg("stdint.h")
         .pipe(|generator| {
             HEADERS.iter().fold(generator, |gen, header| {
                 gen.header(mnn_c.join(header).to_string_lossy())
@@ -623,7 +645,31 @@ pub fn mnn_cpp_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Resul
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
+        .pipe(|builder| {
+            let mut builder = builder;
+            if cfg!(target_os = "macos") {
+                // Add Xcode SDK include path for C++
+                if let Ok(output) = std::process::Command::new("xcrun")
+                    .args(&["--sdk", "macosx", "--show-sdk-path"])
+                    .output()
+                {
+                    if output.status.success() {
+                        let sdk_path_raw = String::from_utf8_lossy(&output.stdout);
+                        let sdk_path = sdk_path_raw.trim();
+                        builder = builder.clang_arg(format!("-I{}/usr/include", sdk_path));
+                    }
+                }
+            }
+            // Add standard system include paths
+            builder = builder
+                .clang_arg("-I/usr/include")
+                .clang_arg("-I/usr/local/include");
+            builder
+        })
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
+        // Ensure stdint.h types are available
+        .clang_arg("-include")
+        .clang_arg("stdint.h")
         .generate_cstr(true)
         .generate_inline_functions(true)
         .size_t_is_usize(true)

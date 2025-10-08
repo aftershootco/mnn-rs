@@ -153,11 +153,55 @@ impl Interpreter {
     /// return: the created net/interpreter
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        ensure!(path.exists(), ErrorKind::IOError; path.to_string_lossy().to_string(), "File not found");
-        let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
-        let c_path = std::ffi::CString::new(path).change_context(ErrorKind::AsciiError)?;
+        let path_str = path.to_string_lossy();
+
+        // 验证文件存在
+        ensure!(path.exists(), ErrorKind::IOError;
+            format!("File not found: {}", path_str),
+            "Model file does not exist"
+        );
+
+        // 验证是否为文件
+        ensure!(path.is_file(), ErrorKind::IOError;
+            format!("Path is not a file: {}", path_str),
+            "Path points to a directory or special file, not a regular file"
+        );
+
+        // 检查文件大小
+        let metadata = path.metadata().map_err(|e| {
+            error!(ErrorKind::IOError)
+                .attach_printable(format!("Failed to read file metadata: {}", e))
+        })?;
+        let file_size = metadata.len();
+
+        ensure!(file_size > 0, ErrorKind::IOError;
+            format!("File is empty: {}", path_str),
+            "Model file has zero size"
+        );
+
+        ensure!(file_size >= 12, ErrorKind::IOError;
+            format!("File too small: {} bytes", file_size),
+            format!("Model file {} is too small ({} bytes, minimum 12 bytes required for MNN model)", path_str, file_size)
+        );
+
+        // 验证路径可以转换为 C 字符串
+        let path_c_str = path.to_str().ok_or_else(|| {
+            error!(ErrorKind::AsciiError).attach_printable(format!(
+                "Path contains invalid UTF-8 characters: {}",
+                path_str
+            ))
+        })?;
+
+        let c_path = std::ffi::CString::new(path_c_str)
+            .change_context(ErrorKind::AsciiError)
+            .attach_printable(format!("Path contains null bytes: {}", path_str))?;
+
         let interpreter = unsafe { mnn_sys::Interpreter_createFromFile(c_path.as_ptr()) };
-        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError; "Failed to create interpreter", "Interpreter_createFromFile returned null");
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError;
+            "Failed to create interpreter",
+            format!("Interpreter_createFromFile returned null for file: {}. File size: {} bytes. Possible causes: invalid MNN model format, corrupted file, unsupported model version, or insufficient memory", path_str, file_size)
+        );
+
         Ok(Self {
             inner: interpreter,
             __marker: PhantomData,
@@ -172,9 +216,17 @@ impl Interpreter {
     pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self> {
         let bytes = bytes.as_ref();
         let size = bytes.len();
+
+        // 添加输入验证
+        ensure!(size > 0, ErrorKind::InterpreterError; "Empty buffer provided", format!("Buffer size is 0"));
+        ensure!(size >= 12, ErrorKind::InterpreterError; "Buffer too small", format!("Buffer size {} is too small for MNN model (minimum 12 bytes)", size));
+
         let interpreter =
             unsafe { mnn_sys::Interpreter_createFromBuffer(bytes.as_ptr().cast(), size) };
-        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError; "Failed to create interpreter", "Interpreter_createFromBuffer returned null");
+        ensure!(!interpreter.is_null(), ErrorKind::InterpreterError;
+            "Failed to create interpreter",
+            format!("Interpreter_createFromBuffer returned null. Buffer size: {} bytes. Possible causes: invalid MNN model format, corrupted data, or unsupported model version", size)
+        );
         Ok(Self {
             inner: interpreter,
             __marker: PhantomData,

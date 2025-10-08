@@ -227,8 +227,15 @@ impl SessionRunner {
     }
 
     pub fn unload(self) -> Result<mnn::Interpreter> {
-        let session = self.session;
-        let net = self.interpreter;
+        // 使用ManuallyDrop来避免Drop trait的干扰
+        use std::mem::ManuallyDrop;
+        let this = ManuallyDrop::new(self);
+
+        // 安全地取出字段
+        let session = unsafe { std::ptr::read(&this.session) };
+        let net = unsafe { std::ptr::read(&this.interpreter) };
+
+        // 手动释放session
         drop(session);
         Ok(net)
     }
@@ -285,6 +292,15 @@ impl SessionRunner {
         #[cfg(feature = "tracing")]
         tracing::trace!("Callback took: {:?}", now.elapsed());
         result
+    }
+}
+
+impl Drop for SessionRunner {
+    fn drop(&mut self) {
+        // 根据用户建议，明确按顺序释放MNN资源
+        // 先正确释放session，再让interpreter自动drop
+        self.session.destroy();
+        // interpreter会在结构体drop时自动释放
     }
 }
 
