@@ -310,6 +310,13 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             }
             #[cfg(feature = "crt_static")]
             config.static_crt(true);
+            // On Windows MSVC, force optimized build to use /MD runtime (matching MNN Release build)
+            // This prevents "RuntimeLibrary mismatch" and "_ITERATOR_DEBUG_LEVEL" errors
+            if !cfg!(all(target_os = "windows", target_env = "msvc")) {
+                // Force optimization level to trigger /MD instead of /MDd
+                config.opt_level(3);
+                config.debug(false);
+            }
             config
         })
         .cpp(true)
@@ -334,7 +341,8 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
 
 pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<()> {
     let threads = std::thread::available_parallelism()?;
-    cmake::Config::new(path)
+    let mut config = cmake::Config::new(path);
+    config
         .define("CMAKE_CXX_STANDARD", "14")
         .parallel(threads.get() as u8)
         .define("MNN_BUILD_SHARED_LIBS", "OFF")
@@ -347,7 +355,18 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         // https://github.com/rust-lang/rust/issues/39016
         // https://github.com/rust-lang/cc-rs/pull/717
         // .define("CMAKE_BUILD_TYPE", "Release")
-        .pipe(|config| {
+        ;
+
+    // On Windows MSVC, force Release build profile to use /MD runtime
+    // This is critical because Visual Studio uses multi-config generators that ignore CMAKE_BUILD_TYPE
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+    {
+        config.profile("Release");
+        config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
+    }
+
+    config
+        .pipe(|mut config| {
             config.define("MNN_WIN_RUNTIME_MT", CxxOption::CRT_STATIC.cmake_value());
             config.define("MNN_USE_THREAD_POOL", CxxOption::THREADPOOL.cmake_value());
             config.define("MNN_OPENMP", CxxOption::OPENMP.cmake_value());
