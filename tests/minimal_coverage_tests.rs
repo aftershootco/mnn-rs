@@ -307,13 +307,25 @@ fn test_tensor_fill_operations() {
 }
 
 #[test]
+// #[ignore = "Cloning is not supported by mnn currently https://github.com/alibaba/MNN/blob/c67a96156614801ba47191188a327102cb49145e/include/MNN/Tensor.hpp#L131"]
 fn test_tensor_cloning() {
     let shape = vec![2, 2];
-    let tensor: Tensor<Owned<f32>, Host> = Tensor::new(shape, DimensionType::NCHW);
+    let mut tensor: Tensor<Owned<f32>, Host> = Tensor::new(&shape, DimensionType::NCHW);
+
+    tensor.fill(3.14f32);
 
     // Test cloning
     let cloned = tensor.clone();
-    assert_eq!(tensor.shape().as_ref(), cloned.shape().as_ref());
+
+    // try to modify the original tensor to ensure deep copy
+    tensor.fill(0.0f32);
+    assert_ne!(cloned, tensor);
+
+    dbg!(&cloned);
+    dbg!(&tensor);
+    drop(cloned);
+    drop(tensor);
+    drop(shape);
 }
 
 #[test]

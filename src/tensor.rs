@@ -85,17 +85,22 @@ impl TensorMachine for Device {
 
 /// A tensor that is owned by the cpu / host platform
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct Host {}
 /// A tensor that is owned by the device / gpu platform
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct Device {}
 
 /// A reference to a any tensor
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct View<T> {
     pub(crate) __marker: PhantomData<[T]>,
 }
 /// A tensor that is owned by the host / device platform
+#[repr(transparent)]
+#[derive(Debug)]
 pub struct Owned<T> {
     pub(crate) __marker: PhantomData<T>,
 }
@@ -381,6 +386,7 @@ where
         out
     }
 }
+
 impl<H, T: MutableTensorType, M> Tensor<T, M>
 where
     H: HalideType,
@@ -533,15 +539,45 @@ where
 
 impl<H> Clone for Tensor<Owned<H>, Host>
 where
-    H: HalideType,
+    H: HalideType + Copy,
 {
     fn clone(&self) -> Tensor<Owned<H>, Host> {
-        let tensor_ptr = unsafe { Tensor_clone(self.tensor) };
-        Self {
-            tensor: tensor_ptr,
-            __marker: PhantomData,
-        }
+        let data = self.host();
+        let shape = self.shape();
+        let mut out = Tensor::new(shape, self.get_dimension_type());
+        out.host_mut().copy_from_slice(data);
+        // Cloning / deepCopy  is not supported by mnn currently https://github.com/alibaba/MNN/blob/c67a96156614801ba47191188a327102cb49145e/include/MNN/Tensor.hpp#L131"]
+
+        // let tensor_ptr = unsafe { Tensor_clone(self.tensor) };
+        // Self {
+        //     tensor: tensor_ptr,
+        //     __marker: PhantomData,
+        // }
+
+        out
     }
+}
+
+impl<T, H> PartialEq for Tensor<T, Host>
+where
+    T: TensorType<H = H>,
+    H: HalideType + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.size() != other.size() {
+            return false;
+        }
+        let self_data = self.host();
+        let other_data = other.host();
+        self_data == other_data
+    }
+}
+
+impl<T, H> Eq for Tensor<T, Host>
+where
+    T: TensorType<H = H>,
+    H: HalideType + Eq,
+{
 }
 
 /// A tensor shape
