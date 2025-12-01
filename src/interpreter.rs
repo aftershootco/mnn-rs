@@ -130,6 +130,9 @@ impl SessionMode {
     }
 }
 
+/// The Interpreter holds the model and manages sessions.
+///
+/// It's internals use a shared mutex so it's thread-safe.
 /// net data holder. multiple sessions could share same net.
 #[repr(transparent)]
 #[derive(Debug)]
@@ -260,9 +263,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_session(
-        &mut self,
+        &self,
         schedule: crate::ScheduleConfig,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating session"; {
             let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
             assert!(!session.is_null());
@@ -289,9 +292,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_multipath_session(
-        &mut self,
+        &self,
         schedule: impl IntoIterator<Item = ScheduleConfig>,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating multipath session"; {
             let schedules: crate::ScheduleConfigs = schedule.into_iter().collect();
             let sc: &[_] = schedules.inner.as_ref();
@@ -375,7 +378,7 @@ impl Interpreter {
     /// # Safety
     /// **Warning**  We Still don't know the safety guarantees of this function so it's marked unsafe
     pub unsafe fn input_unresized<'s, H: HalideType>(
-        &mut self,
+        &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
     ) -> Result<TensorViewMut<'s, H, Device>> {
@@ -460,7 +463,7 @@ impl Interpreter {
     }
 
     /// Run a session
-    pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
+    pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
             let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
             ensure!(
@@ -481,7 +484,7 @@ impl Interpreter {
     ///
     /// `sync` : synchronously wait for finish of execution or not.
     pub fn run_session_with_callback(
-        &mut self,
+        &self,
         session: &crate::session::Session,
         before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
         end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
@@ -524,7 +527,7 @@ impl Interpreter {
     /// The API should be called before create session.
     ///
     /// Key Depercerate, keeping for future use!
-    pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
+    pub fn set_cache_file(&self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
         let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -534,7 +537,7 @@ impl Interpreter {
     }
 
     /// Update cache file
-    pub fn update_cache_file(&mut self, session: &mut crate::session::Session) -> Result<()> {
+    pub fn update_cache_file(&self, session: &mut crate::session::Session) -> Result<()> {
         MNNError::from_error_code(unsafe {
             mnn_sys::Interpreter_updateCacheFile(self.inner, session.inner)
         });
@@ -730,14 +733,14 @@ fn check_whether_sync_actually_works() {
     assert!((time - time2) > std::time::Duration::from_millis(50));
 }
 
-#[test]
-#[ignore = "Fails on CI"]
-fn try_to_drop_interpreter_before_session() {
-    let file = Path::new("tests/assets/realesr.mnn")
-        .canonicalize()
-        .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
-    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-    drop(interpreter);
-    drop(session);
-}
+// No logner relevant since sessions hold a pointer lifetime and a pointer to the interpreter
+// #[test]
+// fn try_to_drop_interpreter_before_session() {
+//     let file = Path::new("tests/assets/realesr.mnn")
+//         .canonicalize()
+//         .unwrap();
+//     let mut interpreter = Interpreter::from_file(&file).unwrap();
+//     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
+//     drop(interpreter);
+//     drop(session);
+// }
