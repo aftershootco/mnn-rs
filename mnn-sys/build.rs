@@ -10,21 +10,9 @@ const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static TARGET_OS: LazyLock<String> =
     LazyLock::new(|| std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set"));
-static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
-    std::env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not found")
-});
-static EMSCRIPTEN_CACHE: LazyLock<String> = LazyLock::new(|| {
-    let emscripten_cache = std::process::Command::new("em-config")
-        .arg("CACHE")
-        .output()
-        .expect("Failed to get emscripten cache")
-        .stdout;
-    let emscripten_cache = std::str::from_utf8(&emscripten_cache)
-        .expect("Failed to parse emscripten cache")
-        .trim()
-        .to_string();
-    emscripten_cache
-});
+// static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
+//     std::env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not found")
+// });
 
 static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
     std::env::var("MNN_COMPILE")
@@ -81,6 +69,7 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=MNN_SRC");
+    println!("cargo:rerun-if-env-changed=MNN_LIB_DIR");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let source = PathBuf::from(
         std::env::var("MNN_SRC")
@@ -168,20 +157,6 @@ fn main() -> Result<()> {
         // #[cfg(feature = "opencl")]
         // println!("cargo:rustc-link-lib=static=opencl");
     }
-    if is_emscripten() {
-        // println!("cargo:rustc-link-lib=static=stdc++");
-        let emscripten_cache = std::process::Command::new("em-config")
-            .arg("CACHE")
-            .output()?
-            .stdout;
-        let emscripten_cache = std::str::from_utf8(&emscripten_cache)?.trim();
-        let wasm32_emscripten_libs =
-            PathBuf::from(emscripten_cache).join("sysroot/lib/wasm32-emscripten");
-        println!(
-            "cargo:rustc-link-search=native={}",
-            wasm32_emscripten_libs.display()
-        );
-    }
     println!("cargo:rustc-link-lib=static=MNN");
     Ok(())
 }
@@ -206,17 +181,6 @@ pub fn mnn_c_bindgen(vendor: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<
         .clang_arg(CxxOption::METAL.cxx())
         .clang_arg(CxxOption::COREML.cxx())
         .clang_arg(CxxOption::OPENCL.cxx())
-        .pipe(|builder| {
-            if is_emscripten() {
-                println!("cargo:rustc-cdylib-link-arg=-fvisibility=default");
-                builder
-                    .clang_arg("-fvisibility=default")
-                    .clang_arg("--target=wasm32-emscripten")
-                    .clang_arg(format!("-I{}/sysroot/include", emscripten_cache()))
-            } else {
-                builder
-            }
-        })
         .clang_arg(format!("-I{}", vendor.join("include").to_string_lossy()))
         .pipe(|generator| {
             HEADERS.iter().fold(generator, |gen, header| {
@@ -302,30 +266,11 @@ pub fn mnn_c_build(path: impl AsRef<Path>, vendor: impl AsRef<Path>) -> Result<(
             config.define("MNN_COREML", "1");
             #[cfg(feature = "opencl")]
             config.define("MNN_OPENCL", "ON");
-            if is_emscripten() {
-                config.compiler("emcc");
-                // We can't compile wasm32-unknown-unknown with emscripten
-                config.target("wasm32-unknown-emscripten");
-                config.cpp_link_stdlib("c++-noexcept");
-            }
-            #[cfg(feature = "crt_static")]
-            config.static_crt(true);
             config
         })
         .cpp(true)
         .files(files)
         .std("c++14")
-        // .pipe(|build| {
-        //     let c = build.get_compiler();
-        //     use std::io::Write;
-        //     writeln!(
-        //         std::fs::File::create("./command.txt").unwrap(),
-        //         "{:?}",
-        //         c.to_command()
-        //     )
-        //     .unwrap();
-        //     build
-        // })
         .try_compile("mnn_c")
         .context("Failed to compile mnn_c library")?;
     Ok(())
@@ -346,6 +291,11 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
         // https://github.com/rust-lang/cc-rs/pull/717
         // .define("CMAKE_BUILD_TYPE", "Release")
         .pipe(|config| {
+            #[cfg(all(target_os = "windows", target_env = "msvc"))]
+            {
+                config.profile("Release");
+                config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
+            }
             config.define("MNN_WIN_RUNTIME_MT", CxxOption::CRT_STATIC.cmake_value());
             config.define("MNN_USE_THREAD_POOL", CxxOption::THREADPOOL.cmake_value());
             config.define("MNN_OPENMP", CxxOption::OPENMP.cmake_value());
@@ -358,13 +308,6 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             // #[cfg(windows)]
             if *TARGET_OS == "windows" {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
-            }
-
-            if is_emscripten() {
-                config
-                    .define("CMAKE_C_COMPILER", "emcc")
-                    .define("CMAKE_CXX_COMPILER", "em++")
-                    .target("wasm32-unknown-emscripten");
             }
             config
         })
@@ -414,14 +357,6 @@ pub fn rerun_if_changed(path: impl AsRef<Path>) {
 //         vec![]
 //     }
 // }
-
-pub fn is_emscripten() -> bool {
-    *TARGET_OS == "emscripten" && *TARGET_ARCH == "wasm32"
-}
-
-pub fn emscripten_cache() -> &'static str {
-    &EMSCRIPTEN_CACHE
-}
 
 #[derive(Debug, Clone, Copy)]
 pub enum CxxOptionValue {
