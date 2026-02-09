@@ -11,7 +11,7 @@ flume = { version = "0.11.0", default-features = false, features = [
   "nanorand",
 ] }
 mnn.workspace = true
-oneshot = "0.1.8"
+oneshot = "0.1.12"
 tracing = { version = "0.1", optional = true }
 
 [features]
