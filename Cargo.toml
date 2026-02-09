@@ -2,12 +2,18 @@
 members = [".", "mnn-bridge", "mnn-sync", "mnn-sys", "tools/bencher"]
 [workspace.package]
 license = "Apache-2.0"
+description = "Rust bindings for MNN, a lightweight deep neural network inference engine."
+repository = "https://github.com/aftershootco/mnn-rs"
+documentation = "https://docs.rs/mnn"
 
 [package]
 name = "mnn"
 version = "0.2.0"
 edition = "2024"
 license = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
 
 [workspace.dependencies]
 mnn = { version = "0.2.0", path = "." }
@@ -15,7 +21,8 @@ error-stack = { version = "0.5" }
 
 [dependencies]
 libc = "0.2"
-mnn-sys = { version = "0.1", path = "mnn-sys", features = [] }
+mnn-sys = { version = "0.1", path = "mnn-sys", features = [
+], registry = "kellnr" }
 thiserror = "2.0"
 error-stack.workspace = true
 oneshot = "0.1"

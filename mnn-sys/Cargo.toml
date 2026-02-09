@@ -1,9 +1,32 @@
 [package]
 name = "mnn-sys"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 links = "mnn"
 license = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+
+include = [
+  "src",
+  "build.rs",
+  "Cargo.toml",
+  "mnn_c/*",
+  "vendor/CMakeLists.txt",
+  "vendor/cmake",
+  "vendor/source",
+  "vendor/tools/converter/CMakeLists.txt",
+  "vendor/tools/audio/CMakeLists.txt",
+  "vendor/include",
+  "vendor/express",
+  "vendor/codegen",
+  "vendor/schema/current",
+  "vendor/3rd_party/flatbuffers/include",
+  "vendor/3rd_party/half",
+  "vendor/3rd_party/imageHelper",
+  "vendor/3rd_party/OpenCLHeaders",
+]
 
 [build-dependencies]
 anyhow = "1.0.86"

@@ -7,3 +7,5 @@ lama
 *.json
 *.cache
 result
+.env
+justfile
