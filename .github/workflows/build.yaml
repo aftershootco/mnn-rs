@@ -62,7 +62,7 @@ jobs:
       run: nix build .#checks.x86_64-linux.mnn-llvm-cov
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4.0.1
+      uses: codecov/codecov-action@v5.4.3
       with:
         flags: unittests
         name: codecov-mnn
