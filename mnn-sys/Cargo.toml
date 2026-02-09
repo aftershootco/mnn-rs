@@ -9,23 +9,23 @@ repository = { workspace = true }
 documentation = { workspace = true }
 
 include = [
-  "src",
   "build.rs",
   "Cargo.toml",
-  "mnn_c/*",
+  "mnn_c/**/*",
+  "src/**/*",
+  "vendor/3rd_party/flatbuffers/include/**/*",
+  "vendor/3rd_party/half/**/*",
+  "vendor/3rd_party/imageHelper/**/*",
+  "vendor/3rd_party/OpenCLHeaders/**/*",
+  "vendor/cmake/**/*",
   "vendor/CMakeLists.txt",
-  "vendor/cmake",
-  "vendor/source",
-  "vendor/tools/converter/CMakeLists.txt",
+  "vendor/codegen/**/*",
+  "vendor/express/**/*",
+  "vendor/include/**/*",
+  "vendor/schema/current/**/*",
+  "vendor/source/**/*",
   "vendor/tools/audio/CMakeLists.txt",
-  "vendor/include",
-  "vendor/express",
-  "vendor/codegen",
-  "vendor/schema/current",
-  "vendor/3rd_party/flatbuffers/include",
-  "vendor/3rd_party/half",
-  "vendor/3rd_party/imageHelper",
-  "vendor/3rd_party/OpenCLHeaders",
+  "vendor/tools/converter/CMakeLists.txt",
 ]
 
 [build-dependencies]
