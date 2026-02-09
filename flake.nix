@@ -22,7 +22,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/3.2.0";
+      url = "github:alibaba/MNN/3.3.0";
       flake = false;
     };
   };
@@ -96,7 +96,7 @@
               opencl-headers
             ])
             ++ (lib.optionals pkgs.stdenv.isDarwin [
-              apple-sdk_13
+              apple-sdk_26
             ]);
         };
         cargoArtifacts = craneLib.buildPackage commonArgs;
@@ -216,9 +216,7 @@
                   git-lfs
                   llvm
                   llvmPackages.lldb
-                  nushell
                   rust-bindgen
-                  google-cloud-sdk
                   rustToolchainWithRustAnalyzer
                   mnn
                 ]
