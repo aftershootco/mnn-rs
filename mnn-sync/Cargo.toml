@@ -3,6 +3,9 @@ name = "mnn-sync"
 version = "0.1.0"
 edition = "2021"
 license.workspace = true
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
 
 [dependencies]
 error-stack.workspace = true
