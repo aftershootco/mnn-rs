@@ -167,14 +167,9 @@ impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a mut H>, M> {
     }
 }
 
-impl<T: TensorType<H = H>, H: HalideType> Tensor<T, Host> {
-    /// Get's a reference to an owned host tensor
-    pub fn to_owned_host(&self) -> Tensor<Owned<H>, Host> {
-        let tensor = unsafe { Tensor_clone(self.tensor) };
-        Tensor {
-            tensor,
-            __marker: PhantomData,
-        }
+impl<'t, H: HalideType, T: TensorType<H = H>> Borrow<Tensor<T>> for Tensor<Ref<'t, T>> {
+    fn borrow(&self) -> &'t Tensor<T> {
+        unsafe { &*(self as *const Tensor<Ref<'_, T>> as *const Tensor<T>) }
     }
 }
 

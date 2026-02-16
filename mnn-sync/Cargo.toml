@@ -3,6 +3,9 @@ name = "mnn-sync"
 version = "0.1.0"
 edition = "2021"
 license.workspace = true
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
 
 [dependencies]
 error-stack.workspace = true
@@ -11,7 +14,7 @@ flume = { version = "0.11.0", default-features = false, features = [
   "nanorand",
 ] }
 mnn.workspace = true
-oneshot = "0.1.8"
+oneshot = "0.1.12"
 tracing = { version = "0.1", optional = true }
 
 [features]

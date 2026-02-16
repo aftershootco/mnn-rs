@@ -3,6 +3,10 @@ name = "mnn-bridge"
 version = "0.1.0"
 edition = "2021"
 license = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+
 
 [dependencies]
 error-stack = "0.6.0"

@@ -1,9 +1,32 @@
 [package]
 name = "mnn-sys"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 links = "mnn"
 license = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+
+include = [
+  "build.rs",
+  "Cargo.toml",
+  "mnn_c/**/*",
+  "src/**/*",
+  "vendor/3rd_party/flatbuffers/include/**/*",
+  "vendor/3rd_party/half/**/*",
+  "vendor/3rd_party/imageHelper/**/*",
+  "vendor/3rd_party/OpenCLHeaders/**/*",
+  "vendor/cmake/**/*",
+  "vendor/CMakeLists.txt",
+  "vendor/codegen/**/*",
+  "vendor/express/**/*",
+  "vendor/include/**/*",
+  "vendor/schema/current/**/*",
+  "vendor/source/**/*",
+  "vendor/tools/audio/CMakeLists.txt",
+  "vendor/tools/converter/CMakeLists.txt",
+]
 
 [build-dependencies]
 anyhow = "1.0.86"
@@ -13,7 +36,7 @@ cmake = { version = "0.1" }
 diffy = "0.4.0"
 dunce = "1.0.4"
 fs_extra = "1.3.0"
-itertools = "0.14.0"
+itertools = "0.13"
 tap = "1.0.1"
 
 [features]
@@ -28,6 +51,5 @@ default = ["mnn-threadpool"]
 crt_static = []
 
 [dependencies]
-libc = "0.2.155"
 once_cell = "1.20.2"
 tracing-core = "0.1.33"
