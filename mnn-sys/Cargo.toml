@@ -31,13 +31,20 @@ include = [
 [build-dependencies]
 anyhow = "1.0.86"
 bindgen = { version = "0.72", features = ["experimental"] }
+build-target = "0.8.0"
 cc = { version = "1.1.5", features = [] }
 cmake = { version = "0.1" }
 diffy = "0.4.0"
 dunce = "1.0.4"
 fs_extra = "1.3.0"
 itertools = "0.13"
+reqwest = { version = "0.13.2", default-features = false, features = [
+  "blocking",
+  "native-tls-vendored",
+] }
+sha2 = "0.10.9"
 tap = "1.0.1"
+zip = { version = "8.1.0", default-features = false, features = ["deflate"] }
 
 [features]
 vulkan = []
@@ -47,10 +54,12 @@ opencl = []
 openmp = []
 opengl = []
 mnn-threadpool = []
-default = ["mnn-threadpool"]
 crt_static = []
+download = []
+
+default = ["mnn-threadpool"]
 
 [dependencies]
-libc = "0.2.155"
 once_cell = "1.20.2"
 tracing-core = "0.1.33"
+libc = "0.2"

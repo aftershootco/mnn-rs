@@ -8,4 +8,4 @@ lama
 *.cache
 result
 .env
-justfile
+/downloads

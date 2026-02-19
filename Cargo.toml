@@ -42,6 +42,7 @@ mnn-threadpool = ["mnn-sys/mnn-threadpool"]
 tracing = ["dep:tracing"]
 profile = ["tracing"]
 serde = ["dep:serde"]
+download = ["mnn-sys/download"]
 
 default = ["mnn-threadpool"]
 

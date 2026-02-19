@@ -48,6 +48,7 @@
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
                 src = mnn-src;
+                version = "3.3.0";
                 buildConverter = true;
                 enableMetal = true;
                 enableOpencl = true;
