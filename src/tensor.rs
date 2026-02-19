@@ -711,14 +711,12 @@ mod tensor_tests {
     }
 }
 
-impl<T, H, M> Tensor<T, M>
+impl<A> Tensor<View<&A>, Host, A>
 where
-    T: TensorType<H = H>,
-    T::H: HalideType,
-    M: TensorMachine,
+    A: HalideType,
 {
     /// Try to create a ref tensor from any array-like type
-    pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
+    pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[A]>) -> Self {
         let shape = shape.as_tensor_shape();
         let size = shape.tensor_size();
         let input = input.as_ref();
@@ -731,7 +729,7 @@ where
             Tensor_createWith(
                 shape.shape.as_ptr(),
                 shape.size,
-                halide_type_of::<T::H>(),
+                halide_type_of::<A>(),
                 input.as_ptr().cast_mut().cast(),
                 DimensionType::Caffe.to_mnn_sys(),
             )
@@ -742,9 +740,13 @@ where
             __marker: PhantomData,
         }
     }
-
+}
+impl<A> Tensor<View<&mut A>, Host, A>
+where
+    A: HalideType,
+{
     /// Try to create a mutable ref tensor from any array-like type
-    pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[T::H]>) -> Self {
+    pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[A]>) -> Self {
         let shape = shape.as_tensor_shape();
         let size = shape.tensor_size();
         let input = input.as_mut();
@@ -757,7 +759,7 @@ where
             Tensor_createWith(
                 shape.shape.as_ptr(),
                 shape.size,
-                halide_type_of::<T::H>(),
+                halide_type_of::<A>(),
                 input.as_mut_ptr().cast(),
                 DimensionType::Caffe.to_mnn_sys(),
             )
