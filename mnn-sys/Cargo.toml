@@ -39,6 +39,7 @@ dunce = "1.0.4"
 fs_extra = "1.3.0"
 itertools = "0.13"
 reqwest = { version = "0.13.2", features = ["blocking", "rustls"] }
+sha2 = "0.10.9"
 tap = "1.0.1"
 zip = "8.1.0"
 
@@ -50,10 +51,12 @@ opencl = []
 openmp = []
 opengl = []
 mnn-threadpool = []
-default = ["mnn-threadpool"]
 crt_static = []
 download = []
+
+default = ["mnn-threadpool", "download"]
 
 [dependencies]
 once_cell = "1.20.2"
 tracing-core = "0.1.33"
+libc = "0.2"

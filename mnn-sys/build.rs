@@ -1,5 +1,6 @@
 use anyhow::*;
 use build_target::{Arch, Os};
+use sha2::Digest as _;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -65,45 +66,158 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-fn prebuilt_mnn_url(version: impl AsRef<str>) -> Result<String> {
+const SUFFIXES: [&str; 5] = [
+    "android_armv7_armv8_cpu_opencl_vulkan",
+    "ios_armv82_cpu_metal_coreml",
+    "linux_x64_cpu_opencl",
+    "windows_x64_cpu_opencl",
+    "macos_x64_arm82_cpu_opencl_metal",
+];
+
+const CHECKSUMS: [&str; 5] = [
+    "sha256:f85050dfcab114da9d389c3a4dcde8421cdce5a767aab5dbd1a5f0debc8b704a",
+    "sha256:2405ef73ab406844be9d16768a82dd76bec7aefaf05634eaad2f5d7202587aa0",
+    "sha256:db42a3ed0eb4af791c872afc0fc82d9a13236a834c557c679fe4c9e39209129b",
+    "sha256:2243dfea8e8364beed3fccb5be17b804d89feae91cbdd4ce577f147347f07555",
+    "sha256:2bb04d451fe7587107d970322cbc80083c381bc50b06dd3ae3f2349eb5c82a89",
+];
+
+fn url_name_checksum(version: impl AsRef<str>) -> Result<(String, String, String)> {
     let version = version.as_ref();
     let pre_url =
         format!("https://github.com/alibaba/MNN/releases/download/{version}/mnn_{version}");
-    let suffixes = [
-        "_android_armv7_armv8_cpu_opencl_vulkan.zip",
-        "_ios_armv82_cpu_metal_coreml.zip",
-        "_linux_x64_cpu_opencl.zip",
-        "_windows_x64_cpu_opencl.zip",
-        "_macos_x64_arm82_cpu_opencl_metal.zip",
-    ];
 
-    Ok(match (&*TARGET_ARCH, &*TARGET_OS) {
-        (&Arch::AArch64 | &Arch::Arm, &build_target::Os::Android) => {
-            format!("{}{}", pre_url, suffixes[0])
-        }
-        (&Arch::AArch64, &build_target::Os::iOS) => {
-            format!("{}{}", pre_url, suffixes[1])
-        }
-        (&Arch::X86_64, &build_target::Os::Linux) => {
-            format!("{}{}", pre_url, suffixes[2])
-        }
-        (&Arch::X86_64, &build_target::Os::Windows) => {
-            format!("{}{}", pre_url, suffixes[3])
-        }
-        (&Arch::X86_64 | &Arch::AArch64, &build_target::Os::MacOS) => {
-            format!("{}{}", pre_url, suffixes[4])
-        }
+    let idx = match (&*TARGET_ARCH, &*TARGET_OS) {
+        (&Arch::AArch64 | &Arch::Arm, &build_target::Os::Android) => 0,
+        (&Arch::AArch64, &build_target::Os::iOS) => 1,
+        (&Arch::X86_64, &build_target::Os::Linux) => 2,
+        (&Arch::X86_64, &build_target::Os::Windows) => 3,
+        (&Arch::X86_64 | &Arch::AArch64, &build_target::Os::MacOS) => 4,
         (arch, os) => anyhow::bail!("Prebuilt MNN is not available for target {}-{}", arch, os),
-    })
+    };
+    Ok((
+        format!("{}_{}.zip", pre_url, SUFFIXES[idx]),
+        format!("mnn_{version}_{}", SUFFIXES[idx]),
+        CHECKSUMS[idx].to_string(),
+    ))
 }
 
-fn download_prebuilt_mnn(version: impl AsRef<str>, dest: impl AsRef<Path>) -> Result<()> {
-    let url = prebuilt_mnn_url(version)?;
+fn verify_checksum(path: impl AsRef<Path>, expected: impl AsRef<str>) -> Result<()> {
+    let expected = expected.as_ref();
+    let mut file = std::fs::File::open(&path).with_context(|| {
+        format!(
+            "Failed to open file for checksum verification: {}",
+            path.as_ref().display()
+        )
+    })?;
+    let mut hasher = sha2::Sha256::new();
+    std::io::copy(&mut file, &mut hasher).with_context(|| {
+        format!(
+            "Failed to read file for checksum verification: {}",
+            path.as_ref().display()
+        )
+    })?;
+    let actual = format!("sha256:{:x}", hasher.finalize());
+    if actual != expected {
+        anyhow::bail!(
+            "Checksum mismatch for {}: expected {}, got {}",
+            path.as_ref().display(),
+            expected,
+            actual
+        );
+    }
+    Ok(())
+}
+
+fn download_prebuilt_mnn(version: impl AsRef<str>, out_dir: impl AsRef<Path>) -> Result<()> {
+    let (url, root, checksum) = url_name_checksum(version)?;
+    let dest = out_dir.as_ref().join("mnn_prebuilt");
+    let dest_file = out_dir.as_ref().join("mnn_prebuilt.zip");
+    if dest_file.exists() {
+        // verify checksum
+        eprintln!(
+            "Prebuilt MNN zip already exists at {}, verifying checksum",
+            dest_file.display()
+        );
+        verify_checksum(&dest_file, &checksum).with_context(|| {
+            format!(
+                "Checksum verification failed for existing prebuilt MNN at {}, expected checksum: {}",
+                dest_file.display(),
+                checksum
+            )
+        })?;
+        eprintln!(
+            "Prebuilt MNN already exists at {}, skipping download",
+            dest_file.display()
+        );
+    } else {
+        let response = reqwest::blocking::get(&url)
+            .with_context(|| format!("Failed to download prebuilt MNN from {}", url))?;
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Failed to download prebuilt MNN from {}, status: {}",
+                url,
+                response.status()
+            );
+        }
+        let bytes = response
+            .bytes()
+            .with_context(|| format!("Failed to read response bytes from {}", url))?;
+        std::fs::write(&dest_file, &bytes).with_context(|| {
+            format!(
+                "Failed to save prebuilt MNN zip from {} to {}",
+                url,
+                dest_file.display()
+            )
+        })?;
+        verify_checksum(&dest_file, &checksum).with_context(|| {
+            format!(
+            "Checksum verification failed for downloaded prebuilt MNN at {}, expected checksum: {}",
+            dest_file.display(),
+            checksum
+        )
+        })?;
+    }
+    let file = std::fs::File::open(&dest_file).with_context(|| {
+        format!(
+            "Failed to open prebuilt MNN zip file at {} for extraction",
+            dest_file.display()
+        )
+    })?;
+    let mut zip = zip::ZipArchive::new(file)
+        .with_context(|| format!("Failed to read zip archive from {}", url))?;
+    zip.extract_unwrapped_root_dir(&dest, |path| path == Path::new(&root))
+        .with_context(|| format!("Failed to extract MNN archive to {}", dest.display()))?;
+
+    Ok(())
+}
+
+fn download_mnn_source(version: impl AsRef<str>, out_dir: impl AsRef<Path>) -> Result<()> {
+    let version = version.as_ref();
+    let url = format!(
+        "https://api.github.com/repos/alibaba/MNN/zipball/{}",
+        version
+    );
+    let dest = out_dir.as_ref().join("mnn_source");
+    let dest_file = out_dir.as_ref().join("mnn_source.zip");
+    if dest_file.exists() {
+        eprintln!(
+            "MNN source zip already exists at {}, skipping download",
+            dest_file.display()
+        );
+        verify_checksum(&dest_file, "sha256:placeholder").with_context(|| {
+            format!(
+                "Checksum verification failed for existing MNN source at {}, expected checksum: sha256:placeholder",
+                dest_file.display(),
+            )
+        })?;
+        return Ok(());
+    }
     let response = reqwest::blocking::get(&url)
-        .with_context(|| format!("Failed to download prebuilt MNN from {}", url))?;
+        .with_context(|| format!("Failed to download MNN source from {}", url))?;
     if !response.status().is_success() {
         anyhow::bail!(
-            "Failed to download prebuilt MNN from {}, status: {}",
+            "Failed to download MNN source from {}, status: {}",
             url,
             response.status()
         );
@@ -111,15 +225,93 @@ fn download_prebuilt_mnn(version: impl AsRef<str>, dest: impl AsRef<Path>) -> Re
     let bytes = response
         .bytes()
         .with_context(|| format!("Failed to read response bytes from {}", url))?;
-    let cursor = std::io::Cursor::new(bytes);
-    let mut zip = zip::ZipArchive::new(cursor)
-        .with_context(|| format!("Failed to read zip archive from {}", url))?;
-    zip.extract(dest.as_ref()).with_context(|| {
+    std::fs::write(&dest_file, &bytes).with_context(|| {
         format!(
-            "Failed to extract MNN archive to {}",
-            dest.as_ref().display()
+            "Failed to save MNN source zip from {} to {}",
+            url,
+            dest_file.display()
         )
     })?;
+    verify_checksum(&dest_file, "sha256:placeholder").with_context(|| {
+            format!(
+                "Checksum verification failed for downloaded MNN source at {}, expected checksum: sha256:placeholder",
+                dest_file.display(),
+            )
+        })?;
+    let file = std::fs::File::open(&dest_file).with_context(|| {
+        format!(
+            "Failed to open MNN source zip file at {} for extraction",
+            dest_file.display()
+        )
+    })?;
+    let mut zip = zip::ZipArchive::new(file)
+        .with_context(|| format!("Failed to read zip archive from {}", url))?;
+    zip.extract(&dest)
+        .with_context(|| format!("Failed to extract MNN source archive to {}", dest.display()))?;
+    Ok(())
+}
+
+fn prebuilt_lib_link(out_dir: impl AsRef<Path>) -> Result<()> {
+    let prebuilt_dir = out_dir.as_ref().join("mnn_prebuilt");
+    let is_debug = cfg!(debug_assertions);
+    let debug_string = if is_debug { "Debug" } else { "Release" };
+    match (&*TARGET_ARCH, &*TARGET_OS) {
+        (&Arch::AArch64 | &Arch::Arm, &build_target::Os::Android) => {
+            let arch = if *TARGET_ARCH == Arch::Arm {
+                "armeabi-v7a"
+            } else {
+                "arm64-v8a"
+            };
+            println!(
+                "cargo:rustc-link-search={}",
+                prebuilt_dir.join(arch).display()
+            );
+            println!("cargo:rustc-link-lib=dylib=MNN");
+            println!("cargo:rustc-link-lib=dylib=MNN_Vulkan");
+            println!("cargo:rustc-link-lib=dylib=MNN_CL");
+            println!("cargo:rustc-link-lib=dylib=c++_shared");
+            println!("cargo:rustc-link-lib=dylib=mnncore");
+        }
+        (&Arch::AArch64, &build_target::Os::iOS) => {
+            println!(
+                "cargo:rustc-link-search={}",
+                prebuilt_dir.join("Static").display()
+            );
+            println!("cargo:rustc-link-lib=dylib=MNN");
+        }
+        (&Arch::X86_64, &build_target::Os::Linux) => {
+            println!(
+                "cargo:rustc-link-search={}",
+                prebuilt_dir.join("lib").join(debug_string).display()
+            );
+            println!("cargo:rustc-link-lib=static=MNN");
+        }
+        (&Arch::X86_64, &build_target::Os::Windows) => {
+            let crt = if cfg!(feature = "crt_static") {
+                "MT"
+            } else {
+                "MD"
+            };
+            println!(
+                "cargo:rustc-link-search={}",
+                prebuilt_dir
+                    .join("lib")
+                    .join("Release")
+                    .join("static")
+                    .join(crt)
+                    .display()
+            );
+            println!("cargo:rustc-link-lib=static=MNN");
+        }
+        (&Arch::X86_64 | &Arch::AArch64, &build_target::Os::MacOS) => {
+            println!(
+                "cargo:rustc-link-search={}",
+                prebuilt_dir.join("Static").display()
+            );
+            println!("cargo:rustc-link-lib=MNN");
+        }
+        (arch, os) => anyhow::bail!("Prebuilt MNN is not available for target {}-{}", arch, os),
+    };
     Ok(())
 }
 
@@ -134,15 +326,28 @@ fn main() -> Result<()> {
 
     if cfg!(feature = "download") {
         let version = std::env::var("MNN_VERSION").unwrap_or_else(|_| "3.4.0".to_string());
-        download_prebuilt_mnn(&version, out_dir.join("prebuilt")).with_context(|| {
+        download_prebuilt_mnn(&version, &out_dir).with_context(|| {
             format!(
                 "Failed to download prebuilt MNN version {} for target {}-{}",
                 version, *TARGET_ARCH, *TARGET_OS
             )
         })?;
-        panic!("Downloaded prebuilt MNN version {} for target {}-{}, please copy the contents of {} to the vendor directory and remove the download feature",
-            version, *TARGET_ARCH, *TARGET_OS, out_dir.join("prebuilt").display()
-        );
+        download_mnn_source(&version, &out_dir).with_context(|| {
+            format!(
+                "Failed to download MNN source for version {} for target {}-{}",
+                version, *TARGET_ARCH, *TARGET_OS
+            )
+        })?;
+        let source = out_dir.join("mnn_source");
+        mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &source)
+            .with_context(|| "Failed to build mnn_c from downloaded source")?;
+        mnn_c_bindgen(&source, &out_dir)
+            .with_context(|| "Failed to generate mnn_c bindings from downloaded source")?;
+        mnn_cpp_bindgen(&source, &out_dir)
+            .with_context(|| "Failed to generate mnn_cpp bindings from downloaded source")?;
+        println!("cargo:include={source}/include", source = source.display());
+        prebuilt_lib_link(&out_dir)?;
+        return Ok(());
     }
 
     ensure_vendor_exists(&source)?;

@@ -173,11 +173,11 @@ impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a mut H>, M> {
     }
 }
 
-impl<'t, H: HalideType, T: TensorType<H = H>> Borrow<Tensor<T>> for Tensor<Ref<'t, T>> {
-    fn borrow(&self) -> &'t Tensor<T> {
-        unsafe { &*(self as *const Tensor<Ref<'_, T>> as *const Tensor<T>) }
-    }
-}
+// impl<'t, H: HalideType, T: TensorType<H = H>, A> Borrow<Tensor<T>> for Tensor<Ref<'t, T>, A> {
+//     fn borrow(&self) -> &'t Tensor<T> {
+//         unsafe { &*(self as *const Tensor<Ref<'_, T>> as *const Tensor<T>) }
+//     }
+// }
 
 // impl<H: HalideType> ToOwned for Tensor<View<&H>, Host> {
 //     type Owned = Tensor<Owned<H>, Host>;
