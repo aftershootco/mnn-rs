@@ -244,7 +244,9 @@ impl Interpreter {
         channel: u16,
         height: u16,
         width: u16,
-    ) {
+    ) where
+        <T as TensorType>::H: HalideType,
+    {
         unsafe {
             mnn_sys::Interpreter_resizeTensorByNCHW(
                 self.inner,

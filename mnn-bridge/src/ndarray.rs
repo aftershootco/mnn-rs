@@ -1,9 +1,10 @@
 use error_stack::*;
 use ndarray::*;
+type Result<T, E> = core::result::Result<T, Report<E>>;
 
 #[derive(Debug)]
 pub struct MnnBridge;
-impl Context for MnnBridge {}
+impl core::error::Error for MnnBridge {}
 impl core::fmt::Display for MnnBridge {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "MnnBridgeError")
@@ -14,7 +15,7 @@ pub trait MnnToNdarray {
     type H: mnn::HalideType;
     fn as_ndarray<D: Dimension>(&self) -> ndarray::ArrayView<Self::H, D> {
         self.try_as_ndarray::<D>()
-            .expect("Failed to create ndarray::ArrayViewD from mnn::Tensor")
+            .expect("Failed to create ndarray::ArrayView from mnn::Tensor")
     }
     fn try_as_ndarray<D: Dimension>(&self) -> Result<ndarray::ArrayView<Self::H, D>, MnnBridge>;
 }
@@ -23,7 +24,7 @@ pub trait MnnToNdarrayMut {
     type H: mnn::HalideType;
     fn as_ndarray_mut<D: Dimension>(&mut self) -> ndarray::ArrayViewMut<Self::H, D> {
         self.try_as_ndarray_mut::<D>()
-            .expect("Failed to create ndarray::ArrayViewMutD from mnn::Tensor")
+            .expect("Failed to create ndarray::ArrayViewMut from mnn::Tensor")
     }
     fn try_as_ndarray_mut<D: Dimension>(
         &mut self,

@@ -108,7 +108,7 @@ pub struct Owned<T> {
 /// A generic tensor that can of host / device / owned / borrowed
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Tensor<T, M, A = T::H>
+pub struct Tensor<T, M, A = <T as TensorType>::H>
 where
     A: HalideType,
     M: TensorMachine,
@@ -118,7 +118,7 @@ where
     __marker: PhantomData<(T, M, A)>,
 }
 
-impl<T, M, A> Drop for Tensor<T, M>
+impl<T, M, A> Drop for Tensor<T, M, A>
 where
     A: HalideType,
     T: TensorType<H = A>,
