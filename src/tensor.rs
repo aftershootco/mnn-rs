@@ -589,6 +589,16 @@ pub struct TensorShape {
     pub(crate) size: usize,
 }
 
+impl TensorShape {
+    /// Get the shape as a slice
+    pub fn tensor_size(&self) -> usize {
+        self.shape[..self.size]
+            .iter()
+            .map(|&x| x as usize)
+            .product()
+    }
+}
+
 impl From<mnn_sys::TensorShape> for TensorShape {
     fn from(value: mnn_sys::TensorShape) -> Self {
         Self {
@@ -710,7 +720,13 @@ where
     /// Try to create a ref tensor from any array-like type
     pub fn borrowed(shape: impl AsTensorShape, input: impl AsRef<[T::H]>) -> Self {
         let shape = shape.as_tensor_shape();
+        let size = shape.tensor_size();
         let input = input.as_ref();
+        assert_eq!(
+            size,
+            input.len(),
+            "Input data length does not match the tensor shape"
+        );
         let tensor = unsafe {
             Tensor_createWith(
                 shape.shape.as_ptr(),
@@ -730,7 +746,13 @@ where
     /// Try to create a mutable ref tensor from any array-like type
     pub fn borrowed_mut(shape: impl AsTensorShape, mut input: impl AsMut<[T::H]>) -> Self {
         let shape = shape.as_tensor_shape();
+        let size = shape.tensor_size();
         let input = input.as_mut();
+        assert_eq!(
+            size,
+            input.len(),
+            "Input data length does not match the tensor shape"
+        );
         let tensor = unsafe {
             Tensor_createWith(
                 shape.shape.as_ptr(),
@@ -763,4 +785,12 @@ fn test_tensor_borrow_mut() {
     let mut tensor = Tensor::<View<&mut i32>, Host>::borrowed_mut(shape, &mut data);
     tensor.host_mut().fill(1);
     assert_eq!(data, &[1, 1, 1, 1, 1, 1]);
+}
+
+#[test]
+#[should_panic]
+fn test_tensor_invalid_size() {
+    let shape = [300, 400, 500];
+    let date = vec![0; 100];
+    Tensor::<View<&i32>, Host>::borrowed(shape, &date);
 }

@@ -127,7 +127,7 @@ impl CxxOption {
     pub const OPENCL: CxxOption = cxx_option_from_feature!("opencl", "MNN_OPENCL");
     pub const OPENMP: CxxOption = cxx_option_from_feature!("openmp", "MNN_OPENMP");
     pub const OPENGL: CxxOption = cxx_option_from_feature!("opengl", "MNN_OPENGL");
-    pub const CRT_STATIC: CxxOption = cxx_option_from_feature!("opengl", "MNN_WIN_RUNTIME_MT");
+    pub const CRT_STATIC: CxxOption = cxx_option_from_feature!("crt_static", "MNN_WIN_RUNTIME_MT");
     pub const THREADPOOL: CxxOption =
         cxx_option_from_feature!("mnn-threadpool", "MNN_USE_THREAD_POOL");
 
