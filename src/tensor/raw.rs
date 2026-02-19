@@ -4,6 +4,7 @@ use mnn_sys::HalideType;
 /// A raw tensor type that doesn't have any guarantees
 /// and will be unconditionally dropped
 #[repr(transparent)]
+#[must_use = "RawTensor will not be automatically dropped, you must call destroy() on it to free the memory"]
 pub struct RawTensor<'r> {
     pub(crate) inner: *mut mnn_sys::Tensor,
     pub(crate) __marker: PhantomData<&'r ()>,

@@ -17,7 +17,7 @@ pub struct Cli {
 pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let cli = Cli::parse();
-    let mut interpreter = Interpreter::from_file(cli.model)?;
+    let interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);

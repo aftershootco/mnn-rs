@@ -38,7 +38,7 @@ fn test_basic_interpreter_creation() {
 #[test]
 fn test_session_creation() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
 
     // Test basic session creation
     let mut config = ScheduleConfig::new();
@@ -50,7 +50,7 @@ fn test_session_creation() {
 #[test]
 fn test_tensor_list_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -83,7 +83,7 @@ fn test_tensor_list_operations() {
 #[test]
 fn test_tensor_info_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -111,7 +111,7 @@ fn test_tensor_info_operations() {
 #[test]
 fn test_raw_tensor_properties() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -148,7 +148,7 @@ fn test_raw_tensor_properties() {
 #[test]
 fn test_tensor_shape_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -174,7 +174,7 @@ fn test_tensor_shape_operations() {
 #[test]
 fn test_tensor_host_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -207,7 +207,7 @@ fn test_tensor_host_operations() {
 #[test]
 fn test_session_mode_setting() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
 
     // Test setting various session modes (these don't return errors)
     let modes = vec![
@@ -238,7 +238,7 @@ fn test_session_mode_setting() {
 #[test]
 fn test_tensor_list_debug_formatting() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -339,7 +339,7 @@ fn test_tensor_type_traits() {
 #[test]
 fn test_unsafe_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -364,7 +364,7 @@ fn test_unsafe_operations() {
 #[test]
 fn test_resize_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let mut session = net.create_session(config).unwrap();
@@ -380,7 +380,7 @@ fn test_resize_operations() {
 #[test]
 fn test_memory_and_performance_info() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -424,7 +424,7 @@ fn test_memory_and_performance_info() {
 #[test]
 fn test_raw_tensor_wait_operations() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -442,7 +442,7 @@ fn test_raw_tensor_wait_operations() {
 #[test]
 fn test_error_handling_paths() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -478,7 +478,7 @@ fn test_error_handling_paths() {
 #[test]
 fn test_tensor_shape_indexing() {
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();
@@ -508,7 +508,7 @@ fn test_comprehensive_coverage() {
 
     // Test empty iterator behavior
     let model = TestModel::new();
-    let mut net = Interpreter::from_bytes(model).unwrap();
+    let net = Interpreter::from_bytes(model).unwrap();
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
     let session = net.create_session(config).unwrap();

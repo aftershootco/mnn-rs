@@ -172,7 +172,7 @@ impl<'t, 'tl> TensorInfoMut<'t, 'tl> {
             .expect("Tensor name is not utf-8")
     }
 
-    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t mut H>, Device>> {
+    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t H>, Device>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };
@@ -235,7 +235,7 @@ impl<'t, 'tl> TensorInfo<'t, 'tl> {
             .expect("Tensor name is not utf-8")
     }
 
-    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t mut H>, Device>> {
+    pub fn tensor<H: HalideType>(&self) -> Result<Tensor<View<&'t H>, Device>> {
         debug_assert!(!self.tensor_info.is_null());
         unsafe { debug_assert!(!(*self.tensor_info).tensor.is_null()) };
         let tensor = unsafe { Tensor::from_ptr((*self.tensor_info).tensor.cast()) };

@@ -191,7 +191,7 @@ impl Interpreter {
     ///
     /// **Warning:**
     /// It should be called before create session!
-    pub fn set_session_mode(&mut self, mode: SessionMode) {
+    pub fn set_session_mode(&self, mode: SessionMode) {
         unsafe { mnn_sys::Interpreter_setSessionMode(self.inner, mode.to_mnn_sys()) }
     }
 
@@ -390,7 +390,6 @@ impl Interpreter {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        // let tensor = unsafe { Tensor::from_ptr(input) };
         let tensor = unsafe { Tensor::from_ptr(input) };
         ensure!(
             tensor.is_type_of::<H>(),
@@ -692,7 +691,7 @@ fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
         .run_session_with_callback(
@@ -710,7 +709,7 @@ fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     let time = std::time::Instant::now();
     interpreter
@@ -734,15 +733,3 @@ fn check_whether_sync_actually_works() {
     let time2 = time2.elapsed();
     assert!((time - time2) > std::time::Duration::from_millis(50));
 }
-
-// No logner relevant since sessions hold a pointer lifetime and a pointer to the interpreter
-// #[test]
-// fn try_to_drop_interpreter_before_session() {
-//     let file = Path::new("tests/assets/realesr.mnn")
-//         .canonicalize()
-//         .unwrap();
-//     let mut interpreter = Interpreter::from_file(&file).unwrap();
-//     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-//     drop(interpreter);
-//     drop(session);
-// }

@@ -173,33 +173,6 @@ impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a mut H>, M> {
     }
 }
 
-// impl<'t, H: HalideType, T: TensorType<H = H>, A> Borrow<Tensor<T>> for Tensor<Ref<'t, T>, A> {
-//     fn borrow(&self) -> &'t Tensor<T> {
-//         unsafe { &*(self as *const Tensor<Ref<'_, T>> as *const Tensor<T>) }
-//     }
-// }
-
-// impl<H: HalideType> ToOwned for Tensor<View<&H>, Host> {
-//     type Owned = Tensor<Owned<H>, Host>;
-//
-//     fn to_owned(&self) -> Self::Owned {
-//         let tensor_ptr = unsafe { Tensor_clone(self.tensor) };
-//         Tensor {
-//             tensor: tensor_ptr,
-//             __marker: PhantomData,
-//         }
-//     }
-// }
-//
-// impl<H, M: TensorDevice> core::borrow::Borrow<Tensor<View<&'_ H>, M>> for Tensor<Owned<H>, M>
-// where
-//     H: HalideType,
-// {
-//     fn borrow(&self) -> &Tensor<View<&H>, M> {
-//         self.view()
-//     }
-// }
-
 /// The type of the tensor dimension
 /// If you are manually specifying the shapes then this doesn't really matter
 /// N -> Batch size
