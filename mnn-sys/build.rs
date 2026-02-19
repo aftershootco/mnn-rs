@@ -1,18 +1,17 @@
-use ::tap::*;
 use anyhow::*;
+use build_target::{Arch, Os};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
     path::{Path, PathBuf},
     sync::LazyLock,
 };
+#[rustfmt::skip]
+use ::tap::*;
 const VENDOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor");
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
-static TARGET_OS: LazyLock<String> =
-    LazyLock::new(|| std::env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set"));
-// static TARGET_ARCH: LazyLock<String> = LazyLock::new(|| {
-//     std::env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not found")
-// });
+static TARGET_ARCH: LazyLock<Arch> = LazyLock::new(|| build_target::target_arch());
+static TARGET_OS: LazyLock<build_target::Os> = LazyLock::new(|| build_target::target_os());
 
 static MNN_COMPILE: LazyLock<bool> = LazyLock::new(|| {
     std::env::var("MNN_COMPILE")
@@ -66,18 +65,89 @@ fn ensure_vendor_exists(vendor: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
+fn prebuilt_mnn_url(version: impl AsRef<str>) -> Result<String> {
+    let version = version.as_ref();
+    let pre_url =
+        format!("https://github.com/alibaba/MNN/releases/download/{version}/mnn_{version}");
+    let suffixes = [
+        "_android_armv7_armv8_cpu_opencl_vulkan.zip",
+        "_ios_armv82_cpu_metal_coreml.zip",
+        "_linux_x64_cpu_opencl.zip",
+        "_windows_x64_cpu_opencl.zip",
+        "_macos_x64_arm82_cpu_opencl_metal.zip",
+    ];
+
+    Ok(match (&*TARGET_ARCH, &*TARGET_OS) {
+        (&Arch::AArch64 | &Arch::Arm, &build_target::Os::Android) => {
+            format!("{}{}", pre_url, suffixes[0])
+        }
+        (&Arch::AArch64, &build_target::Os::iOS) => {
+            format!("{}{}", pre_url, suffixes[1])
+        }
+        (&Arch::X86_64, &build_target::Os::Linux) => {
+            format!("{}{}", pre_url, suffixes[2])
+        }
+        (&Arch::X86_64, &build_target::Os::Windows) => {
+            format!("{}{}", pre_url, suffixes[3])
+        }
+        (&Arch::X86_64 | &Arch::AArch64, &build_target::Os::MacOS) => {
+            format!("{}{}", pre_url, suffixes[4])
+        }
+        (arch, os) => anyhow::bail!("Prebuilt MNN is not available for target {}-{}", arch, os),
+    })
+}
+
+fn download_prebuilt_mnn(version: impl AsRef<str>, dest: impl AsRef<Path>) -> Result<()> {
+    let url = prebuilt_mnn_url(version)?;
+    let response = reqwest::blocking::get(&url)
+        .with_context(|| format!("Failed to download prebuilt MNN from {}", url))?;
+    if !response.status().is_success() {
+        anyhow::bail!(
+            "Failed to download prebuilt MNN from {}, status: {}",
+            url,
+            response.status()
+        );
+    }
+    let bytes = response
+        .bytes()
+        .with_context(|| format!("Failed to read response bytes from {}", url))?;
+    let cursor = std::io::Cursor::new(bytes);
+    let mut zip = zip::ZipArchive::new(cursor)
+        .with_context(|| format!("Failed to read zip archive from {}", url))?;
+    zip.extract(dest.as_ref()).with_context(|| {
+        format!(
+            "Failed to extract MNN archive to {}",
+            dest.as_ref().display()
+        )
+    })?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=MNN_SRC");
-    println!("cargo:rerun-if-env-changed=MNN_LIB_DIR");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    println!("cargo:rerun-if-changed=build.rs");
     let source = PathBuf::from(
         std::env::var("MNN_SRC")
             .ok()
             .unwrap_or_else(|| VENDOR.into()),
     );
 
+    if cfg!(feature = "download") {
+        let version = std::env::var("MNN_VERSION").unwrap_or_else(|_| "3.4.0".to_string());
+        download_prebuilt_mnn(&version, out_dir.join("prebuilt")).with_context(|| {
+            format!(
+                "Failed to download prebuilt MNN version {} for target {}-{}",
+                version, *TARGET_ARCH, *TARGET_OS
+            )
+        })?;
+        panic!("Downloaded prebuilt MNN version {} for target {}-{}, please copy the contents of {} to the vendor directory and remove the download feature",
+            version, *TARGET_ARCH, *TARGET_OS, out_dir.join("prebuilt").display()
+        );
+    }
+
     ensure_vendor_exists(&source)?;
+    println!("cargo:rerun-if-env-changed=MNN_SRC");
+    println!("cargo:rerun-if-env-changed=MNN_LIB_DIR");
 
     let vendor = out_dir.join("vendor");
     // std::fs::remove_dir_all(&vendor).ok();
@@ -138,7 +208,7 @@ fn main() -> Result<()> {
     mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
     mnn_cpp_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_cpp bindings")?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
-    if *TARGET_OS == "macos" {
+    if *TARGET_OS == Os::MacOS {
         #[cfg(feature = "metal")]
         println!("cargo:rustc-link-lib=framework=Foundation");
         #[cfg(feature = "metal")]
@@ -305,7 +375,7 @@ pub fn build_cmake(path: impl AsRef<Path>, install: impl AsRef<Path>) -> Result<
             config.define("MNN_OPENGL", CxxOption::OPENGL.cmake_value());
             // config.define("CMAKE_CXX_FLAGS", "-O0");
             // #[cfg(windows)]
-            if *TARGET_OS == "windows" {
+            if *TARGET_OS == Os::Windows {
                 config.define("CMAKE_CXX_FLAGS", "-DWIN32=1");
             }
             config

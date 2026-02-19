@@ -1,4 +1,5 @@
 push-cachix:
+    nix flake check
     nix eval .#checks.aarch64-darwin --json | jq -r '.[]' | cachix push mnn-rs
     nix eval .#checks.x86_64-linux --json | jq -r '.[]' | cachix push mnn-rs
 publish:

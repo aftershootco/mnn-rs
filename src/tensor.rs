@@ -108,14 +108,20 @@ pub struct Owned<T> {
 /// A generic tensor that can of host / device / owned / borrowed
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Tensor<T: TensorType, M: TensorMachine> {
+pub struct Tensor<T, M, A = <T as TensorType>::H>
+where
+    A: HalideType,
+    M: TensorMachine,
+    T: TensorType<H = A>,
+{
     pub(crate) tensor: *mut mnn_sys::Tensor,
-    __marker: PhantomData<(T, M)>,
+    __marker: PhantomData<(T, M, A)>,
 }
 
-impl<T, M> Drop for Tensor<T, M>
+impl<T, M, A> Drop for Tensor<T, M, A>
 where
-    T: TensorType,
+    A: HalideType,
+    T: TensorType<H = A>,
     M: TensorMachine,
 {
     fn drop(&mut self) {
