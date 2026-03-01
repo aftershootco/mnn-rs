@@ -129,6 +129,26 @@ fn main() -> Result<()> {
         #[cfg(unix)]
         std::fs::set_permissions(&mnn_define, std::fs::Permissions::from_mode(0o644))?;
         std::fs::write(mnn_define, patched)?;
+
+        // Patch cpu_id.cc to add missing cstdint
+        let cpu_id_file = vendor
+            .join("source")
+            .join("backend")
+            .join("cpu")
+            .join("x86_x64")
+            .join("cpu_id.cc");
+        if cpu_id_file.exists() {
+            let cpu_id_contents = std::fs::read_to_string(&cpu_id_file)?;
+            if !cpu_id_contents.contains("#include <cstdint>") {
+                let patched = cpu_id_contents.replace(
+                    "#include \"cpu_id.h\"",
+                    "#include <cstdint>\n#include \"cpu_id.h\"",
+                );
+                #[cfg(unix)]
+                std::fs::set_permissions(&cpu_id_file, std::fs::Permissions::from_mode(0o644))?;
+                std::fs::write(cpu_id_file, patched)?;
+            }
+        }
     }
 
     if *MNN_COMPILE {
