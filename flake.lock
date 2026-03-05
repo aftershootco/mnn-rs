@@ -130,15 +130,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1737420293,
-        "narHash": "sha256-F1G5ifvqTpJq7fdkT34e/Jy9VCyzd5XfJ9TO8fHhJWE=",
-        "owner": "nix-community",
+        "lastModified": 1772695854,
+        "narHash": "sha256-q0u3E1o369mkGD0rCO4Dk5DkscMU0QcsD0IXOEZWlU8=",
+        "owner": "uttarayan21",
         "repo": "nix-github-actions",
-        "rev": "f4158fa080ef4503c8f4c820967d946c2af31ec9",
+        "rev": "ea18399aea9521b7632d98ab2a7d4706f6dd6358",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "uttarayan21",
         "repo": "nix-github-actions",
         "type": "github"
       }

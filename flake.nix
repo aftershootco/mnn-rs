@@ -6,7 +6,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     crane.url = "github:ipetkov/crane";
     nix-github-actions = {
-      url = "github:nix-community/nix-github-actions";
+      url = "github:uttarayan21/nix-github-actions";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
