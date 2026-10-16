@@ -2,10 +2,12 @@
 target
 .DS_Store
 *.mnn
+examples/assets/*.txt
 *.ppm
 lama
 *.json
+!mnn-sys/build/checksums.json
 *.cache
 result
 .env
-justfile
+/downloads

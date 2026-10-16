@@ -113,10 +113,7 @@ impl FromStr for PowerMode {
             "low" => Ok(Self::Low),
             "normal" => Ok(Self::Normal),
             "high" => Ok(Self::High),
-            _ => {
-                Err(error!(ErrorKind::ParseError)
-                    .attach_printable(format!("invalid power mode: {s}")))
-            }
+            _ => Err(error!(ErrorKind::ParseError).attach(format!("invalid power mode: {s}"))),
         }
     }
 }
@@ -128,10 +125,7 @@ impl FromStr for MemoryMode {
             "low" => Ok(Self::Low),
             "normal" => Ok(Self::Normal),
             "high" => Ok(Self::High),
-            _ => {
-                Err(error!(ErrorKind::ParseError)
-                    .attach_printable(format!("invalid memory mode: {s}")))
-            }
+            _ => Err(error!(ErrorKind::ParseError).attach(format!("invalid memory mode: {s}"))),
         }
     }
 }
@@ -144,8 +138,7 @@ impl FromStr for PrecisionMode {
             "normal" => Ok(Self::Normal),
             "high" => Ok(Self::High),
             "low_bf16" => Ok(Self::LowBf16),
-            _ => Err(error!(ErrorKind::ParseError)
-                .attach_printable(format!("invalid precision mode: {s}"))),
+            _ => Err(error!(ErrorKind::ParseError).attach(format!("invalid precision mode: {s}"))),
         }
     }
 }

@@ -55,7 +55,7 @@ void Tensor_printShape(const Tensor *tensor);
 void *Tensor_map(Tensor *tensor, MapType mtype, DimensionType dtype);
 void Tensor_unmap(Tensor *tensor, MapType mtype, DimensionType dtype,
                   void *mapPtr);
-Tensor* Tensor_clone(const Tensor *tensor);
+Tensor *Tensor_clone(const Tensor *tensor);
 int Tensor_wait(Tensor *tensor, MapType mtype, int finish);
 int Tensor_setDevicePtr(Tensor *tensor, const void *devicePtr, int memoryType);
 struct halide_type_t Tensor_getType(const Tensor *tensor);

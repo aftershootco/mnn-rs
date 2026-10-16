@@ -35,10 +35,10 @@ jobs:
           lfs: true
           submodules: 'recursive'
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v15
         with:
           name: mnn-rs
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - run: nix build -L '.#${{ matrix.attr }}'
 
   codecov:
@@ -53,10 +53,10 @@ jobs:
         lfs: true
         submodules: 'recursive'
     - uses: DeterminateSystems/nix-installer-action@main
-    - uses: cachix/cachix-action@v14
+    - uses: cachix/cachix-action@v15
       with:
         name: mnn-rs
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
     - name: Run codecov
       run: nix build .#checks.x86_64-linux.mnn-llvm-cov

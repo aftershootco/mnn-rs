@@ -1,12 +1,13 @@
 {
-  description = "A simple rust flake using rust-overlay and craneLib";
+  description = "A rust wrapper over mnn";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/25.11";
     flake-utils.url = "github:numtide/flake-utils";
     crane.url = "github:ipetkov/crane";
     nix-github-actions = {
-      url = "github:nix-community/nix-github-actions";
+      url = "github:uttarayan21/nix-github-actions";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
@@ -22,7 +23,7 @@
       flake = false;
     };
     mnn-src = {
-      url = "github:alibaba/MNN/3.3.0";
+      url = "github:alibaba/MNN/3.6.1";
       flake = false;
     };
   };
@@ -32,6 +33,7 @@
     crane,
     flake-utils,
     nixpkgs,
+    nixpkgs-stable,
     rust-overlay,
     mnn-overlay,
     advisory-db,
@@ -48,12 +50,16 @@
             (final: prev: {
               mnn = mnn-overlay.packages.${system}.mnn.override {
                 src = mnn-src;
+                version = "3.6.1";
                 buildConverter = true;
                 enableMetal = true;
                 enableOpencl = true;
               };
             })
           ];
+        };
+        stablePkgs = import nixpkgs-stable {
+          inherit system;
         };
         inherit (pkgs) lib;
 
@@ -88,6 +94,7 @@
             llvmPackages.libclang.lib
             clang
             pkg-config
+            openssl
           ];
           buildInputs = with pkgs;
             []
@@ -203,12 +210,16 @@
           default = pkgs.mkShell (commonArgs
             // {
               MNN_SRC = null;
-              LLDB_DEBUGSERVER_PATH = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
+              LLDB_DEBUGSERVER_PATH = lib.optionalString pkgs.stdenv.isDarwin "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver";
+              # /run/opengl-driver/lib provides the NVIDIA driver stack
+              # (libcuda.so.1) needed by the cuda backend at run time.
+              LD_LIBRARY_PATH = lib.optionalString pkgs.stdenv.isLinux (pkgs.lib.makeLibraryPath [pkgs.ocl-icd] + ":/run/opengl-driver/lib");
               packages = with pkgs;
                 [
                   cargo-audit
                   cargo-deny
                   cargo-hakari
+                  cargo-make
                   cargo-nextest
                   cargo-semver-checks
                   clang
@@ -219,10 +230,16 @@
                   rust-bindgen
                   rustToolchainWithRustAnalyzer
                   mnn
+                  ccache
+                  toml-cli
                 ]
                 ++ (
                   lib.optionals pkgs.stdenv.isLinux [
                     cargo-llvm-cov
+                    (stablePkgs.python312.withPackages (ps:
+                      with ps; [
+                        paddle2onnx
+                      ]))
                   ]
                 );
             });
@@ -231,7 +248,7 @@
     )
     // {
       githubActions = nix-github-actions.lib.mkGithubMatrix {
-        checks = nixpkgs.lib.getAttrs ["x86_64-linux" "aarch64-darwin"] self.checks;
+        checks = nixpkgs.lib.getAttrs ["x86_64-linux" "aarch64-darwin" "x86_64-darwin"] self.checks;
       };
     };
 }

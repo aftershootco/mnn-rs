@@ -1,13 +1,12 @@
 //! The interpreter module provides the `Interpreter` struct which is used to load and run models.
-use crate::tensor::list::TensorList;
-use std::{ffi::CStr, path::Path, sync::Arc};
-
 use crate::{
-    AsTensorShape, Device, RawTensor, Ref, RefMut, ScheduleConfig, Tensor, TensorType, prelude::*,
+    AnyTensorRef, AsTensorShape, Device, ScheduleConfig, TensorList, TensorListMut, TensorRef,
+    prelude::*,
 };
 use mnn_sys::HalideType;
+use std::{ffi::CStr, path::Path, sync::Arc};
 
-pub(crate) type TensorCallbackT = Box<dyn Fn(&[RawTensor], OperatorInfo) -> bool>;
+pub(crate) type TensorCallbackT = Box<dyn Fn(&[&AnyTensorRef], OperatorInfo) -> bool>;
 
 #[repr(transparent)]
 pub(crate) struct TensorCallback {
@@ -37,14 +36,14 @@ impl TensorCallback {
     }
 
     #[cfg(test)]
-    pub(crate) fn identity() -> impl Fn(&[RawTensor], OperatorInfo) -> bool {
+    pub(crate) fn identity() -> impl Fn(&[&AnyTensorRef], OperatorInfo) -> bool {
         |_, _| true
     }
 }
 
 impl<F> From<F> for TensorCallback
 where
-    F: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+    F: Fn(&[&AnyTensorRef], OperatorInfo) -> bool + 'static,
 {
     fn from(f: F) -> Self {
         Self {
@@ -55,7 +54,7 @@ where
 
 impl<T> From<Option<T>> for TensorCallback
 where
-    T: Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+    T: Fn(&[&AnyTensorRef], OperatorInfo) -> bool + 'static,
 {
     fn from(f: Option<T>) -> Self {
         match f {
@@ -118,17 +117,15 @@ pub enum SessionMode {
     ResizeFix = mnn_sys::SessionMode::Session_Resize_Fix,
 }
 
-#[cfg(windows)]
-type SessionModeType = i32;
-#[cfg(unix)]
-type SessionModeType = u32;
-
 impl SessionMode {
-    fn to_mnn_sys(self) -> SessionModeType {
-        self as SessionModeType
+    fn to_mnn_sys(self) -> mnn_sys::SessionMode::Type {
+        self as mnn_sys::SessionMode::Type
     }
 }
 
+/// The Interpreter holds the model and manages sessions.
+///
+/// It's internals use a shared mutex so it's thread-safe.
 /// net data holder. multiple sessions could share same net.
 #[repr(transparent)]
 #[derive(Debug)]
@@ -187,7 +184,7 @@ impl Interpreter {
     ///
     /// **Warning:**
     /// It should be called before create session!
-    pub fn set_session_mode(&mut self, mode: SessionMode) {
+    pub fn set_session_mode(&self, mode: SessionMode) {
         unsafe { mnn_sys::Interpreter_setSessionMode(self.inner, mode.to_mnn_sys()) }
     }
 
@@ -211,17 +208,42 @@ impl Interpreter {
     }
 
     /// Resize the tensor using the given shape
-    pub fn resize_tensor<T: TensorType>(&self, tensor: &mut Tensor<T>, dims: impl AsTensorShape) {
+    pub fn resize_tensor<H: HalideType, M: TensorMachine>(
+        &self,
+        tensor: &mut TensorRef<H, M>,
+        dims: impl AsTensorShape,
+    ) {
         let dims = dims.as_tensor_shape();
         let dims_len = dims.size;
         unsafe {
             mnn_sys::Interpreter_resizeTensor(
                 self.inner,
-                tensor.tensor,
+                tensor.as_ptr(),
                 dims.shape.as_ptr(),
                 dims_len,
             )
         }
+    }
+
+    /// Resize the tenror by name using the given shape
+    pub fn resize_tensor_by_name(
+        &self,
+        session: &mut crate::Session,
+        name: impl AsRef<str>,
+        dims: impl AsTensorShape,
+    ) -> Result<()> {
+        let tensor = self.raw_input(session, name)?;
+        let dims = dims.as_tensor_shape();
+        let dims_len = dims.size;
+        unsafe {
+            mnn_sys::Interpreter_resizeTensor(
+                self.inner,
+                tensor.as_ptr(),
+                dims.shape.as_ptr(),
+                dims_len,
+            )
+        }
+        Ok(())
     }
 
     /// Resize tensor by
@@ -229,9 +251,9 @@ impl Interpreter {
     /// - C -> channel
     /// - H -> height
     /// - W -> width
-    pub fn resize_tensor_by_nchw<T: TensorType>(
+    pub fn resize_tensor_by_nchw<H: HalideType, M: TensorMachine>(
         &self,
-        tensor: &mut Tensor<T>,
+        tensor: &mut TensorRef<H, M>,
         batch: u16,
         channel: u16,
         height: u16,
@@ -240,7 +262,7 @@ impl Interpreter {
         unsafe {
             mnn_sys::Interpreter_resizeTensorByNCHW(
                 self.inner,
-                tensor.tensor,
+                tensor.as_ptr(),
                 batch.into(),
                 channel.into(),
                 height.into(),
@@ -255,9 +277,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_session(
-        &mut self,
+        &self,
         schedule: crate::ScheduleConfig,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating session"; {
             let session = unsafe { mnn_sys::Interpreter_createSession(self.inner, schedule.inner) };
             assert!(!session.is_null());
@@ -284,9 +306,9 @@ impl Interpreter {
     ///
     /// return: the created session
     pub fn create_multipath_session(
-        &mut self,
+        &self,
         schedule: impl IntoIterator<Item = ScheduleConfig>,
-    ) -> Result<crate::session::Session> {
+    ) -> Result<crate::session::Session<'_>> {
         profile!("Creating multipath session"; {
             let schedules: crate::ScheduleConfigs = schedule.into_iter().collect();
             let sc: &[_] = schedules.inner.as_ref();
@@ -316,9 +338,9 @@ impl Interpreter {
     /// `session`: the session to get input tensor
     ///
     /// return: List of input tensors
-    pub fn inputs<'i>(&self, session: &'i crate::Session) -> TensorList<'i> {
+    pub fn inputs<'i>(&self, session: &'i mut crate::Session) -> TensorListMut<'i> {
         let inputs = unsafe { mnn_sys::Interpreter_getSessionInputAll(self.inner, session.inner) };
-        TensorList::from_ptr(inputs)
+        TensorListMut::from_ptr(inputs)
     }
 
     /// Get the input tensor of the session by name.
@@ -330,16 +352,16 @@ impl Interpreter {
     /// return: the input tensor
     pub fn input<'s, H: HalideType>(
         &self,
-        session: &'s crate::Session,
+        session: &'s mut crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
+    ) -> Result<&'s mut TensorRef<H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(input) };
+        let tensor = unsafe { crate::tensor::from_raw_parts_mut(input) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
@@ -355,32 +377,33 @@ impl Interpreter {
     /// Get the raw input tensor of a session by name
     pub fn raw_input<'s>(
         &self,
-        session: &'s crate::Session,
+        session: &'s mut crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor<'s>> {
+    ) -> Result<&'s AnyTensorRef> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        Ok(RawTensor::from_ptr(input))
+        // let out =
+        Ok(unsafe { AnyTensorRef::from_ptr::<'s>(input) })
     }
 
     /// # Safety
     /// **Warning**  We Still don't know the safety guarantees of this function so it's marked unsafe
     pub unsafe fn input_unresized<'s, H: HalideType>(
         &self,
-        session: &'s crate::Session,
+        session: &'s mut crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<RefMut<'s, Device<H>>>> {
+    ) -> Result<&'s mut TensorRef<H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let input = unsafe {
             mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!input.is_null(), ErrorKind::TensorError; format!("Input tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(input) };
+        let tensor = unsafe { crate::tensor::from_raw_parts_mut(input) };
         ensure!(
             tensor.is_type_of::<H>(),
             ErrorKind::HalideTypeMismatch {
@@ -398,15 +421,15 @@ impl Interpreter {
     /// **Undefined Behavior** if the tensor is not of type `H`
     pub unsafe fn input_unchecked<'s, H: HalideType>(
         &self,
-        session: &'s crate::Session,
+        session: &'s mut crate::Session,
         name: impl AsRef<str>,
-    ) -> Tensor<RefMut<'s, Device<H>>> {
+    ) -> &'s mut TensorRef<H, Device> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).expect("Input tensor name is not ascii");
         unsafe {
             let input =
                 mnn_sys::Interpreter_getSessionInput(self.inner, session.inner, c_name.as_ptr());
-            Tensor::from_ptr(input)
+            crate::tensor::from_raw_parts_mut(input)
         }
     }
 
@@ -419,14 +442,14 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<Tensor<Ref<'s, Device<H>>>> {
+    ) -> Result<&'s TensorRef<H, Device>> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
             mnn_sys::Interpreter_getSessionOutput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!output.is_null(), ErrorKind::IOError;format!("Output tensor \"{name}\" not found"));
-        let tensor = unsafe { Tensor::from_ptr(output) };
+        let tensor = unsafe { crate::tensor::from_raw_parts(output) };
         let shape = tensor.shape();
         ensure!(!shape.as_ref().contains(&-1), ErrorKind::DynamicTensorError);
         ensure!(
@@ -443,18 +466,18 @@ impl Interpreter {
         &self,
         session: &'s crate::Session,
         name: impl AsRef<str>,
-    ) -> Result<RawTensor<'s>> {
+    ) -> Result<&'s AnyTensorRef> {
         let name = name.as_ref();
         let c_name = std::ffi::CString::new(name).change_context(ErrorKind::AsciiError)?;
         let output = unsafe {
             mnn_sys::Interpreter_getSessionOutput(self.inner, session.inner, c_name.as_ptr())
         };
         ensure!(!output.is_null(), ErrorKind::IOError;format!("Output tensor \"{name}\" not found"));
-        Ok(RawTensor::from_ptr(output))
+        Ok(unsafe { AnyTensorRef::from_ptr::<'s>(output) })
     }
 
     /// Run a session
-    pub fn run_session(&mut self, session: &crate::session::Session) -> Result<()> {
+    pub fn run_session(&self, session: &crate::session::Session) -> Result<()> {
         profile!("Running session"; {
             let ret = unsafe { mnn_sys::Interpreter_runSession(self.inner, session.inner) };
             ensure!(
@@ -475,10 +498,10 @@ impl Interpreter {
     ///
     /// `sync` : synchronously wait for finish of execution or not.
     pub fn run_session_with_callback(
-        &mut self,
+        &self,
         session: &crate::session::Session,
-        before: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
-        end: impl Fn(&[RawTensor], OperatorInfo) -> bool + 'static,
+        before: impl Fn(&[&AnyTensorRef], OperatorInfo) -> bool + 'static,
+        end: impl Fn(&[&AnyTensorRef], OperatorInfo) -> bool + 'static,
         sync: bool,
     ) -> Result<()> {
         let sync = sync as libc::c_int;
@@ -518,7 +541,7 @@ impl Interpreter {
     /// The API should be called before create session.
     ///
     /// Key Depercerate, keeping for future use!
-    pub fn set_cache_file(&mut self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
+    pub fn set_cache_file(&self, path: impl AsRef<Path>, key_size: usize) -> Result<()> {
         let path = path.as_ref();
         let path = dunce::simplified(path);
         let path = path.to_str().ok_or_else(|| error!(ErrorKind::AsciiError))?;
@@ -528,7 +551,7 @@ impl Interpreter {
     }
 
     /// Update cache file
-    pub fn update_cache_file(&mut self, session: &mut crate::session::Session) -> Result<()> {
+    pub fn update_cache_file(&self, session: &mut crate::session::Session) -> Result<()> {
         MNNError::from_error_code(unsafe {
             mnn_sys::Interpreter_updateCacheFile(self.inner, session.inner)
         });
@@ -538,9 +561,7 @@ impl Interpreter {
     /// Wait for all output tensors to be ready after computation
     pub fn wait(&self, session: &crate::session::Session) {
         self.outputs(session).iter().for_each(|tinfo| {
-            tinfo
-                .raw_tensor()
-                .wait(mnn_sys::MapType::MAP_TENSOR_READ, true);
+            AnyTensorRef::wait(tinfo.raw_tensor(), mnn_sys::MapType::MAP_TENSOR_READ, true);
         });
     }
 
@@ -681,7 +702,7 @@ fn test_run_session_with_callback_info_api() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     interpreter
         .run_session_with_callback(
@@ -699,7 +720,7 @@ fn check_whether_sync_actually_works() {
     let file = Path::new("tests/assets/realesr.mnn")
         .canonicalize()
         .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
+    let interpreter = Interpreter::from_file(&file).unwrap();
     let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
     let time = std::time::Instant::now();
     interpreter
@@ -722,16 +743,4 @@ fn check_whether_sync_actually_works() {
         .unwrap();
     let time2 = time2.elapsed();
     assert!((time - time2) > std::time::Duration::from_millis(50));
-}
-
-#[test]
-#[ignore = "Fails on CI"]
-fn try_to_drop_interpreter_before_session() {
-    let file = Path::new("tests/assets/realesr.mnn")
-        .canonicalize()
-        .unwrap();
-    let mut interpreter = Interpreter::from_file(&file).unwrap();
-    let session = interpreter.create_session(ScheduleConfig::new()).unwrap();
-    drop(interpreter);
-    drop(session);
 }

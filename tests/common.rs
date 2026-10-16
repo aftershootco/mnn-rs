@@ -27,14 +27,15 @@ impl AsRef<[u8]> for Model {
 
 #[allow(dead_code)]
 pub fn test_basic(backend: ForwardType) -> Result<()> {
-    let mut net = mnn::Interpreter::from_file("tests/assets/realesr.mnn")?;
+    let net = mnn::Interpreter::from_file("tests/assets/realesr.mnn")?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
-    let session = net.create_session(config)?;
-    net.inputs(&session).iter().for_each(|x| {
-        let mut tensor = x.tensor::<f32>().expect("No tensor");
-        println!("{}: {:?}", x.name(), tensor.shape());
-        tensor.fill(1.0f32);
+    let mut session = net.create_session(config)?;
+    net.inputs(&mut session).iter_mut().for_each(|mut x| {
+        let name = x.name();
+        let tensor = x.tensor_mut::<f32>().expect("No tensor");
+        println!("{}: {:?}", name, tensor.shape());
+        tensor.fill(1.0f32).expect("Failed");
     });
     net.run_session(&session)?;
     let outputs = net.outputs(&session);
@@ -51,7 +52,7 @@ pub fn test_basic(backend: ForwardType) -> Result<()> {
 pub fn test_multipath_session(backend: ForwardType, backend2: ForwardType) -> Result<()> {
     use mnn::BackendConfig;
 
-    let mut net = mnn::Interpreter::from_bytes(Model::new())?;
+    let net = mnn::Interpreter::from_bytes(Model::new())?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
     config.set_backup_type(backend);
@@ -68,12 +69,12 @@ pub fn test_multipath_session(backend: ForwardType, backend2: ForwardType) -> Re
     bc.set_power_mode(mnn::PowerMode::High);
     config2.set_backend_config(bc);
 
-    let session = net.create_multipath_session([config, config2])?;
+    let mut session = net.create_multipath_session([config, config2])?;
     {
-        let inputs = net.inputs(&session);
-        for input in inputs.iter() {
+        let mut inputs = net.inputs(&mut session);
+        for mut input in inputs.iter_mut() {
             println!("input: {:?}", input);
-            input.tensor::<f32>()?.fill(0.0);
+            input.tensor_mut::<f32>()?.fill(1.0)?;
         }
     }
     net.run_session(&session)?;

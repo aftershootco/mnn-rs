@@ -1,0 +1,39 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[env]
+REGISTRY = "kellnr"
+
+[tasks.publish]
+description = "Publish mnn-sys and mnn to the kellnr registry"
+dependencies = ["publish-sys", "publish-mnn"]
+
+# An already-published version is not a failure here: the only requirement is
+# that the version exists on the registry before the root crate resolves it.
+[tasks.publish-sys]
+script_runner = "@shell"
+script = '''
+out=$(cargo publish -p mnn-sys --registry ${REGISTRY} --allow-dirty 2>&1) || {
+  echo "$out"
+  echo "$out" | grep -q "already exists on" || exit 1
+}
+'''
+
+# The root crate depends on mnn-sys by path + version. At package time cargo
+# resolves that version against crates.io unless the dep names a registry, so
+# the key is injected only for the duration of this task.
+[tasks.publish-mnn]
+script_runner = "@shell"
+script = '''
+set -e
+cleanup() {
+  mv Cargo.toml.publish-bak Cargo.toml
+}
+cp Cargo.toml Cargo.toml.publish-bak
+trap cleanup EXIT
+toml set Cargo.toml dependencies.mnn-sys.registry "${REGISTRY}" > Cargo.toml.publish-tmp
+mv Cargo.toml.publish-tmp Cargo.toml
+grep -q 'registry = "'"${REGISTRY}"'"' Cargo.toml || { echo "failed to inject registry key into Cargo.toml"; exit 1; }
+cargo publish --registry ${REGISTRY} --allow-dirty
+'''

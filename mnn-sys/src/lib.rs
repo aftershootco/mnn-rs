@@ -31,9 +31,16 @@ pub fn halide_type_of<T: HalideType>() -> halide_type_t {
     T::halide_type_of()
 }
 
-pub trait HalideType: seal::Sealed {
+pub trait HalideType: seal::Sealed + MaybeDebug {
     fn halide_type_of() -> halide_type_t;
 }
+
+// pub trait MaybeDebug {}
+// impl<T> MaybeDebug for T {}
+
+pub trait MaybeDebug: core::fmt::Debug {}
+impl<T: core::fmt::Debug> MaybeDebug for T {}
+
 mod seal {
     pub trait Sealed {}
 }

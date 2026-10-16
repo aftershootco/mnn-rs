@@ -17,7 +17,7 @@ pub struct Cli {
 pub fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let cli = Cli::parse();
-    let mut interpreter = Interpreter::from_file(cli.model)?;
+    let interpreter = Interpreter::from_file(cli.model)?;
 
     let mut config = ScheduleConfig::new();
     config.set_type(ForwardType::CPU);
@@ -27,13 +27,13 @@ pub fn main() -> anyhow::Result<()> {
     config.set_backend_config(backend_config);
 
     let now = std::time::Instant::now();
-    let session = interpreter.create_session(config)?;
+    let mut session = interpreter.create_session(config)?;
     println!("create session time: {:?}", now.elapsed());
-    let mut image = interpreter.input(&session, "image")?;
-    let mut mask = interpreter.input(&session, "mask")?;
+    let image = interpreter.input(&mut session, "image")?;
     let mut image_tensor = image.create_host_tensor_from_device(false);
     image_tensor.host_mut().fill(1.0f32);
     image.copy_from_host_tensor(&image_tensor)?;
+    let mask = interpreter.input(&mut session, "mask")?;
     let mut mask_tensor = mask.create_host_tensor_from_device(false);
     mask_tensor.host_mut().fill(0.7f32);
     let now = std::time::Instant::now();

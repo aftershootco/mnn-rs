@@ -52,6 +52,9 @@ pub enum ForwardType {
     /// Use the Vulkan backend for computation.
     #[cfg(feature = "vulkan")]
     Vulkan,
+    /// Use the CUDA backend for computation.
+    #[cfg(feature = "cuda")]
+    Cuda,
     /// Use the CoreML backend for computation.
     #[cfg(feature = "coreml")]
     CoreML,
@@ -72,6 +75,8 @@ impl ForwardType {
             ForwardType::OpenGL => MNNForwardType::MNN_FORWARD_OPENGL,
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => MNNForwardType::MNN_FORWARD_VULKAN,
+            #[cfg(feature = "cuda")]
+            ForwardType::Cuda => MNNForwardType::MNN_FORWARD_CUDA,
             #[cfg(feature = "coreml")]
             ForwardType::CoreML => MNNForwardType::MNN_FORWARD_NN,
         }
@@ -90,6 +95,8 @@ impl ForwardType {
             MNNForwardType::MNN_FORWARD_OPENGL => ForwardType::OpenGL,
             #[cfg(feature = "vulkan")]
             MNNForwardType::MNN_FORWARD_VULKAN => ForwardType::Vulkan,
+            #[cfg(feature = "cuda")]
+            MNNForwardType::MNN_FORWARD_CUDA => ForwardType::Cuda,
             #[cfg(feature = "coreml")]
             MNNForwardType::MNN_FORWARD_NN => ForwardType::CoreML,
             _ => ForwardType::Auto,
@@ -110,6 +117,8 @@ impl ForwardType {
             "opengl",
             #[cfg(feature = "vulkan")]
             "vulkan",
+            #[cfg(feature = "cuda")]
+            "cuda",
             #[cfg(feature = "coreml")]
             "coreml",
         ]
@@ -129,6 +138,8 @@ impl ForwardType {
             ForwardType::OpenGL => "opengl",
             #[cfg(feature = "vulkan")]
             ForwardType::Vulkan => "vulkan",
+            #[cfg(feature = "cuda")]
+            ForwardType::Cuda => "cuda",
             #[cfg(feature = "coreml")]
             ForwardType::CoreML => "coreml",
         }
@@ -151,13 +162,15 @@ impl core::str::FromStr for ForwardType {
             "opengl" => Ok(ForwardType::OpenGL),
             #[cfg(feature = "vulkan")]
             "vulkan" => Ok(ForwardType::Vulkan),
+            #[cfg(feature = "cuda")]
+            "cuda" => Ok(ForwardType::Cuda),
             #[cfg(feature = "coreml")]
             "coreml" => Ok(ForwardType::CoreML),
             _ => Err(MNNError::new(crate::ErrorKind::ParseError)
-                .attach_printable(format!(
+                .attach(format!(
                     "Invalid ForwardType: {s}, maybe you might need to enable feature {s}"
                 ))
-                .attach_printable(format!(
+                .attach(format!(
                     "Valid ForwardType: {}",
                     ForwardType::list().join(", ")
                 ))),

@@ -1,0 +1,1 @@
+examples/assets/ultraface-320.mnn filter=lfs diff=lfs merge=lfs -text

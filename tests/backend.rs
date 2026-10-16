@@ -8,21 +8,22 @@ use tracing_test::traced_test;
 #[test]
 #[traced_test]
 fn compare_cpu_and_coreml_outputs() {
-    let mut net = mnn::Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
+    let net = mnn::Interpreter::from_file("tests/assets/realesr.mnn").unwrap();
     let cpu_config = ScheduleConfig::new();
     let mut coreml_config = ScheduleConfig::new();
-    let mut bc = BackendConfig::new();
     coreml_config.set_type(ForwardType::CoreML);
-    let cpu_session = net.create_session(cpu_config).unwrap();
-    let coreml_session = net.create_session(coreml_config).unwrap();
-    net.inputs(&cpu_session).iter().for_each(|x| {
-        let mut tensor = x.tensor::<f32>().expect("No tensor");
-        tensor.fill(1.0f32);
+    let mut cpu_session = net.create_session(cpu_config).unwrap();
+    let mut coreml_session = net.create_session(coreml_config).unwrap();
+    net.inputs(&mut cpu_session).iter_mut().for_each(|mut x| {
+        let tensor = x.tensor_mut::<f32>().expect("No tensor");
+        tensor.fill(1.0f32).expect("Failed to fill tensor");
     });
-    net.inputs(&coreml_session).iter().for_each(|x| {
-        let mut tensor = x.tensor::<f32>().expect("No tensor");
-        tensor.fill(1.0f32);
-    });
+    net.inputs(&mut coreml_session)
+        .iter_mut()
+        .for_each(|mut x| {
+            let tensor = x.tensor_mut::<f32>().expect("No tensor");
+            tensor.fill(1.0f32).expect("Failed to fill tensor");
+        });
 
     net.run_session(&cpu_session).unwrap();
     net.run_session(&coreml_session).unwrap();

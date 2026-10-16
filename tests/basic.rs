@@ -19,17 +19,18 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     let backend = ForwardType::OpenCL;
     let realesr = std::path::Path::new("tests/assets/realesr.mnn");
 
-    let mut net = mnn::Interpreter::from_file(realesr)?;
+    let net = mnn::Interpreter::from_file(realesr)?;
     net.set_cache_file(realesr.with_extension("cache"), 128)?;
     let mut config = ScheduleConfig::new();
     config.set_type(backend);
     let mut session = net.create_session(config)?;
     net.update_cache_file(&mut session)?;
 
-    net.inputs(&session).iter().for_each(|x| {
-        let mut tensor = x.tensor::<f32>().expect("No tensor");
-        println!("{}: {:?}", x.name(), tensor.shape());
-        tensor.fill(1.0f32);
+    net.inputs(&mut session).iter_mut().for_each(|mut x| {
+        let name = x.name();
+        let tensor = x.tensor_mut::<f32>().expect("No tensor");
+        println!("{}: {:?}", name, tensor.shape());
+        tensor.fill(1.0f32).expect("Failed to fill tensor");
     });
     net.run_session(&session)?;
     let outputs = net.outputs(&session);
@@ -45,6 +46,12 @@ fn test_basic_opencl() -> Result<(), Box<dyn std::error::Error>> {
     // drop(session);
     // drop(net);
     Ok(())
+}
+#[cfg(feature = "cuda")]
+#[test]
+#[ignore = "Needs an NVIDIA GPU"]
+fn test_basic_cuda() {
+    test_basic(ForwardType::Cuda).unwrap();
 }
 #[cfg(feature = "coreml")]
 #[test]
