@@ -107,7 +107,14 @@ pub struct Owned<T> {
 }
 
 /// A generic tensor that can of host / device / owned / borrowed
+///
+/// Every `Tensor` owns the C++ `MNN::Tensor` object it wraps and destroys it on drop. The
+/// `S` parameter only describes who owns the *data*: [`Owned`] tensors allocate it, the
+/// [`View`] tensors created by [`Tensor::borrowed`] / [`Tensor::borrowed_mut`] borrow a user
+/// slice (which MNN never frees). To borrow a tensor itself use `&TensorRef` /
+/// `&mut TensorRef`, the [`Deref`](core::ops::Deref) target of `Tensor`.
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Tensor<S, M, A = <S as TensorType>::H>
 where
     A: HalideType,
@@ -115,14 +122,6 @@ where
     S: TensorType<H = A>,
 {
     pub(crate) tensor: *mut mnn_sys::Tensor,
-    /// Whether this `Tensor` owns the C++ `MNN::Tensor` object behind `tensor`.
-    ///
-    /// Owned tensors and the views created by [`Tensor::borrowed`] / [`Tensor::borrowed_mut`]
-    /// allocate their own `MNN::Tensor` (the latter over user provided memory, which MNN never
-    /// frees) and must destroy it. Views created from another `Tensor` through
-    /// [`Tensor::view`] / [`Tensor::view_mut`] share the C++ object with their parent and must
-    /// not.
-    destroy_on_drop: bool,
     __marker: PhantomData<(S, M, A)>,
 }
 
@@ -133,58 +132,8 @@ where
     M: TensorMachine,
 {
     fn drop(&mut self) {
-        if self.destroy_on_drop {
-            unsafe {
-                mnn_sys::Tensor_destroy(self.tensor);
-            }
-        }
-    }
-}
-
-impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
-    /// Get's a reference to an owned host tensor
-    pub fn view(&'a self) -> Tensor<View<&'a H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            destroy_on_drop: false,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a H>, M> {
-    /// Reborrows the tensor to get rid of self's lifetime the tensor while using the lifetime inside of the TensorView
-    pub fn reborrow(&self) -> Tensor<View<&'a H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            destroy_on_drop: false,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
-    /// Get's a mutable reference to an owned host tensor
-    pub fn view_mut(&mut self) -> Tensor<View<&mut H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            destroy_on_drop: false,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<H: HalideType, M: TensorMachine> Tensor<View<&mut H>, M> {
-    /// Reborrows the tensor as mutable.
-    ///
-    /// The returned view borrows `self` mutably for as long as it lives, exactly like
-    /// reborrowing a `&mut T`, so the original and the reborrow can never be used at the same
-    /// time.
-    pub fn reborrow_mut(&mut self) -> Tensor<View<&mut H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            destroy_on_drop: false,
-            __marker: PhantomData,
+        unsafe {
+            mnn_sys::Tensor_destroy(self.tensor);
         }
     }
 }
@@ -240,16 +189,15 @@ where
 {
     /// This function constructs a Tensor type from a raw pointer
     ///
-    /// The returned tensor destroys the underlying `MNN::Tensor` on drop if it is an owned
-    /// tensor type and leaves it alone if it is a view.
+    /// The returned tensor takes ownership of the `MNN::Tensor` object and destroys it on
+    /// drop. Use [`from_raw_parts`] / [`from_raw_parts_mut`] to borrow a tensor instead.
     ///# Safety
     /// Since this constructs a Tensor from a raw pointer we have no way to guarantee that it's a
-    /// valid tensor or it's lifetime
+    /// valid tensor, that nothing else owns it, or its lifetime
     pub unsafe fn from_ptr(tensor: *mut mnn_sys::Tensor) -> Self {
         assert!(!tensor.is_null());
         Self {
             tensor,
-            destroy_on_drop: T::owned(),
             __marker: PhantomData,
         }
     }
@@ -370,7 +318,6 @@ where
         debug_assert!(!tensor.is_null());
         Self {
             tensor,
-            destroy_on_drop: true,
             __marker: PhantomData,
         }
     }
@@ -609,10 +556,10 @@ where
             )
         };
         assert!(!tensor.is_null());
+        // MNN never frees memory it did not allocate, so destroying this wrapper on drop
+        // leaves `input` untouched.
         let output = Self {
             tensor,
-            // MNN never frees memory it did not allocate, so destroying the wrapper is safe.
-            destroy_on_drop: true,
             __marker: PhantomData,
         };
         // `output` is dropped (and the wrapper destroyed) if this panics.
@@ -665,10 +612,10 @@ where
             )
         };
         assert!(!tensor.is_null());
+        // MNN never frees memory it did not allocate, so destroying this wrapper on drop
+        // leaves `input` untouched.
         let output = Self {
             tensor,
-            // MNN never frees memory it did not allocate, so destroying the wrapper is safe.
-            destroy_on_drop: true,
             __marker: PhantomData,
         };
         // `output` is dropped (and the wrapper destroyed) if this panics.
@@ -748,26 +695,35 @@ fn test_tensor_borrowed_rejects_dynamic_shape() {
 }
 
 #[test]
-fn test_view_does_not_destroy_parent() {
+fn test_tensor_ref_borrows() {
     let data = vec![1, 2, 3, 4, 5, 6];
-    let owned = TensorOwned::<i32, Host>::from_shape_data([1, 2, 3], DimensionType::Caffe, &data);
+    let mut owned =
+        TensorOwned::<i32, Host>::from_shape_data([1, 2, 3], DimensionType::Caffe, &data);
     {
-        let view = owned.view();
-        assert_eq!(view.host(), data.as_slice());
-        let reborrowed = view.reborrow();
-        assert_eq!(reborrowed.host(), data.as_slice());
+        let shared: &TensorRef<i32, Host> = &owned;
+        let again: &TensorRef<i32, Host> = shared;
+        assert_eq!(shared.host(), data.as_slice());
+        assert_eq!(again.host(), data.as_slice());
     }
-    // The parent must still be usable after its views are dropped.
-    assert_eq!(owned.host(), data.as_slice());
-
-    let mut owned = owned;
     {
-        let mut view = owned.view_mut();
-        view.host_mut().fill(7);
-        let mut reborrowed = view.reborrow_mut();
+        let exclusive: &mut TensorRef<i32, Host> = &mut owned;
+        exclusive.host_mut().fill(7);
+        let reborrowed: &mut TensorRef<i32, Host> = &mut *exclusive;
         reborrowed.host_mut()[0] = 9;
     }
+    // The owner is untouched by its borrows going out of scope.
     assert_eq!(owned.host(), &[9, 7, 7, 7, 7, 7]);
+}
+
+#[test]
+fn test_borrowed_view_drop_keeps_user_data() {
+    let data = vec![1, 2, 3, 4, 5, 6];
+    for _ in 0..3 {
+        let view = Tensor::<View<&i32>, Host>::borrowed([1, 2, 3], DimensionType::Caffe, &data);
+        assert_eq!(view.host(), data.as_slice());
+        // Dropping the view destroys only the MNN wrapper, never `data`.
+    }
+    assert_eq!(data, &[1, 2, 3, 4, 5, 6]);
 }
 
 #[test]
