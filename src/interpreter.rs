@@ -1,6 +1,7 @@
 //! The interpreter module provides the `Interpreter` struct which is used to load and run models.
 use crate::{
-    AnyTensorRef, AsTensorShape, Device, ScheduleConfig, TensorList, TensorRef, prelude::*,
+    AnyTensorRef, AsTensorShape, Device, ScheduleConfig, TensorList, TensorListMut, TensorRef,
+    prelude::*,
 };
 use mnn_sys::HalideType;
 use std::{ffi::CStr, path::Path, sync::Arc};
@@ -337,9 +338,9 @@ impl Interpreter {
     /// `session`: the session to get input tensor
     ///
     /// return: List of input tensors
-    pub fn inputs<'i>(&self, session: &'i mut crate::Session) -> TensorList<'i> {
+    pub fn inputs<'i>(&self, session: &'i mut crate::Session) -> TensorListMut<'i> {
         let inputs = unsafe { mnn_sys::Interpreter_getSessionInputAll(self.inner, session.inner) };
-        TensorList::from_ptr(inputs)
+        TensorListMut::from_ptr(inputs)
     }
 
     /// Get the input tensor of the session by name.

@@ -1,38 +1,38 @@
-/// Full PaddleOCR (PP-OCRv5) pipeline example.
-///
-/// Pipeline: text detection (DBNet) -> crop each text region -> text
-/// recognition (CRNN/SVTR) with CTC greedy decode -> print + draw results.
-///
-/// Models (PaddleOCR PP-OCRv4, https://github.com/PaddlePaddle/PaddleOCR):
-///   1. Download the ch PP-OCRv4 detection + recognition ONNX models (RapidOCR
-///      mirror) and convert each to MNN:
-///        curl -L -o det.onnx \
-///          https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx
-///        curl -L -o rec.onnx \
-///          https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_rec_infer.onnx
-///        MNNConvert -f ONNX --modelFile det.onnx \
-///          --MNNModel examples/assets/paddle_det_v4.mnn
-///        MNNConvert -f ONNX --modelFile rec.onnx \
-///          --MNNModel examples/assets/paddle_rec_v4.mnn
-///      If conversion fails, simplify the ONNX first with onnxsim
-///      (https://github.com/onnxsim/onnxsim).
-///   2. Fetch the character dictionary the recognition model was trained with.
-///      This MUST match the model: the model's output class count equals the
-///      number of dictionary lines + 1 (the CTC blank), or + 2 if the model also
-///      appends a space class. The ch PP-OCRv4 rec model above uses:
-///        curl -L -o examples/assets/ppocr_keys_v1.txt \
-///          https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/ppocr_keys_v1.txt
-///      Other charsets live under PaddleOCR/ppocr/utils/(dict/). The example
-///      prints a warning if the dict size does not match the model.
-///
-/// The det/rec inputs are dynamically shaped, so this example resizes the input
-/// tensor (resize_tensor_by_name + resize_session) before reading it.
-///
-/// Tensor names vary by how the model was converted (MNNConvert prints them).
-/// Override via the CLI flags if your conversion differs from the defaults.
-///
-/// Usage:
-///   cargo run --example ocr -- <image>
+// Full PaddleOCR (PP-OCRv5) pipeline example.
+//
+// Pipeline: text detection (DBNet) -> crop each text region -> text
+// recognition (CRNN/SVTR) with CTC greedy decode -> print + draw results.
+//
+// Models (PaddleOCR PP-OCRv4, https://github.com/PaddlePaddle/PaddleOCR):
+//   1. Download the ch PP-OCRv4 detection + recognition ONNX models (RapidOCR
+//      mirror) and convert each to MNN:
+//        curl -L -o det.onnx \
+//          https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx
+//        curl -L -o rec.onnx \
+//          https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_rec_infer.onnx
+//        MNNConvert -f ONNX --modelFile det.onnx \
+//          --MNNModel examples/assets/paddle_det_v4.mnn
+//        MNNConvert -f ONNX --modelFile rec.onnx \
+//          --MNNModel examples/assets/paddle_rec_v4.mnn
+//      If conversion fails, simplify the ONNX first with onnxsim
+//      (https://github.com/onnxsim/onnxsim).
+//   2. Fetch the character dictionary the recognition model was trained with.
+//      This MUST match the model: the model's output class count equals the
+//      number of dictionary lines + 1 (the CTC blank), or + 2 if the model also
+//      appends a space class. The ch PP-OCRv4 rec model above uses:
+//        curl -L -o examples/assets/ppocr_keys_v1.txt \
+//          https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/ppocr_keys_v1.txt
+//      Other charsets live under PaddleOCR/ppocr/utils/(dict/). The example
+//      prints a warning if the dict size does not match the model.
+//
+// The det/rec inputs are dynamically shaped, so this example resizes the input
+// tensor (resize_tensor_by_name + resize_session) before reading it.
+//
+// Tensor names vary by how the model was converted (MNNConvert prints them).
+// Override via the CLI flags if your conversion differs from the defaults.
+//
+// Usage:
+//   cargo run --example ocr -- <image>
 use image::{DynamicImage, GrayImage, ImageDecoder, Luma, Rgb, RgbImage, imageops::FilterType};
 use imageproc::contours::find_contours;
 use imageproc::drawing::draw_line_segment_mut;
@@ -114,7 +114,7 @@ fn load_image(path: &std::path::Path) -> anyhow::Result<RgbImage> {
 
 /// Round up to the nearest multiple of 32 (minimum 32).
 fn round32(v: u32) -> u32 {
-    ((v + 31) / 32).max(1) * 32
+    v.div_ceil(32).max(1) * 32
 }
 
 /// Detection preprocess: resize so the longest side <= `limit` and both sides
@@ -246,6 +246,7 @@ fn quad_dims(q: &Quad) -> (f32, f32) {
 
 /// DBNet post-process: probability map [1,1,H,W] -> quad boxes in ORIGINAL
 /// image coordinates.
+#[allow(clippy::too_many_arguments)]
 fn db_postprocess(
     prob: &[f32],
     w: u32,

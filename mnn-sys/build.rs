@@ -46,42 +46,62 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build/bindgen.rs");
     println!("cargo:rerun-if-changed=build/compile.rs");
 
+    // A runtime `cfg!` keeps both paths type checked (and warning free) under either
+    // feature set.
+    if cfg!(feature = "download") {
+        build_from_download(&out_dir)
+    } else {
+        build_from_source(&out_dir)
+    }
+}
+
+#[cfg(not(feature = "download"))]
+fn build_from_download(_out_dir: &Path) -> Result<()> {
+    unreachable!("only called when the `download` feature is enabled")
+}
+
+/// Link against the prebuilt release archive and only compile the C bridge locally.
+#[cfg(feature = "download")]
+fn build_from_download(out_dir: &Path) -> Result<()> {
+    println!("cargo:rerun-if-env-changed=MNN_VERSION");
+    let version = std::env::var("MNN_VERSION").unwrap_or_else(|_| "3.6.1".to_string());
+    let prebuilt = download_prebuilt_mnn(&version, out_dir).with_context(|| {
+        format!(
+            "Failed to download prebuilt MNN version {} for target {}-{}",
+            version,
+            *options::TARGET_ARCH,
+            *TARGET_OS
+        )
+    })?;
+    let source = download_mnn_source(&version, out_dir).with_context(|| {
+        format!(
+            "Failed to download MNN source for version {} for target {}-{}",
+            version,
+            *options::TARGET_ARCH,
+            *TARGET_OS
+        )
+    })?;
+    // The downloaded headers need the same fixups as the vendored ones, otherwise
+    // bindgen produces a `halide_type_t` with the wrong field types on MSVC.
+    patch_mnn_headers(&source).with_context(|| "Failed to patch downloaded MNN headers")?;
+    mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &source)
+        .with_context(|| "Failed to build mnn_c from downloaded source")?;
+    mnn_c_bindgen(&source, out_dir)
+        .with_context(|| "Failed to generate mnn_c bindings from downloaded source")?;
+    mnn_cpp_bindgen(&source, out_dir)
+        .with_context(|| "Failed to generate mnn_cpp bindings from downloaded source")?;
+    println!("cargo:include={source}/include", source = source.display());
+    prebuilt_lib_link(&prebuilt)?;
+    Ok(())
+}
+
+/// Compile MNN from the vendored (or `MNN_SRC`) source tree with cmake.
+fn build_from_source(out_dir: &Path) -> Result<()> {
     let source = PathBuf::from(
         std::env::var("MNN_SRC")
             .ok()
             .unwrap_or_else(|| VENDOR.into()),
     );
-
-    #[cfg(feature = "download")]
-    {
-        let version = std::env::var("MNN_VERSION").unwrap_or_else(|_| "3.6.1".to_string());
-        download_prebuilt_mnn(&version, &out_dir).with_context(|| {
-            format!(
-                "Failed to download prebuilt MNN version {} for target {}-{}",
-                version,
-                *options::TARGET_ARCH,
-                *TARGET_OS
-            )
-        })?;
-        let source = download_mnn_source(&version, &out_dir).with_context(|| {
-            format!(
-                "Failed to download MNN source for version {} for target {}-{}",
-                version,
-                *options::TARGET_ARCH,
-                *TARGET_OS
-            )
-        })?;
-        mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &source)
-            .with_context(|| "Failed to build mnn_c from downloaded source")?;
-        mnn_c_bindgen(&source, &out_dir)
-            .with_context(|| "Failed to generate mnn_c bindings from downloaded source")?;
-        mnn_cpp_bindgen(&source, &out_dir)
-            .with_context(|| "Failed to generate mnn_cpp bindings from downloaded source")?;
-        println!("cargo:include={source}/include", source = source.display());
-        prebuilt_lib_link(&out_dir)?;
-        return Ok(());
-    }
-
     ensure_vendor_exists(&source)?;
     println!("cargo:rerun-if-env-changed=MNN_SRC");
     println!("cargo:rerun-if-env-changed=MNN_LIB_DIR");
@@ -99,33 +119,7 @@ fn main() -> Result<()> {
                 .copy_inside(true),
         )
         .context("Failed to copy vendor")?;
-        let intptr = vendor.join("include").join("MNN").join("HalideRuntime.h");
-        #[cfg(unix)]
-        std::fs::set_permissions(&intptr, std::fs::Permissions::from_mode(0o644))?;
-
-        use itertools::Itertools;
-        let intptr_contents = std::fs::read_to_string(&intptr)?;
-        let patched = intptr_contents.lines().collect::<Vec<_>>();
-        if let Some((idx, _)) = patched
-            .iter()
-            .find_position(|line| line.contains(HALIDE_SEARCH))
-        {
-            let patched = patched
-                .into_iter()
-                .enumerate()
-                .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
-                .map(|(_, c)| c)
-                .collect::<Vec<_>>();
-
-            std::fs::write(intptr, patched.join("\n"))?;
-        }
-
-        let mnn_define = vendor.join("include").join("MNN").join("MNNDefine.h");
-        let patched =
-            std::fs::read_to_string(&mnn_define)?.replace(TRACING_SEARCH, TRACING_REPLACE);
-        #[cfg(unix)]
-        std::fs::set_permissions(&mnn_define, std::fs::Permissions::from_mode(0o644))?;
-        std::fs::write(mnn_define, patched)?;
+        patch_mnn_headers(&vendor).context("Failed to patch vendored MNN headers")?;
 
         // Patch cpu_id.cc to add missing cstdint
         let cpu_id_file = vendor
@@ -137,13 +131,11 @@ fn main() -> Result<()> {
         if cpu_id_file.exists() {
             let cpu_id_contents = std::fs::read_to_string(&cpu_id_file)?;
             if !cpu_id_contents.contains("#include <cstdint>") {
-                let patched = cpu_id_contents.replace(
+                patch_file(
+                    cpu_id_file,
                     "#include \"cpu_id.h\"",
                     "#include <cstdint>\n#include \"cpu_id.h\"",
-                );
-                #[cfg(unix)]
-                std::fs::set_permissions(&cpu_id_file, std::fs::Permissions::from_mode(0o644))?;
-                std::fs::write(cpu_id_file, patched)?;
+                )?;
             }
         }
     }
@@ -188,8 +180,8 @@ fn main() -> Result<()> {
 
     mnn_c_build(PathBuf::from(MANIFEST_DIR).join("mnn_c"), &vendor)
         .with_context(|| "Failed to build mnn_c")?;
-    mnn_c_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
-    mnn_cpp_bindgen(&vendor, &out_dir).with_context(|| "Failed to generate mnn_cpp bindings")?;
+    mnn_c_bindgen(&vendor, out_dir).with_context(|| "Failed to generate mnn_c bindings")?;
+    mnn_cpp_bindgen(&vendor, out_dir).with_context(|| "Failed to generate mnn_cpp bindings")?;
     println!("cargo:include={vendor}/include", vendor = vendor.display());
 
     if *TARGET_OS == Os::MacOS {
@@ -222,14 +214,74 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "cuda")]
+/// Replace `from` with `to` in `file` if present (a no-op once applied).
 fn patch_file(file: PathBuf, from: &str, to: &str) -> Result<()> {
     let contents = std::fs::read_to_string(&file)
         .with_context(|| format!("Failed to read {}", file.display()))?;
     if contents.contains(from) {
-        #[cfg(unix)]
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))?;
+        make_writable(&file)?;
         std::fs::write(&file, contents.replace(from, to))?;
     }
+    Ok(())
+}
+
+/// Sources copied out of the nix store / git checkout can be read-only.
+fn make_writable(file: &Path) -> Result<()> {
+    #[cfg(unix)]
+    std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o644))
+        .with_context(|| format!("Failed to make {} writable", file.display()))?;
+    #[cfg(not(unix))]
+    let _ = file;
+    Ok(())
+}
+
+/// Apply the header fixups mnn-sys needs on top of an MNN source tree (vendored or
+/// downloaded). Both patches are idempotent.
+///
+/// - `HalideRuntime.h`: drop the `HALIDE_ATTRIBUTE_ALIGN(1)` packing around
+///   `halide_type_t::code`, which otherwise makes bindgen emit a `u8` field on MSVC.
+/// - `MNNDefine.h`: route `MNN_PRINT` / `MNN_ERROR` through `mnn_ffi_emit`.
+fn patch_mnn_headers(dir: &Path) -> Result<()> {
+    use itertools::Itertools;
+
+    // The header reads
+    //
+    //     #ifndef _MSC_VER
+    //         HALIDE_ATTRIBUTE_ALIGN(1) halide_type_code_t code; // halide_type_code_t
+    //     #else
+    //         HALIDE_ATTRIBUTE_ALIGN(1) uint8_t code; // halide_type_code_t
+    //     #endif
+    //
+    // and we keep only the `halide_type_code_t` line. The surrounding lines are checked so
+    // that running the patch again on an already patched header is a no-op.
+    let intptr = dir.join("include").join("MNN").join("HalideRuntime.h");
+    let intptr_contents = std::fs::read_to_string(&intptr)
+        .with_context(|| format!("Failed to read {}", intptr.display()))?;
+    let patched = intptr_contents.lines().collect::<Vec<_>>();
+    let target = patched
+        .iter()
+        .find_position(|line| line.contains(HALIDE_SEARCH))
+        .map(|(idx, _)| idx)
+        .filter(|&idx| {
+            idx >= 1
+                && patched[idx - 1].trim() == "#ifndef _MSC_VER"
+                && patched.get(idx + 3).map(|l| l.trim()) == Some("#endif")
+        });
+    if let Some(idx) = target {
+        let patched = patched
+            .into_iter()
+            .enumerate()
+            .filter(|(c_idx, _)| !(*c_idx == idx - 1 || (idx + 1..=idx + 3).contains(c_idx)))
+            .map(|(_, c)| c)
+            .collect::<Vec<_>>();
+        make_writable(&intptr)?;
+        std::fs::write(&intptr, patched.join("\n"))?;
+    }
+
+    patch_file(
+        dir.join("include").join("MNN").join("MNNDefine.h"),
+        TRACING_SEARCH,
+        TRACING_REPLACE,
+    )?;
     Ok(())
 }

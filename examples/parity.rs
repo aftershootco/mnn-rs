@@ -126,22 +126,22 @@ fn run_model_per_op(cli: &Cli, forward: ForwardType) -> anyhow::Result<Vec<OpRow
             // Capture the watched op's *input* too: if an op's inputs match
             // across backends but its output doesn't, the op itself is guilty.
             let name = op.name().to_string_lossy().into_owned();
-            if watch.as_deref().is_some_and(|w| name.contains(w)) {
-                if let Some(t) = tensors.first() {
-                    let shape = t.shape().as_ref().to_vec();
-                    if t.is_type_of::<f32>() && !shape.is_empty() && !shape.contains(&-1) {
-                        let mut host =
-                            Tensor::<Owned<f32>, Host>::new(shape.as_slice(), DimensionType::Caffe);
-                        if t.copy_to_host_tensor(unsafe { host.as_any_tensor_mut() })
-                            .is_ok()
-                        {
-                            sink_before.lock().unwrap().push((
-                                format!("{name}#input"),
-                                "input".into(),
-                                shape,
-                                host.host().to_vec(),
-                            ));
-                        }
+            if watch.as_deref().is_some_and(|w| name.contains(w))
+                && let Some(t) = tensors.first()
+            {
+                let shape = t.shape().as_ref().to_vec();
+                if t.is_type_of::<f32>() && !shape.is_empty() && !shape.contains(&-1) {
+                    let mut host =
+                        Tensor::<Owned<f32>, Host>::new(shape.as_slice(), DimensionType::Caffe);
+                    if t.copy_to_host_tensor(unsafe { host.as_any_tensor_mut() })
+                        .is_ok()
+                    {
+                        sink_before.lock().unwrap().push((
+                            format!("{name}#input"),
+                            "input".into(),
+                            shape,
+                            host.host().to_vec(),
+                        ));
                     }
                 }
             }

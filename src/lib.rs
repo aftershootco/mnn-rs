@@ -80,7 +80,7 @@ pub mod session;
 /// MNN::Tensor related items
 pub mod tensor;
 
-pub use crate::tensor::list::TensorList;
+pub use crate::tensor::list::{TensorList, TensorListMut};
 pub use backend::*;
 pub use error::*;
 pub use interpreter::*;
