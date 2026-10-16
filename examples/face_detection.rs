@@ -1,19 +1,19 @@
-/// Face detection example using the UltraFace-320 model.
-///
-/// Model: UltraFace RFB-320 (https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
-///
-/// To get the model:
-///   1. Download the ONNX model:
-///      curl -L -o /tmp/version-RFB-320.onnx \
-///        "https://github.com/onnx/models/raw/main/validated/vision/body_analysis/ultraface/models/version-RFB-320.onnx"
-///   2. Convert to MNN:
-///      MNNConvert -f ONNX --modelFile /tmp/version-RFB-320.onnx --MNNModel examples/assets/ultraface-320.mnn
-///
-/// In case model conversion fails, you can use onnxsim to simplify the ONNX model first before converting to MNN:
-/// https://github.com/onnxsim/onnxsim
-///
-/// Usage:
-///   cargo run --example face_detection -- <image> [--model PATH] [--threshold 0.7] [--iou-threshold 0.3]
+// Face detection example using the UltraFace-320 model.
+//
+// Model: UltraFace RFB-320 (https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
+//
+// To get the model:
+//   1. Download the ONNX model:
+//      curl -L -o /tmp/version-RFB-320.onnx \
+//        "https://github.com/onnx/models/raw/main/validated/vision/body_analysis/ultraface/models/version-RFB-320.onnx"
+//   2. Convert to MNN:
+//      MNNConvert -f ONNX --modelFile /tmp/version-RFB-320.onnx --MNNModel examples/assets/ultraface-320.mnn
+//
+// In case model conversion fails, you can use onnxsim to simplify the ONNX model first before converting to MNN:
+// https://github.com/onnxsim/onnxsim
+//
+// Usage:
+//   cargo run --example face_detection -- <image> [--model PATH] [--threshold 0.7] [--iou-threshold 0.3]
 use image::{DynamicImage, ImageDecoder, Rgb};
 use imageproc::drawing::draw_hollow_rect_mut;
 use imageproc::rect::Rect;
@@ -181,7 +181,7 @@ fn main() -> anyhow::Result<()> {
 
     // Copy preprocessed image into input tensor
     let input = interpreter.input::<f32>(&mut session, "input")?;
-    println!("Input '{}': shape={:?}", "input", input.shape());
+    println!("Input 'input': shape={:?}", input.shape());
     let mut host_tensor = input.create_host_tensor_from_device(false);
     host_tensor.host_mut().copy_from_slice(&input_data);
     input.copy_from_host_tensor(&host_tensor)?;

@@ -17,13 +17,18 @@ where
     M: TensorMachine,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let dynamic = self.is_dynamic_unsized();
+        // The element count and byte size are meaningless (and computed from negative
+        // extents) until a dynamic tensor has been resized.
+        let elements = (!dynamic).then(|| self.element_size());
+        let size = (!dynamic).then(|| self.size());
         f.debug_struct("TensorRef")
             .field("shape", &self.shape())
             .field("device_id", &self.device_id())
             .field("dimensions", &self.get_dimension_type())
-            .field("elements", &self.element_size())
-            .field("dynamic", &self.is_dynamic_unsized())
-            .field("size", &self.size())
+            .field("elements", &elements)
+            .field("dynamic", &dynamic)
+            .field("size", &size)
             .finish()
     }
 }
@@ -35,19 +40,19 @@ impl<H: HalideType, M: TensorMachine> TensorRef<H, M> {
     }
 
     /// Copies the data from a host tensor to the self.as_ptr()
+    ///
+    /// The tensors must have the same logical shape; MNN converts between layouts
+    /// (e.g. NCHW <-> NC4HW4) as part of the copy.
     pub fn copy_from_host_tensor(&mut self, tensor: &TensorRef<H, Host>) -> Result<()> {
-        assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
-        unsafe { mnn_sys::Tensor_copyFromHostTensor(self.as_ptr(), tensor.as_ptr()) };
-        // crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
-        Ok(())
+        AnyTensorRef::copy_from_host_tensor(self, tensor)
     }
 
     /// Copies the data from the self.as_ptr() to a host tensor
+    ///
+    /// The tensors must have the same logical shape; MNN converts between layouts
+    /// (e.g. NCHW <-> NC4HW4) as part of the copy.
     pub fn copy_to_host_tensor(&self, tensor: &mut TensorRef<H, Host>) -> Result<()> {
-        assert_eq!(self.size(), tensor.size(), "Tensor sizes do not match");
-        let ret = unsafe { mnn_sys::Tensor_copyToHostTensor(self.as_ptr(), tensor.as_ptr()) };
-        crate::ensure!(ret != 0, ErrorKind::TensorCopyFailed(ret));
-        Ok(())
+        AnyTensorRef::copy_to_host_tensor(self, tensor)
     }
 }
 
@@ -85,8 +90,15 @@ where
 
     /// Create a host tensor from the device tensor with same dimensions and data type and
     /// optionally copy the data from the device tensor
+    ///
+    /// The host tensor uses the unpacked layout (NCHW / NHWC) even when the device tensor is
+    /// stored as NC4HW4, so `host()` yields the elements in logical order.
     pub fn create_host_tensor_from_device(&self, copy_data: bool) -> super::Tensor<Owned<T>, Host> {
         let shape = self.shape();
+        assert!(
+            !self.is_dynamic_unsized(),
+            "Cannot create a host tensor from a device tensor with a dynamic shape {shape:?}; resize the session first"
+        );
         let dm_type = self.get_dimension_type();
         let mut out = super::Tensor::new(shape, dm_type);
 
@@ -137,9 +149,12 @@ where
     }
 }
 
+/// Only tensors that own their data or hold a mutable borrow of it can be mutated through
+/// the [`TensorRef`]; a `Tensor<View<&H>, _>` built over a shared slice must not be able to
+/// write through that slice.
 impl<S, M, H> core::ops::DerefMut for Tensor<S, M, H>
 where
-    S: TensorType<H = H>,
+    S: MutableTensorType<H = H>,
     H: HalideType,
     M: TensorMachine,
 {
@@ -154,17 +169,20 @@ where
     M: TensorMachine,
 {
     /// Fill the tensor with the specified value
+    ///
+    /// Fails if the tensor has a different element type, has not been resized yet (dynamic
+    /// shape) or, for device tensors, if MNN refuses the copy (e.g. no backend is attached).
     pub fn fill(&mut self, value: T) -> Result<()>
     where
         T: Copy,
     {
-        if !self.is_type_of::<T>() {
-            unimplemented!(
-                "Filling tensor of type {:?} with value of type {:?} is not supported",
-                self.get_dimension_type(),
-                mnn_sys::halide_type_of::<T>()
-            );
-        }
+        ensure!(
+            self.is_type_of::<T>(),
+            ErrorKind::HalideTypeMismatch {
+                got: std::any::type_name::<T>(),
+            }
+        );
+        ensure!(!self.is_dynamic_unsized(), ErrorKind::DynamicTensorError);
         if M::host() {
             let size = self.element_size();
             let result: &mut [T] = unsafe {
@@ -172,10 +190,9 @@ where
                 core::slice::from_raw_parts_mut(data, size)
             };
             result.fill(value);
-        } else if M::device() {
+        } else {
             let shape = self.shape();
             let dm_type = self.get_dimension_type();
-            // let mut host = Tensor::new(shape, dm_type);
             let mut host: TensorOwned<T, Host> = Tensor::new(shape, dm_type);
             host.fill(value)?;
             self.copy_from_host_tensor(&host)?;
@@ -230,5 +247,51 @@ where
     /// Get the mutable host memory slice of the tensor
     pub fn host_mut(&mut self) -> &mut [T] {
         self.try_host_mut().expect("Failed to get tensor host_mut")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copy_from_host_tensor_reports_failure() {
+        // A plain host tensor has no backend, so MNN refuses the copy; the error must not be
+        // swallowed.
+        let src = TensorOwned::<f32, Host>::from_shape_data(
+            [1, 2, 3],
+            DimensionType::Caffe,
+            &[1., 2., 3., 4., 5., 6.],
+        );
+        let mut dst = TensorOwned::<f32, Host>::new([1, 2, 3], DimensionType::Caffe);
+        dst.copy_from_host_tensor(&src)
+            .expect_err("copy without a backend must fail");
+        src.copy_to_host_tensor(&mut dst)
+            .expect_err("copy without a backend must fail");
+    }
+
+    #[test]
+    fn fill_on_device_tensor_without_backend_reports_failure() {
+        let mut dev = TensorOwned::<f32, Device>::new([1, 2, 3], DimensionType::Caffe);
+        dev.fill(1.0).expect_err("fill without a backend must fail");
+    }
+
+    #[test]
+    fn fill_rejects_wrong_element_type() {
+        let t = TensorOwned::<f32, Host>::new([1, 2, 3], DimensionType::Caffe);
+        // Reinterpret the typed reference to request a fill with the wrong element type.
+        let wrong: &mut TensorRef<i32, Host> = unsafe { from_raw_parts_mut(t.as_ptr()) };
+        wrong
+            .fill(1)
+            .expect_err("filling an f32 tensor with i32 must fail");
+    }
+
+    #[test]
+    fn debug_of_dynamic_tensor_does_not_panic() {
+        // A device tensor is never allocated, so a dynamic (-1) extent is representable.
+        let t = TensorOwned::<f32, Device>::new([1, -1, 3], DimensionType::Caffe);
+        let s = format!("{:?}", &*t);
+        assert!(s.contains("dynamic: true"), "{s}");
+        assert!(s.contains("elements: None"), "{s}");
     }
 }

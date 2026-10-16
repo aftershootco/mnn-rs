@@ -1,10 +1,11 @@
 {
-  "version": "3.5.0",
+  "version": "3.6.1",
   "checksums": {
-    "android_armv7_armv8_cpu_opencl_vulkan": "sha256:b5513459ee5d70dec98e7a0763ce2d09a9824897c150069e65b2b1a04570c573",
-    "ios_armv82_cpu_metal_coreml": "sha256:fd9b6c5769718286f07ff300897c72ff6511a1d2a25ef79b3b2f8b2b3313281a",
-    "linux_x64_cpu_opencl": "sha256:a9f4b00bf7c8473b3ef3c47873df84512ebf452d4422a4fde0a70ee81e073a17",
-    "windows_x64_cpu_opencl": "sha256:e37dbed6a5a6c26122239468d7fc8569d003c7f4a12c8a8024a33660fb13e4b7",
-    "macos_x64_arm82_cpu_opencl_metal": "sha256:dec927b86f32ef4351c5af527d54ec0afe0bef0b9b1b2bf94e59e3ae55bf42eb"
+    "android_armv7_armv8_cpu_opencl_vulkan": "sha256:46dc7e86d45b8d4e957db81d2603e0b7f6c9ce9b84092ffdcee1b843cbfc9d71",
+    "harmony_arm64_cpu": "sha256:c14ba9efe14e7921ec094ee86c9982b72faa60c0c07c4fad6788d948885e1cbc",
+    "ios_armv82_cpu_metal": "sha256:ea5b59a353b70beedd351c061ee20e3e58d5bed19285f53eb7f46e4bada844f7",
+    "linux_x64_cpu_opencl_vulkan": "sha256:bb9a0882b8dfb6d91c0dc45fbbae61d4541b8f3a828fa6e169a925f2310f4e32",
+    "macos_x64_arm82_cpu_opencl_metal": "sha256:a105da4b6e2946f76a10aac8fcca3a7e46b82787818ba9ed3e3f12bd28614f97",
+    "windows_x64_cpu_opencl_vulkan_avx512": "sha256:cea310b22aff5dfa09a03e79249fd36aca7355fd185e2ab7e64f8a83dd6aa42a"
   }
 }

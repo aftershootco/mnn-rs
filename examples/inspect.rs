@@ -81,19 +81,31 @@ pub fn main() -> anyhow::Result<()> {
             unsafe {
             match cli.input_data_type {
                 DataType::F32 => {
+                    let name = x.name();
                     let tensor = x.tensor_unresized::<f32>().expect("No tensor");
-                    println!("{}: {:?}", x.name(), tensor.shape());
-                    tensor.fill(1.0f32).expect("Failed to fill");
+                    println!("{}: {:?}", name, tensor.shape());
+                    // Inputs of an unresized (dynamic) session have no backend yet.
+                    if let Err(e) = tensor.fill(1.0f32) {
+                        eprintln!("warning: could not fill {name}: {e}");
+                    }
                 },
                 DataType::U8 => {
+                    let name = x.name();
                     let tensor = x.tensor_unresized::<u8>().expect("No tensor");
-                    println!("{}: {:?}", x.name(), tensor.shape());
-                    tensor.fill(1u8).expect("Failed to fill");
+                    println!("{}: {:?}", name, tensor.shape());
+                    // Inputs of an unresized (dynamic) session have no backend yet.
+                    if let Err(e) = tensor.fill(1u8) {
+                        eprintln!("warning: could not fill {name}: {e}");
+                    }
                 },
                 DataType::I8 => {
+                    let name = x.name();
                     let tensor = x.tensor_unresized::<i8>().expect("No tensor");
-                    println!("{}: {:?}", x.name(), tensor.shape());
-                    tensor.fill(1i8).expect("Failed to fill");
+                    println!("{}: {:?}", name, tensor.shape());
+                    // Inputs of an unresized (dynamic) session have no backend yet.
+                    if let Err(e) = tensor.fill(1i8) {
+                        eprintln!("warning: could not fill {name}: {e}");
+                    }
                 },
             };
             }

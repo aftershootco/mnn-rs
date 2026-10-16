@@ -189,16 +189,23 @@ impl SessionState {
     }
 }
 
+/// Owns an [`Interpreter`] together with a [`Session`] created from it.
+///
+/// A [`Session`] normally borrows the [`Interpreter`] it was created from, which cannot be
+/// expressed between two fields of the same struct, so the session's lifetime is erased to
+/// `'static` here. This is sound because:
+///
+/// - the session only refers to the C++ interpreter object, whose address does not change
+///   when the Rust [`Interpreter`] is moved,
+/// - the fields are private, so the interpreter cannot be replaced or taken out from under
+///   a live session,
+/// - `session` is declared before `interpreter`, so it is always dropped (and released from
+///   the interpreter) before the interpreter itself is destroyed.
 #[non_exhaustive]
 #[derive(Debug)]
-/// The lifetime of the session is 'static since we can't have self-referential structs.
-/// This is safe since session is not actually bound by Interpreter struct's lifetime but the internal pointer that points to the actual interpreter in C++.
-/// Which we can ensure will outlive the session since we own both of them.
 pub struct SessionRunner {
-    // Declared before the interpreter so it is dropped first: releasing a
-    // session goes through the interpreter it was created from.
-    pub session: Session<'static>,
-    pub interpreter: Interpreter,
+    session: Session<'static>,
+    interpreter: Interpreter,
 }
 
 impl SessionRunner {
@@ -209,13 +216,11 @@ impl SessionRunner {
         let now = std::time::Instant::now();
         let mut session = net.create_session(config)?;
         net.update_cache_file(&mut session)?;
-        // The session borrows the interpreter, but it only ever dereferences
-        // the C++ interpreter pointer, which is unaffected by moving the Rust
-        // side into this struct. Owning both here keeps the interpreter alive
-        // for at least as long as the session.
-        let session: Session<'static> = unsafe { core::mem::transmute(session) };
         #[cfg(feature = "tracing")]
         tracing::trace!("Session created in {:?}", now.elapsed());
+        // SAFETY: See the type level documentation. The session is stored next to the
+        // interpreter it borrows from and is always dropped before it.
+        let session = unsafe { core::mem::transmute::<Session<'_>, Session<'static>>(session) };
         Ok(Self {
             session,
             interpreter: net,
@@ -223,18 +228,29 @@ impl SessionRunner {
     }
 
     pub fn unload(self) -> Result<mnn::Interpreter> {
-        let session = self.session;
-        let net = self.interpreter;
+        let Self {
+            session,
+            interpreter,
+        } = self;
         drop(session);
-        Ok(net)
+        Ok(interpreter)
     }
 
     pub fn run_session(&mut self) -> Result<()> {
         self.interpreter.run_session(&self.session)
     }
 
-    pub fn both_mut(&mut self) -> (&mut Interpreter, &mut Session<'static>) {
-        (&mut self.interpreter, &mut self.session)
+    /// Get the interpreter and the session together
+    pub fn both(&self) -> (&Interpreter, &Session<'_>) {
+        (&self.interpreter, &self.session)
+    }
+
+    /// Get the interpreter and a mutable reference to the session together.
+    ///
+    /// The interpreter is only ever handed out as a shared reference since replacing it
+    /// while the session is alive would leave the session dangling.
+    pub fn both_mut(&mut self) -> (&Interpreter, &mut Session<'_>) {
+        (&self.interpreter, Self::shorten(&mut self.session))
     }
 
     pub fn resize_session(&mut self) -> Result<()> {
@@ -246,16 +262,24 @@ impl SessionRunner {
         &self.interpreter
     }
 
-    pub fn interpreter_mut(&mut self) -> &mut Interpreter {
-        &mut self.interpreter
-    }
-
     pub fn session(&self) -> &Session<'_> {
         &self.session
     }
 
-    pub fn session_mut(&mut self) -> &mut Session<'static> {
-        &mut self.session
+    /// Get a mutable reference to the session.
+    ///
+    /// The returned session must stay inside this runner: moving it (for example with
+    /// [`core::mem::swap`]) into another `SessionRunner` would separate it from the
+    /// interpreter that owns it.
+    pub fn session_mut(&mut self) -> &mut Session<'_> {
+        Self::shorten(&mut self.session)
+    }
+
+    /// Re-attach a borrow bound lifetime to the lifetime erased session.
+    fn shorten<'s>(session: &'s mut Session<'static>) -> &'s mut Session<'s> {
+        // SAFETY: `Session<'a>` and `Session<'static>` have the same layout; the lifetime is
+        // only shrunk, which restricts what the caller can do with the reference.
+        unsafe { &mut *(session as *mut Session<'static>).cast::<Session<'s>>() }
     }
 
     fn run_callback(&mut self, f: Callback) -> Result<()> {
@@ -302,16 +326,20 @@ impl SessionHandle {
                     .attach("Internal Error: Unable to recv (Sender possibly dropped without calling close)")?;
                 match cmd {
                     CallbackEnum::Callback(f) => {
-                        let sr = ss.sr().inspect_err(|_e| {
+                        let sr = ss.sr().inspect_err(|e| {
                             #[cfg(feature = "tracing")]
                             tracing::error!("Error getting the session runtime :{:?}", e);
+                            #[cfg(not(feature = "tracing"))]
+                            let _ = e;
                         })?;
                         sr.run_callback(f)
                             .map_err(|e| e.into_inner())
                             .attach("Failure running the callback")
-                            .inspect_err(|_e| {
+                            .inspect_err(|e| {
                                 #[cfg(feature = "tracing")]
                                 tracing::error!("Error running callback: {:?}", e);
+                                #[cfg(not(feature = "tracing"))]
+                                let _ = e;
                             })?;
                     }
                     CallbackEnum::Unload(tx) => {
@@ -531,22 +559,6 @@ pub fn test_sync_api() {
         .expect("Sed");
 }
 
-#[cfg(test)]
-fn fill_inputs(sr: &mut SessionRunner) {
-    let (interpreter, session) = sr.both_mut();
-    let mut inputs = interpreter.inputs(session);
-    inputs.iter_mut().for_each(|mut x| {
-        let name = x.name();
-        let tensor = x.tensor_mut::<f32>().expect("No tensor");
-        println!("{}: {:?}", name, tensor.shape());
-        let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
-        cpu_tensor.host_mut().fill(1.0f32);
-        tensor
-            .copy_from_host_tensor(&cpu_tensor)
-            .expect("Could not copy tensor");
-    });
-}
-
 #[test]
 #[ignore = "This test is not reliable on CI"]
 pub fn test_sync_api_race() {
@@ -556,7 +568,18 @@ pub fn test_sync_api_race() {
         .expect("Failed to create session handle");
     session_handle
         .run(move |sr| {
-            fill_inputs(sr);
+            let (interpreter, session) = sr.both_mut();
+            let mut inputs = interpreter.inputs(session);
+            inputs.iter_mut().for_each(|mut x| {
+                let name = x.name();
+                let tensor = x.tensor_mut::<f32>().expect("No tensor");
+                println!("{}: {:?}", name, tensor.shape());
+                let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
+                cpu_tensor.host_mut().fill(1.0f32);
+                tensor
+                    .copy_from_host_tensor(&cpu_tensor)
+                    .expect("Could not copy tensor");
+            });
             Ok(())
         })
         .expect("Failed to run");
@@ -569,13 +592,35 @@ pub fn test_sync_api_race() {
         .expect("Failed to run");
     session_handle
         .run(move |sr| {
-            fill_inputs(sr);
+            let (interpreter, session) = sr.both_mut();
+            let mut inputs = interpreter.inputs(session);
+            inputs.iter_mut().for_each(|mut x| {
+                let name = x.name();
+                let tensor = x.tensor_mut::<f32>().expect("No tensor");
+                println!("{}: {:?}", name, tensor.shape());
+                let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
+                cpu_tensor.host_mut().fill(1.0f32);
+                tensor
+                    .copy_from_host_tensor(&cpu_tensor)
+                    .expect("Could not copy tensor");
+            });
             Ok(())
         })
         .expect("Failed to run");
     session_handle
         .run(move |sr| {
-            fill_inputs(sr);
+            let (interpreter, session) = sr.both_mut();
+            let mut inputs = interpreter.inputs(session);
+            inputs.iter_mut().for_each(|mut x| {
+                let name = x.name();
+                let tensor = x.tensor_mut::<f32>().expect("No tensor");
+                println!("{}: {:?}", name, tensor.shape());
+                let mut cpu_tensor = tensor.create_host_tensor_from_device(false);
+                cpu_tensor.host_mut().fill(1.0f32);
+                tensor
+                    .copy_from_host_tensor(&cpu_tensor)
+                    .expect("Could not copy tensor");
+            });
             Ok(())
         })
         .expect("Failed to run");
@@ -632,4 +677,42 @@ pub fn test_load_unload() {
         })
         .expect("Failed to run");
     session_handle.unload().expect("Failed to unload");
+}
+
+/// Dropping a loaded runner must release the session before the interpreter is destroyed,
+/// otherwise `Session::drop` would call into a freed `MNN::Interpreter`.
+#[test]
+pub fn test_drop_loaded_runner() {
+    let interpreter = Interpreter::from_file("../tests/assets/realesr.mnn")
+        .expect("Failed to create interpreter");
+    let mut runner = SessionRunner::create(interpreter, ScheduleConfig::new())
+        .expect("Failed to create session runner");
+    let (interpreter, session) = runner.both_mut();
+    for mut input in interpreter.inputs(session).iter_mut() {
+        input
+            .tensor_mut::<f32>()
+            .expect("Failed to get tensor")
+            .fill(1.0f32)
+            .expect("Failed to fill tensor");
+    }
+    runner.run_session().expect("Failed to run session");
+    // Implicit drop: fields are dropped in declaration order (session first).
+    drop(runner);
+}
+
+/// The session returned by `session_mut` must be usable with every `&mut Session` api.
+#[test]
+pub fn test_session_mut_accessors() {
+    let interpreter = Interpreter::from_file("../tests/assets/realesr.mnn")
+        .expect("Failed to create interpreter");
+    let mut runner = SessionRunner::create(interpreter, ScheduleConfig::new())
+        .expect("Failed to create session runner");
+    runner.resize_session().expect("Failed to resize session");
+    let (interpreter, session) = runner.both_mut();
+    assert!(interpreter.inputs(session).size() > 0);
+    let _session: &mut Session<'_> = runner.session_mut();
+    let (interpreter, session) = runner.both();
+    assert_eq!(interpreter.outputs(session).size(), 1);
+    let interpreter = runner.unload().expect("Failed to unload");
+    drop(interpreter);
 }

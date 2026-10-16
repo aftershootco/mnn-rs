@@ -107,6 +107,12 @@ pub struct Owned<T> {
 }
 
 /// A generic tensor that can of host / device / owned / borrowed
+///
+/// Every `Tensor` owns the C++ `MNN::Tensor` object it wraps and destroys it on drop. The
+/// `S` parameter only describes who owns the *data*: [`Owned`] tensors allocate it, the
+/// [`View`] tensors created by [`Tensor::borrowed`] / [`Tensor::borrowed_mut`] borrow a user
+/// slice (which MNN never frees). To borrow a tensor itself use `&TensorRef` /
+/// `&mut TensorRef`, the [`Deref`](core::ops::Deref) target of `Tensor`.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Tensor<S, M, A = <S as TensorType>::H>
@@ -126,50 +132,8 @@ where
     M: TensorMachine,
 {
     fn drop(&mut self) {
-        if S::owned() {
-            unsafe {
-                mnn_sys::Tensor_destroy(self.tensor);
-            }
-        }
-    }
-}
-
-impl<'a, T: TensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
-    /// Get's a reference to an owned host tensor
-    pub fn view(&'a self) -> Tensor<View<&'a H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a H>, M> {
-    /// Reborrows the tensor to get rid of self's lifetime the tensor while using the lifetime inside of the TensorView
-    pub fn reborrow(&self) -> Tensor<View<&'a H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<T: MutableTensorType<H = H>, H: HalideType, M: TensorMachine> Tensor<T, M> {
-    /// Get's a mutable reference to an owned host tensor
-    pub fn view_mut(&mut self) -> Tensor<View<&mut H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, H: HalideType, M: TensorMachine> Tensor<View<&'a mut H>, M> {
-    /// Reborrows the tensor as mutable to get rid of self's lifetime the tensor while using the lifetime inside of the TensorView
-    pub fn reborrow_mut(&mut self) -> Tensor<View<&'a mut H>, M> {
-        Tensor {
-            tensor: self.tensor,
-            __marker: PhantomData,
+        unsafe {
+            mnn_sys::Tensor_destroy(self.tensor);
         }
     }
 }
@@ -224,9 +188,12 @@ where
     M: TensorMachine,
 {
     /// This function constructs a Tensor type from a raw pointer
+    ///
+    /// The returned tensor takes ownership of the `MNN::Tensor` object and destroys it on
+    /// drop. Use [`from_raw_parts`] / [`from_raw_parts_mut`] to borrow a tensor instead.
     ///# Safety
     /// Since this constructs a Tensor from a raw pointer we have no way to guarantee that it's a
-    /// valid tensor or it's lifetime
+    /// valid tensor, that nothing else owns it, or its lifetime
     pub unsafe fn from_ptr(tensor: *mut mnn_sys::Tensor) -> Self {
         assert!(!tensor.is_null());
         Self {
@@ -281,17 +248,32 @@ where
     H: HalideType + Copy,
 {
     /// Create a new tensor with the specified shape and dimension type and fill it with the data from the provided vector
+    ///
+    /// # Panics
+    /// Panics if the shape is dynamic or the number of elements MNN allocates for the shape
+    /// (which includes channel padding for [`DimensionType::CaffeC4`]) differs from `data.len()`.
     pub fn from_shape_data(shape: impl AsTensorShape, dm_type: DimensionType, data: &[H]) -> Self {
         let shape = shape.as_tensor_shape();
+        let size = shape
+            .tensor_size()
+            .unwrap_or_else(|| panic!("Tensor shape {shape:?} is dynamic or too large"));
         assert_eq!(
-            shape.tensor_size(),
+            size,
             data.len(),
             "Data length ({}) does not match tensor shape ({:?})",
             data.len(),
             shape
         );
         let mut tensor = Self::new(shape, dm_type);
-        tensor.host_mut().copy_from_slice(data);
+        let host = tensor.host_mut();
+        assert_eq!(
+            host.len(),
+            data.len(),
+            "Tensor layout {dm_type:?} needs {} elements for shape {shape:?} (channel padding) but {} were provided",
+            host.len(),
+            data.len()
+        );
+        host.copy_from_slice(data);
         tensor
     }
 }
@@ -303,8 +285,18 @@ where
 {
     /// Create a new tensor with the specified shape and dimension type this allocates the tensor
     /// internally and the data is "owned" by the tensor itself.
+    ///
+    /// # Panics
+    /// Host tensors are allocated immediately, so their shape must not be dynamic (contain
+    /// `-1`). Device tensors are only described, not allocated, so any shape is accepted.
     pub fn new(shape: impl AsTensorShape, dm_type: DimensionType) -> Self {
         let shape = shape.as_tensor_shape();
+        if M::host() {
+            assert!(
+                shape.tensor_size().is_some(),
+                "Cannot allocate a host tensor with a dynamic or oversized shape {shape:?}"
+            );
+        }
         let tensor = unsafe {
             if M::device() {
                 mnn_sys::Tensor_createDevice(
@@ -377,12 +369,15 @@ pub struct TensorShape {
 }
 
 impl TensorShape {
-    /// Get the shape as a slice
-    pub fn tensor_size(&self) -> usize {
-        self.shape[..self.size]
-            .iter()
-            .map(|&x| x as usize)
-            .product()
+    /// Number of elements described by the shape (the product of all the extents).
+    ///
+    /// Returns `None` if the shape is dynamic (contains a negative extent such as `-1`) or
+    /// if the product overflows.
+    pub fn tensor_size(&self) -> Option<usize> {
+        self.shape[..self.size].iter().try_fold(1usize, |acc, &x| {
+            let x = usize::try_from(x).ok()?;
+            acc.checked_mul(x)
+        })
     }
 }
 
@@ -434,10 +429,8 @@ impl core::ops::DerefMut for TensorShape {
 
 impl core::fmt::Debug for TensorShape {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // write!(f, "{:?}", &self.shape[..self.size])
         f.debug_tuple("TensorShape")
             .field(&&self.shape[..self.size])
-            .field(&self.tensor_size())
             .finish()
     }
 }
@@ -488,6 +481,20 @@ mod as_tensor_shape_tests {
         shape_test!(&[i32], "small", &[1, 2, 3]);
         shape_test!(&[i32], "large", &[12, 23, 34, 45, 67]);
     }
+
+    #[test]
+    fn tensor_size_handles_dynamic_and_overflow() {
+        use super::TensorShape;
+        assert_eq!([1, 2, 3].as_tensor_shape().tensor_size(), Some(6));
+        assert_eq!([1, -1, 3].as_tensor_shape().tensor_size(), None);
+        assert_eq!([i32::MAX; 4].as_tensor_shape().tensor_size(), None);
+        // Debug formatting must not panic on dynamic shapes.
+        let dynamic = TensorShape {
+            shape: [1, 3, -1, 0],
+            size: 3,
+        };
+        assert_eq!(format!("{dynamic:?}"), "TensorShape([1, 3, -1])");
+    }
 }
 
 #[cfg(test)]
@@ -510,12 +517,7 @@ mod tensor_tests {
         use super::*;
         let device_tensor = Tensor::<Owned<f32>, Device>::new([1, 2, 3], DimensionType::Caffe);
         // try_host() should only exist on Host tensors, not Device tensors.
-        // If this ever compiles, the soundness hole has been reintroduced.
-        assert!(
-            !std::mem::size_of_val(&device_tensor) == 0 || true,
-            "Device tensor created successfully — try_host should not be available on it"
-        );
-        // Uncommenting the next line should fail to compile:
+        // Uncommenting the next line must fail to compile:
         // let _ = device_tensor.try_host();
         drop(device_tensor);
     }
@@ -525,10 +527,18 @@ impl<'a, A> Tensor<View<&'a A>, Host, A>
 where
     A: HalideType,
 {
-    /// Try to create a ref tensor from any array-like type
+    /// Create a tensor that borrows `input` as its storage.
+    ///
+    /// # Panics
+    /// Panics if the shape is dynamic or if the number of elements MNN needs for `shape` in
+    /// the `dm_type` layout differs from `input.len()`. Note that [`DimensionType::CaffeC4`]
+    /// pads the channel dimension to a multiple of 4, so the slice must already be laid out
+    /// (and sized) accordingly.
     pub fn borrowed(shape: impl AsTensorShape, dm_type: DimensionType, input: &'a [A]) -> Self {
         let shape = shape.as_tensor_shape();
-        let size = shape.tensor_size();
+        let size = shape
+            .tensor_size()
+            .unwrap_or_else(|| panic!("Tensor shape {shape:?} is dynamic or too large"));
         assert_eq!(
             size,
             input.len(),
@@ -545,13 +555,21 @@ where
                 dm_type.to_mnn_sys(),
             )
         };
-        debug_assert!(!tensor.is_null());
+        assert!(!tensor.is_null());
+        // MNN never frees memory it did not allocate, so destroying this wrapper on drop
+        // leaves `input` untouched.
         let output = Self {
             tensor,
             __marker: PhantomData,
         };
-
-        debug_assert!(output.element_size() == size);
+        // `output` is dropped (and the wrapper destroyed) if this panics.
+        assert_eq!(
+            output.element_size(),
+            input.len(),
+            "Tensor layout {dm_type:?} needs {} elements for shape {shape:?} (channel padding) but the slice has {}",
+            output.element_size(),
+            input.len()
+        );
         output
     }
 }
@@ -560,19 +578,30 @@ impl<'a, A> Tensor<View<&'a mut A>, Host, A>
 where
     A: HalideType,
 {
-    /// Try to create a mutable ref tensor from any array-like type
+    /// Create a tensor that mutably borrows `input` as its storage.
+    ///
+    /// # Panics
+    /// Panics if the shape is dynamic or if the number of elements MNN needs for `shape` in
+    /// the `dm_type` layout differs from `input.len()`. Note that [`DimensionType::CaffeC4`]
+    /// pads the channel dimension to a multiple of 4, so the slice must already be laid out
+    /// (and sized) accordingly.
     pub fn borrowed_mut(
         shape: impl AsTensorShape,
         dm_type: DimensionType,
         input: &'a mut [A],
     ) -> Self {
         let shape = shape.as_tensor_shape();
-        let size = shape.tensor_size();
+        let size = shape
+            .tensor_size()
+            .unwrap_or_else(|| panic!("Tensor shape {shape:?} is dynamic or too large"));
         assert_eq!(
             size,
             input.len(),
-            "Input data length does not match the tensor shape"
+            "Input data length ({}) does not match the tensor shape ({:?})",
+            input.len(),
+            shape
         );
+        let len = input.len();
         let tensor = unsafe {
             mnn_sys::Tensor_createWith(
                 shape.shape.as_ptr(),
@@ -582,11 +611,22 @@ where
                 dm_type.to_mnn_sys(),
             )
         };
-        debug_assert!(!tensor.is_null());
-        Self {
+        assert!(!tensor.is_null());
+        // MNN never frees memory it did not allocate, so destroying this wrapper on drop
+        // leaves `input` untouched.
+        let output = Self {
             tensor,
             __marker: PhantomData,
-        }
+        };
+        // `output` is dropped (and the wrapper destroyed) if this panics.
+        assert_eq!(
+            output.element_size(),
+            len,
+            "Tensor layout {dm_type:?} needs {} elements for shape {shape:?} (channel padding) but the slice has {}",
+            output.element_size(),
+            len
+        );
+        output
     }
 }
 
@@ -615,6 +655,75 @@ fn test_tensor_invalid_size() {
     let shape = [300, 400, 500];
     let date = vec![0; 100];
     Tensor::<View<&i32>, Host>::borrowed(shape, DimensionType::default(), &date);
+}
+
+#[test]
+#[should_panic(expected = "channel padding")]
+fn test_tensor_borrowed_rejects_unpadded_c4() {
+    // NC4HW4 pads the channel dimension (3) up to 4, so MNN would read 16 elements
+    // from a 12 element slice.
+    let data = vec![1f32; 12];
+    Tensor::<View<&f32>, Host>::borrowed([1, 3, 2, 2], DimensionType::CaffeC4, &data);
+}
+
+#[test]
+#[should_panic(expected = "channel padding")]
+fn test_tensor_borrowed_mut_rejects_unpadded_c4() {
+    let mut data = vec![1f32; 12];
+    Tensor::<View<&mut f32>, Host>::borrowed_mut([1, 3, 2, 2], DimensionType::CaffeC4, &mut data);
+}
+
+#[test]
+fn test_tensor_borrowed_padded_c4() {
+    // With a channel count that is a multiple of 4 the layouts agree.
+    let data = vec![1f32; 16];
+    let tensor = Tensor::<View<&f32>, Host>::borrowed([1, 4, 2, 2], DimensionType::CaffeC4, &data);
+    assert_eq!(tensor.host().len(), 16);
+}
+
+#[test]
+#[should_panic(expected = "channel padding")]
+fn test_from_shape_data_rejects_unpadded_c4() {
+    TensorOwned::<f32, Host>::from_shape_data([1, 3, 2, 2], DimensionType::CaffeC4, &[0f32; 12]);
+}
+
+#[test]
+#[should_panic(expected = "dynamic")]
+fn test_tensor_borrowed_rejects_dynamic_shape() {
+    let data = vec![0i32; 6];
+    Tensor::<View<&i32>, Host>::borrowed([1, -1, 3], DimensionType::Caffe, &data);
+}
+
+#[test]
+fn test_tensor_ref_borrows() {
+    let data = vec![1, 2, 3, 4, 5, 6];
+    let mut owned =
+        TensorOwned::<i32, Host>::from_shape_data([1, 2, 3], DimensionType::Caffe, &data);
+    {
+        let shared: &TensorRef<i32, Host> = &owned;
+        let again: &TensorRef<i32, Host> = shared;
+        assert_eq!(shared.host(), data.as_slice());
+        assert_eq!(again.host(), data.as_slice());
+    }
+    {
+        let exclusive: &mut TensorRef<i32, Host> = &mut owned;
+        exclusive.host_mut().fill(7);
+        let reborrowed: &mut TensorRef<i32, Host> = &mut *exclusive;
+        reborrowed.host_mut()[0] = 9;
+    }
+    // The owner is untouched by its borrows going out of scope.
+    assert_eq!(owned.host(), &[9, 7, 7, 7, 7, 7]);
+}
+
+#[test]
+fn test_borrowed_view_drop_keeps_user_data() {
+    let data = vec![1, 2, 3, 4, 5, 6];
+    for _ in 0..3 {
+        let view = Tensor::<View<&i32>, Host>::borrowed([1, 2, 3], DimensionType::Caffe, &data);
+        assert_eq!(view.host(), data.as_slice());
+        // Dropping the view destroys only the MNN wrapper, never `data`.
+    }
+    assert_eq!(data, &[1, 2, 3, 4, 5, 6]);
 }
 
 #[test]

@@ -1,4 +1,4 @@
-VERSION:= "3.5.0"
+VERSION:= "3.6.1"
 
 push-cachix:
     nix flake check
@@ -18,13 +18,6 @@ version name:
 checksums version=VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
-    suffixes=(
-        android_armv7_armv8_cpu_opencl_vulkan
-        ios_armv82_cpu_metal_coreml
-        linux_x64_cpu_opencl
-        windows_x64_cpu_opencl
-        macos_x64_arm82_cpu_opencl_metal
-    )
     auth=()
     [[ -n "${GITHUB_TOKEN:-}" ]] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
     release_json="$(curl -sSL --fail \
@@ -32,19 +25,16 @@ checksums version=VERSION:
         -H "X-GitHub-Api-Version: 2022-11-28" \
         "${auth[@]}" \
         "https://api.github.com/repos/alibaba/MNN/releases/tags/{{version}}")"
-    jq_args=(--arg version "{{version}}")
-    filter='{ version: $version, checksums: {} }'
-    for s in "${suffixes[@]}"; do
-        name="mnn_{{version}}_${s}.zip"
-        digest="$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<<"$release_json")"
-        if [[ -z "$digest" || "$digest" == "null" ]]; then
-            echo "error: no digest for $name" >&2; exit 1
-        fi
-        echo "  $name -> $digest" >&2
-        jq_args+=(--arg "k_$s" "$s" --arg "v_$s" "$digest")
-        filter+=" | .checksums[\$k_$s] = \$v_$s"
-    done
-    jq -n "${jq_args[@]}" "$filter" > mnn-sys/build/checksums.json
+    # Every `mnn_<version>_<suffix>.zip` asset, keyed by suffix (the backend list in the
+    # suffix changes between releases, so mnn-sys looks the names up by platform prefix).
+    jq --arg version "{{version}}" '{
+        version: $version,
+        checksums: ([ .assets[]
+            | select(.name | startswith("mnn_" + $version + "_") and endswith(".zip"))
+            | { key: (.name | ltrimstr("mnn_" + $version + "_") | rtrimstr(".zip")), value: .digest }
+        ] | from_entries)
+    }' <<<"$release_json" > mnn-sys/build/checksums.json
+    jq -r '.checksums | to_entries[] | "  \(.key) -> \(.value)"' mnn-sys/build/checksums.json >&2
     echo "Wrote mnn-sys/build/checksums.json" >&2
 
 
